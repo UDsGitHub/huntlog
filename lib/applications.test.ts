@@ -528,6 +528,14 @@ describe('setStatus and undoStatusChange', () => {
     expect(await undoStatusChange(second, db)).toBe(false);
   });
 
+  it('Undo tells apart two changes made in the same millisecond', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
+    const first = await setStatus(app.id, 'screening', {}, db, t1);
+    await setStatus(app.id, 'interviewing', {}, db, t1);
+    expect(await undoStatusChange(first, db)).toBe(false);
+    expect((await db.applications.get(app.id))?.status).toBe('interviewing');
+  });
+
   it('Undo does nothing for a row deleted meanwhile', async () => {
     const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
     const change = await setStatus(app.id, 'offer', {}, db, t1);

@@ -137,8 +137,12 @@ function optionalText(
 }
 
 export interface ValidateOptions {
-  /** The stored status when editing; used when the input has none. New applications: Applied. */
-  currentStatus?: Status;
+  /**
+   * The stored application when editing. Its status is used when the input has none (new
+   * applications: Applied). And a job that has no Date applied (the user chose Skip when asked)
+   * isn't made to get one by an unrelated edit.
+   */
+  current?: { status: Status; appliedAt?: string };
 }
 
 /** Error message for a Date applied, or undefined if it's a real local date not in the future. */
@@ -153,7 +157,7 @@ export function validateApplication(
   input: ApplicationInput,
   now: Date = new Date(),
   locale?: string,
-  { currentStatus }: ValidateOptions = {},
+  { current }: ValidateOptions = {},
 ): { values: ApplicationValues | null; errors: FieldErrors } {
   const errors: FieldErrors = {};
   const out: Partial<ApplicationValues> = {};
@@ -230,14 +234,15 @@ export function validateApplication(
     }
   }
 
-  let status: Status = currentStatus ?? 'applied';
+  let status: Status = current?.status ?? 'applied';
   if (input.status !== undefined && input.status !== '') {
     if (isStatus(input.status)) status = out.status = input.status;
     else errors.status = 'Choose a status.';
   }
 
-  // Date applied is required once an application was sent (spec §5): not for Saved or Withdrawn.
-  const optional = appliedAtOptional(status);
+  // Date applied is required once an application was sent (spec §5): not for Saved or Withdrawn,
+  // and not in an edit of a job stored without one.
+  const optional = appliedAtOptional(status) || (current !== undefined && !current.appliedAt);
   const appliedAt =
     input.appliedAt === undefined ? (optional ? '' : todayLocal(now)) : input.appliedAt.trim();
   if (!appliedAt) {

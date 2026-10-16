@@ -158,7 +158,11 @@ describe('Edit', () => {
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.clear(screen.getByLabelText('Company'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByLabelText('Company')).toHaveAccessibleDescription('Enter the company name.');
+    await waitFor(() =>
+      expect(screen.getByLabelText('Company')).toHaveAccessibleDescription(
+        'Enter the company name.',
+      ),
+    );
     expect(screen.getByLabelText('Company')).toHaveFocus();
   });
 

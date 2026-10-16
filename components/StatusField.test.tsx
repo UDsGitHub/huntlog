@@ -85,4 +85,47 @@ describe('Status in the form', () => {
     const stored = await db.applications.get(app.id);
     expect(stored?.statusHistory.map((e) => e.status)).toEqual(['applied', 'interviewing']);
   });
+
+  it('keeps the stored date when an existing job is switched to Saved', async () => {
+    const app = await addApplication({
+      url: 'https://acme.com/1',
+      company: 'Acme',
+      appliedAt: '2026-09-01',
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.selectOptions(screen.getByLabelText('Status'), 'saved');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+    expect((await db.applications.get(app.id))?.appliedAt).toBe('2026-09-01');
+  });
+
+  it('sets today when a dateless Saved job is moved to Applied in Edit', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    await db.applications.update(app.id, { status: 'saved', appliedAt: undefined });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.selectOptions(screen.getByLabelText('Status'), 'applied');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+    expect((await db.applications.get(app.id))?.appliedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('lets a job whose date was skipped be edited without adding one', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    await db.applications.update(app.id, { status: 'screening', appliedAt: undefined });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: /More details/ }));
+    await user.type(screen.getByLabelText(/Notes/), 'Phone screen Tuesday');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+    expect((await db.applications.get(app.id))?.notes).toBe('Phone screen Tuesday');
+  });
 });

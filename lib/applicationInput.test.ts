@@ -305,8 +305,19 @@ describe('status and Date applied', () => {
 
   it('uses the stored status when the input has none', () => {
     const { values } = validateApplication({ ...base, appliedAt: '' }, now, 'en-US', {
-      currentStatus: 'saved',
+      current: { status: 'saved' },
     });
     expect(values).not.toBeNull();
+  });
+
+  it("doesn't require a date in an edit of a job stored without one (Skip)", () => {
+    const skipped = validateApplication({ ...base, appliedAt: '' }, now, 'en-US', {
+      current: { status: 'screening' },
+    });
+    expect(skipped.errors).toEqual({});
+    const dated = validateApplication({ ...base, appliedAt: '' }, now, 'en-US', {
+      current: { status: 'screening', appliedAt: '2026-10-01' },
+    });
+    expect(dated.errors).toEqual({ appliedAt: 'Enter the date you applied.' });
   });
 });

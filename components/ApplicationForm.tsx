@@ -191,8 +191,10 @@ export function ApplicationForm({
     setIsSaving(true);
     try {
       // One call validates, checks for duplicates and saves; the rules live in lib only.
-      // A Saved job hasn't been applied for: its Date applied is hidden and saved as none.
-      const input = values.status === 'saved' ? { ...values, appliedAt: '' } : values;
+      // Date applied is hidden for Saved. A new Saved job stores none; an existing job keeps
+      // the date it had, since a status change never overwrites it (spec §5).
+      const input =
+        values.status === 'saved' ? { ...values, appliedAt: application?.appliedAt ?? '' } : values;
       const result = await saveApplication(input, { id: application?.id, allowDuplicate });
       if ('duplicates' in result) {
         setDuplicates(result.duplicates);

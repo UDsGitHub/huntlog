@@ -80,7 +80,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 ### 4.3 Update status
 
-- Every row in the Applications list shows a **status chip**. Tapping it opens a compact picker with all statuses. One tap changes the status, appends a history entry with the timestamp, and shows an **Undo** toast for about 5 seconds.
+- Every row in the Applications list shows a **status chip**. Tapping it opens a compact picker with all statuses. One tap changes the status, appends a history entry with the timestamp, and shows an **Undo** toast for about 5 seconds. Undo restores the application as it was before the tap, removing the entry it added, so a mis-tap never counts in stats; it only works if nothing has changed the application since.
 - **Leaving Saved without a Date applied:** moving to Applied sets Date applied to today with no extra step. Moving to Screening, Interviewing, Offer, Accepted, Rejected or Ghosted means an application happened, so the picker asks "When did you apply?" (default today) with **Set date** and **Skip**; Skip leaves it empty. Moving to Withdrawn doesn't ask. This is the one case where a status change takes a second interaction; it exists because Date applied drives the Applied count and the response and interview rates (§4.7).
 - The detail/edit view shows the full status timeline, and each entry's date can be edited (for example, to backfill an interview date).
 
@@ -197,7 +197,7 @@ interface Settings {
 
 **Required fields:** `url` and `company`, both trimmed, and whitespace-only counts as empty. `url` must be `http:` or `https:`, and a URL typed without a scheme gets `https://`. `appliedAt` is the user's local calendar date, not the UTC date. A `resumeId` is strongly encouraged: the form shows a gentle prompt when it is empty, but it does not block saving.
 
-**Status rules:** any status can move to any other status (users make mistakes and processes vary). When `appliedAt` is empty, choosing Applied sets it to today, and choosing any other status except Saved and Withdrawn asks for it (§4.3). A stored `appliedAt` is never overwritten by a status change, and undoing a status change clears an `appliedAt` that change set.
+**Status rules:** any status can move to any other status (users make mistakes and processes vary). When `appliedAt` is empty, choosing Applied sets it to today, and choosing any other status except Saved and Withdrawn asks for it (§4.3). A stored `appliedAt` is never overwritten by a status change (including switching an existing job to Saved in Edit), and undoing a status change clears an `appliedAt` that change set. A job left without a date after Skip isn't made to get one by an unrelated edit; Date applied is only required in Edit if one is stored. The same rules apply whether the status is changed with the chip or in the Edit form.
 
 ## 6. Storage, export & import
 
