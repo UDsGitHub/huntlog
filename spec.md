@@ -160,7 +160,7 @@ interface Application {
   salaryCurrency?: string;     // ISO 4217, default from locale
   salaryPeriod?: 'year' | 'month' | 'hour';
   source?: string;             // free text with suggestions: LinkedIn, Indeed, Company site, Referral, Recruiter, Other
-  notes?: string;              // plain text / light markdown
+  notes?: string;              // plain text, shown with line breaks
   createdAt: string; updatedAt: string; deletedAt?: string;
 }
 
@@ -183,6 +183,8 @@ interface Settings {
   schemaVersion: number;
 }
 ```
+
+**Other field rules:** Date applied is the user's local calendar date, required while the status is Applied or later, and can't be in the future. Salary min and max are optional numbers typed in the user's locale (`85,000` in en-US, `85.000` in de-DE, `85 000` in fr-FR, `8,50,000` in en-IN), with up to 2 decimals. A separator followed by exactly 3 digits always means thousands, so ambiguous input such as `85.000` in en-US is rejected rather than stored as 85. Either may be given alone, and min can't exceed max. The currency defaults from the locale's region (for example GBP for `en-GB`, EUR for `de-DE`, USD when unknown) and is stored only when a salary is entered, as is the period (default per year). Location is capped at 200 characters, source at 100, and notes at 10,000 (counted as characters, so an emoji counts as one). Notes are shown as plain text with line breaks; markdown isn't rendered in v1.
 
 **Required fields:** `url` and `company`, both trimmed, and whitespace-only counts as empty. `url` must be `http:` or `https:`, and a URL typed without a scheme gets `https://`. `appliedAt` is the user's local calendar date, not the UTC date. A `resumeId` is strongly encouraged: the form shows a gentle prompt when it is empty, but it does not block saving.
 

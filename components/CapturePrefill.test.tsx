@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { Browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { createDraft, draftKey, DRAFT_MAX_AGE_MS, type CaptureDraft } from '@/lib/captureDraft';
+import * as applications from '@/lib/applications';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 
@@ -74,7 +75,7 @@ describe('capture prefill', () => {
     await screen.findByText(/No applications yet/);
     await act(() => fakeBrowser.storage.session.set({ [draftKey(98)]: pageDraft() }));
 
-    expect(fields().url).toHaveValue('');
+    expect(screen.queryByRole('form')).toBeNull();
     expect(await stored(99)).toBeDefined();
     expect(await stored(98)).toBeDefined();
   });
@@ -87,8 +88,7 @@ describe('capture prefill', () => {
     render(<App />);
 
     await waitFor(async () => expect(await stored()).toBeUndefined());
-    expect(fields().url).toHaveValue('');
-    expect(screen.queryByText(HINT)).toBeNull();
+    expect(screen.queryByRole('form')).toBeNull();
   });
 
   it.each([['garbage'], [{ v: 1, source: 'page' }], [{ v: 9 }]])(
@@ -98,7 +98,8 @@ describe('capture prefill', () => {
       render(<App />);
 
       await waitFor(async () => expect(await stored()).toBeUndefined());
-      expect(fields().url).toHaveValue('');
+      expect(screen.queryByRole('form')).toBeNull();
+      expect(screen.getByText(/No applications yet/)).toBeInTheDocument();
     },
   );
 
@@ -213,15 +214,17 @@ describe('capture prefill', () => {
     await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });
     render(<App />);
     await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
-    const { company, title } = fields();
-
-    await user.type(company, 'Acme{Enter}');
+    await user.type(fields().company, 'Acme{Enter}');
 
     const list = await screen.findByRole('list', { name: 'Applications' });
     expect(list).toHaveTextContent('Senior Engineer at Acme');
     expect(list).toHaveTextContent('https://jobs.example.test/posting/1');
     expect(screen.queryByText(HINT)).toBeNull();
-    expect(title).toHaveValue('');
+
+    // The consumed capture doesn't come back on the next manual Add.
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    expect(fields().title).toHaveValue('');
+    expect(fields().url).toHaveValue('');
     const [saved] = await db.applications.toArray();
     expect(saved).toMatchObject({ company: 'Acme', title: 'Senior Engineer at Acme' });
   });
@@ -231,6 +234,7 @@ describe('capture prefill', () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
     await user.type(fields().company, 'Typed Co');
 
     await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
@@ -261,6 +265,56 @@ describe('capture prefill', () => {
     expect(fields().title).toHaveAccessibleDescription(HINT);
   });
 
+  it('opens the Add view from the list when a capture arrives', async () => {
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
+
+    await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+
+    expect(await screen.findByRole('heading', { name: 'Add application' })).toBeInTheDocument();
+    await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+  });
+
+  it('a save that finishes after a new capture does not close the new form', async () => {
+    let finish!: () => void;
+    const real = applications.addApplication;
+    vi.spyOn(applications, 'addApplication').mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      return real(input);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.type(fields().url, 'https://first.example/1');
+    await user.type(fields().company, 'First{Enter}');
+
+    await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+    await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+    await act(async () => finish());
+
+    await waitFor(async () => expect(await db.applications.count()).toBe(1));
+    expect(screen.getByRole('heading', { name: 'Add application' })).toBeInTheDocument();
+    expect(fields().title).toHaveValue('Senior Engineer at Acme');
+    expect(screen.getByRole('status')).toHaveTextContent('Saved First.');
+  });
+
+  it('Cancel after a capture returns to the list and drops the capture', async () => {
+    const user = userEvent.setup();
+    await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });
+    render(<App />);
+    await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+
+    expect(fields().title).toHaveValue('');
+    expect(screen.queryByText(HINT)).toBeNull();
+    expect(await db.applications.count()).toBe(0);
+  });
+
   it('opens a blank form when the window lookup fails', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(fakeBrowser.windows.getCurrent).mockRejectedValue(new Error('no window'));
@@ -269,6 +323,7 @@ describe('capture prefill', () => {
     await waitFor(() =>
       expect(error).toHaveBeenCalledWith('Reading the capture draft failed', expect.any(Error)),
     );
-    expect(fields().url).toHaveValue('');
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(screen.getByRole('button', { name: '+ Add application' })).toBeEnabled();
   });
 });
