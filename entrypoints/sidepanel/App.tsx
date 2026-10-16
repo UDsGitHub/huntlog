@@ -3,6 +3,8 @@ import { ApplicationDetail } from '@/components/ApplicationDetail';
 import { ApplicationForm, readFailedMessage } from '@/components/ApplicationForm';
 import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ResumesPanel } from '@/components/ResumesPanel';
+import { TabBar, type Tab } from '@/components/TabBar';
 import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
 import {
@@ -20,6 +22,12 @@ import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
+type TabId = 'applications' | 'resumes';
+const TABS: Tab<TabId>[] = [
+  { id: 'applications', label: 'Applications' },
+  { id: 'resumes', label: 'Resumes' },
+];
+
 type View =
   | { name: 'list' }
   | { name: 'add' }
@@ -33,6 +41,9 @@ type View =
 type FocusTarget = { kind: 'add' } | { kind: 'row'; id: string; awaitRow?: boolean };
 
 export default function App() {
+  // Each tab keeps its own state while the other is shown: switching back to Applications
+  // returns to the same list or detail view.
+  const [tab, setTab] = useState<TabId>('applications');
   const [view, setView] = useState<View>({ name: 'list' });
   // The view on screen, readable from async handlers. Every navigation creates a new object, so
   // a handler can tell whether the view it belongs to is still showing (see isCurrent).
@@ -58,6 +69,9 @@ export default function App() {
   }, []);
 
   function navigate(next: View) {
+    // Applications views live in the Applications tab; anything navigating there (a capture
+    // arriving while Resumes is showing) switches to it.
+    setTab('applications');
     // Leaving Edit some other way than its own Save/Cancel (e.g. View existing): a capture that
     // waited for the edit mustn't be lost, nor linger to hijack a later edit.
     if (deferredCapture.current && viewRef.current.name === 'edit' && next.name !== 'add') {
@@ -76,6 +90,7 @@ export default function App() {
    * the Add view meanwhile. Only the view that started the work may navigate away from itself.
    */
   const isCurrent = (v: View) => viewRef.current === v;
+  const inForm = view.name === 'add' || view.name === 'edit';
 
   function announce(text: string) {
     setAnnouncement(({ count }) => ({ text, count: count + 1 }));
@@ -195,100 +210,123 @@ export default function App() {
         {announcement.text}
         {announcement.count % 2 ? '​' : ''}
       </p>
-      {view.name === 'detail' ? (
-        <ApplicationDetail
-          key={view.id}
-          id={view.id}
-          initialFocus={view.focus}
-          onBack={() => toList({ kind: 'row', id: view.id })}
-          onEdit={() => navigate({ name: 'edit', id: view.id })}
-          onDeleted={(application) => handleDeleted(view, application)}
-          onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
+      {/* Tabs are hidden while a form is open (spec §3): its sticky Save bar owns the panel. */}
+      {!inForm && (
+        <TabBar
+          tabs={TABS}
+          selected={tab}
+          onSelect={setTab}
+          idPrefix="panel"
+          label="Job Log sections"
         />
-      ) : view.name === 'edit' ? (
-        <EditView
-          id={view.id}
-          onViewExisting={(id) => {
-            if (isCurrent(view)) navigate({ name: 'detail', id, focus: 'heading' });
-          }}
-          onDone={(saved) => {
-            if (saved) announce('Saved changes.');
-            if (!isCurrent(view)) return;
-            // This handler may come from the render where Save was pressed, before the capture
-            // arrived, so it checks the ref rather than `prefill`.
-            if (deferredCapture.current) {
-              deferredCapture.current = false;
-              return navigate({ name: 'add' });
-            }
-            navigate({ name: 'detail', id: view.id, focus: 'edit' });
-          }}
-        />
-      ) : view.name === 'add' ? (
-        <section aria-labelledby="add-heading" className="flex flex-col gap-3">
-          <h2 id="add-heading" className="text-base font-semibold">
-            Add application
-          </h2>
-          {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
-          {/* A manual Add waits for the remembered defaults (read once, on mount); a capture
-              doesn't use them, so it never waits. */}
-          {(prefill || formDefaults) && (
-            <ApplicationForm
-              key={`${formSession}-${prefill?.nonce ?? 0}`}
-              prefill={prefill}
-              defaults={formDefaults}
-              onSaved={(application) => {
-                announce(`Saved ${application.company}.`);
-                // Every new application, manual or captured, sets the next manual Add's defaults.
-                void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
-                  setFormDefaults,
-                );
-                if (!isCurrent(view)) return;
-                consume();
-                toList({ kind: 'add' });
-              }}
-              onCancel={() => {
-                consume();
-                toList({ kind: 'add' });
-              }}
-              onViewExisting={(id) => {
-                if (!isCurrent(view)) return;
-                consume();
-                navigate({ name: 'detail', id, focus: 'heading' });
-              }}
-            />
-          )}
-        </section>
-      ) : (
-        <section aria-labelledby="applications-heading" className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <h2 id="applications-heading" className="text-base font-semibold">
-              Applications
+      )}
+      <div
+        role={inForm ? undefined : 'tabpanel'}
+        id="panel-panel-applications"
+        aria-labelledby={inForm ? undefined : 'panel-tab-applications'}
+        hidden={tab !== 'applications'}
+        className="flex min-w-0 flex-col gap-4"
+      >
+        {view.name === 'detail' ? (
+          <ApplicationDetail
+            key={view.id}
+            id={view.id}
+            initialFocus={view.focus}
+            onBack={() => toList({ kind: 'row', id: view.id })}
+            onEdit={() => navigate({ name: 'edit', id: view.id })}
+            onDeleted={(application) => handleDeleted(view, application)}
+            onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
+          />
+        ) : view.name === 'edit' ? (
+          <EditView
+            id={view.id}
+            onViewExisting={(id) => {
+              if (isCurrent(view)) navigate({ name: 'detail', id, focus: 'heading' });
+            }}
+            onDone={(saved) => {
+              if (saved) announce('Saved changes.');
+              if (!isCurrent(view)) return;
+              // This handler may come from the render where Save was pressed, before the capture
+              // arrived, so it checks the ref rather than `prefill`.
+              if (deferredCapture.current) {
+                deferredCapture.current = false;
+                return navigate({ name: 'add' });
+              }
+              navigate({ name: 'detail', id: view.id, focus: 'edit' });
+            }}
+          />
+        ) : view.name === 'add' ? (
+          <section aria-labelledby="add-heading" className="flex flex-col gap-3">
+            <h2 id="add-heading" className="text-base font-semibold">
+              Add application
             </h2>
-            <AddButton
-              focus={focusTarget?.kind === 'add'}
-              onFocused={clearFocusTarget}
-              onClick={openAdd}
-            />
-          </div>
-          <ErrorBoundary
-            fallback={
-              <p role="alert" className="text-sm text-slate-700">
-                Couldn't load your applications. Close and reopen the side panel to try again.
-              </p>
-            }
-          >
-            <ApplicationList
-              query={listQuery}
-              onQueryChange={setListQuery}
-              onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
-              onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
-              focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
-              awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
-              onRowFocused={clearFocusTarget}
-              onRowMissing={focusAddInstead}
-            />
-          </ErrorBoundary>
-        </section>
+            {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
+            {/* A manual Add waits for the remembered defaults (read once, on mount); a capture
+                doesn't use them, so it never waits. */}
+            {(prefill || formDefaults) && (
+              <ApplicationForm
+                key={`${formSession}-${prefill?.nonce ?? 0}`}
+                prefill={prefill}
+                defaults={formDefaults}
+                onSaved={(application) => {
+                  announce(`Saved ${application.company}.`);
+                  // Every new application, manual or captured, sets the next manual Add's defaults.
+                  void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
+                    setFormDefaults,
+                  );
+                  if (!isCurrent(view)) return;
+                  consume();
+                  toList({ kind: 'add' });
+                }}
+                onCancel={() => {
+                  consume();
+                  toList({ kind: 'add' });
+                }}
+                onViewExisting={(id) => {
+                  if (!isCurrent(view)) return;
+                  consume();
+                  navigate({ name: 'detail', id, focus: 'heading' });
+                }}
+              />
+            )}
+          </section>
+        ) : (
+          <section aria-labelledby="applications-heading" className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="applications-heading" className="text-base font-semibold">
+                Applications
+              </h2>
+              <AddButton
+                focus={focusTarget?.kind === 'add'}
+                onFocused={clearFocusTarget}
+                onClick={openAdd}
+              />
+            </div>
+            <ErrorBoundary
+              fallback={
+                <p role="alert" className="text-sm text-slate-700">
+                  Couldn't load your applications. Close and reopen the side panel to try again.
+                </p>
+              }
+            >
+              <ApplicationList
+                query={listQuery}
+                onQueryChange={setListQuery}
+                onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
+                onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
+                focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
+                awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
+                onRowFocused={clearFocusTarget}
+                onRowMissing={focusAddInstead}
+              />
+            </ErrorBoundary>
+          </section>
+        )}
+      </div>
+      {tab === 'resumes' && (
+        <div role="tabpanel" id="panel-panel-resumes" aria-labelledby="panel-tab-resumes">
+          <ResumesPanel />
+        </div>
       )}
       <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>
