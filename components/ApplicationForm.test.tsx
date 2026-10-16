@@ -1,6 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import * as applicationInput from '@/lib/applicationInput';
 import * as applications from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
 import { db } from '@/lib/db';
@@ -192,14 +191,21 @@ describe('Add view', () => {
     await screen.findByRole('list', { name: 'Applications' });
   });
 
-  it('validates once per save, through addApplication', async () => {
-    const spy = vi.spyOn(applicationInput, 'validateApplication');
+  it('passes already-normalized values to storage, so its re-check agrees', async () => {
+    const spy = vi.spyOn(applications, 'addApplication');
     const user = userEvent.setup();
     await openAddForm(user);
-    await user.type(field('Job posting URL'), 'https://example.com');
-    await user.type(field('Company'), 'Acme{Enter}');
+    await user.type(field('Job posting URL'), 'example.com/jobs/1');
+    await user.type(field('Company'), '  Acme  ');
+    await user.type(field('Minimum'), '85,000');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByRole('list', { name: 'Applications' });
     expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toMatchObject({
+      url: 'https://example.com/jobs/1',
+      company: 'Acme',
+      salaryMin: 85000,
+    });
   });
 
   it('announces a second save even when the message repeats', async () => {
