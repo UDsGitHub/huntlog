@@ -3,19 +3,8 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
 import { formatSalary } from '@/lib/format';
-import type { Application, Status } from '@/lib/types';
-
-const STATUS_LABELS: Record<Status, string> = {
-  saved: 'Saved',
-  applied: 'Applied',
-  screening: 'Screening',
-  interviewing: 'Interviewing',
-  offer: 'Offer',
-  accepted: 'Accepted',
-  rejected: 'Rejected',
-  withdrawn: 'Withdrawn',
-  ghosted: 'Ghosted',
-};
+import { STATUS_LABELS } from '@/lib/status';
+import type { Application } from '@/lib/types';
 
 interface Props {
   id: string;

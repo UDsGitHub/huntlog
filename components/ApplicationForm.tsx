@@ -23,6 +23,13 @@ import {
 } from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
 import type { FormDefaults } from '@/lib/formDefaults';
+import {
+  ACTIVE_STATUSES,
+  appliedAtOptional,
+  CLOSED_STATUSES,
+  isStatus,
+  STATUS_LABELS,
+} from '@/lib/status';
 import { defaultCurrency, numberSeparators, orderedCurrencies } from '@/lib/locale';
 import type { Application } from '@/lib/types';
 import { DuplicateWarning } from './DuplicateWarning';
@@ -45,7 +52,7 @@ interface Props {
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
 
 /** Fields above More details, in screen order (title has no validation of its own). */
-const MAIN_FIELDS: InputField[] = ['url', 'company', 'appliedAt'];
+const MAIN_FIELDS: InputField[] = ['url', 'company', 'status', 'appliedAt'];
 /** Fields under More details (spec §4.2), in screen order. */
 const DETAIL_FIELDS: InputField[] = [
   'location',
@@ -79,6 +86,7 @@ function formValuesFrom(app: Application): FormValues {
     title: app.title ?? '',
     location: app.location ?? '',
     workMode: app.workMode ?? '',
+    status: app.status,
     appliedAt: app.appliedAt ?? '',
     salaryMin: number(app.salaryMin),
     salaryMax: number(app.salaryMax),
@@ -111,6 +119,7 @@ export function ApplicationForm({
           // Remembered defaults are for a manual Add only (this form owns that rule); a capture
           // fills just what it captured.
           workMode: (!draft && defaults?.workMode) || '',
+          status: 'applied',
           appliedAt: todayLocal(),
           salaryMin: '',
           salaryMax: '',
@@ -182,7 +191,9 @@ export function ApplicationForm({
     setIsSaving(true);
     try {
       // One call validates, checks for duplicates and saves; the rules live in lib only.
-      const result = await saveApplication(values, { id: application?.id, allowDuplicate });
+      // A Saved job hasn't been applied for: its Date applied is hidden and saved as none.
+      const input = values.status === 'saved' ? { ...values, appliedAt: '' } : values;
+      const result = await saveApplication(input, { id: application?.id, allowDuplicate });
       if ('duplicates' in result) {
         setDuplicates(result.duplicates);
         saving.current = false;
@@ -299,16 +310,47 @@ export function ApplicationForm({
           {hints.title && <AutoFilledHint id={`${id}-title-hint`} />}
         </Field>
 
-        <Field label="Date applied" htmlFor={`${id}-appliedAt`}>
-          <input
-            {...control('appliedAt')}
-            type="date"
-            max={todayLocal()}
-            value={values.appliedAt}
-            onChange={(e) => set('appliedAt')(e.target.value)}
-          />
-          {message('appliedAt')}
+        <Field label="Status" htmlFor={`${id}-status`}>
+          <select
+            {...control('status')}
+            value={values.status}
+            onChange={(e) => set('status')(e.target.value)}
+          >
+            <optgroup label="Active">
+              {ACTIVE_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {STATUS_LABELS[status]}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Closed">
+              {CLOSED_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {STATUS_LABELS[status]}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          {message('status')}
         </Field>
+
+        {/* Hidden for Saved: nothing was applied for yet (spec §4.2, §5). */}
+        <div hidden={values.status === 'saved'}>
+          <Field
+            label="Date applied"
+            optional={isStatus(values.status) && appliedAtOptional(values.status)}
+            htmlFor={`${id}-appliedAt`}
+          >
+            <input
+              {...control('appliedAt')}
+              type="date"
+              max={todayLocal()}
+              value={values.appliedAt}
+              onChange={(e) => set('appliedAt')(e.target.value)}
+            />
+            {message('appliedAt')}
+          </Field>
+        </div>
 
         <div className="flex min-w-0 flex-col gap-1">
           <button

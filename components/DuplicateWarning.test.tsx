@@ -152,14 +152,15 @@ describe('Duplicate warning', () => {
     expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
   });
 
-  it("keeps a saved job's cleared date applied cleared when editing", async () => {
+  it('saves a Saved job without a date applied when editing', async () => {
     const app = await addApplication({ url: 'https://beta.com/1', company: 'Beta' });
     await db.applications.update(app.id, { status: 'saved' });
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Beta/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.clear(screen.getByLabelText('Date applied'));
+    // For a Saved job, Date applied is hidden and saved as none.
+    expect(screen.getByLabelText(/Date applied/).closest('[hidden]')).not.toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
     expect(await db.applications.get(app.id)).not.toHaveProperty('appliedAt');
