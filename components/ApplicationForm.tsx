@@ -1,4 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import {
   SALARY_PERIOD_LABELS,
   SOURCE_SUGGESTIONS,
@@ -7,15 +15,22 @@ import {
   type FieldErrors,
   type InputField,
 } from '@/lib/applicationInput';
-import { addApplication, ValidationError } from '@/lib/applications';
+import {
+  addApplication,
+  NotFoundError,
+  updateApplication,
+  ValidationError,
+} from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
-import { defaultCurrency, knownCurrencies } from '@/lib/locale';
+import { defaultCurrency, knownCurrencies, numberSeparators } from '@/lib/locale';
 import type { Application } from '@/lib/types';
 import type { CapturePrefill } from './useCaptureDraft';
 
 interface Props {
   /** A captured page or link. The form is remounted per capture (keyed by nonce), so it's read once. */
   prefill?: CapturePrefill | null;
+  /** Edit mode: the stored application to change. Without it, the form adds a new one. */
+  application?: Application;
   onSaved: (application: Application) => void;
   onCancel: () => void;
 }
@@ -40,24 +55,49 @@ const FIELD_ORDER: InputField[] = [
 const input =
   'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
 
-export function ApplicationForm({ prefill, onSaved, onCancel }: Props) {
+/** Stored values shown as form text; salaries use the locale's decimal separator. */
+function formValuesFrom(app: Application): FormValues {
+  const { decimal } = numberSeparators();
+  const number = (n: number | undefined) =>
+    n === undefined ? '' : String(n).replace('.', decimal);
+  return {
+    url: app.url,
+    company: app.company,
+    title: app.title ?? '',
+    location: app.location ?? '',
+    workMode: app.workMode ?? '',
+    appliedAt: app.appliedAt ?? '',
+    salaryMin: number(app.salaryMin),
+    salaryMax: number(app.salaryMax),
+    salaryCurrency: app.salaryCurrency ?? defaultCurrency(),
+    salaryPeriod: app.salaryPeriod ?? 'year',
+    source: app.source ?? '',
+    notes: app.notes ?? '',
+  };
+}
+
+export function ApplicationForm({ prefill, application, onSaved, onCancel }: Props) {
   // Without React's colons, the ids are valid in CSS selectors too (happy-dom resolves `list` that way).
   const id = useId().replace(/:/g, '');
-  const draft = prefill?.draft;
-  const [values, setValues] = useState<FormValues>(() => ({
-    url: draft?.url ?? '',
-    company: '',
-    title: draft?.title ?? '',
-    location: '',
-    workMode: '',
-    appliedAt: todayLocal(),
-    salaryMin: '',
-    salaryMax: '',
-    salaryCurrency: defaultCurrency(),
-    salaryPeriod: 'year',
-    source: '',
-    notes: '',
-  }));
+  const draft = application ? undefined : prefill?.draft;
+  const [values, setValues] = useState<FormValues>(() =>
+    application
+      ? formValuesFrom(application)
+      : {
+          url: draft?.url ?? '',
+          company: '',
+          title: draft?.title ?? '',
+          location: '',
+          workMode: '',
+          appliedAt: todayLocal(),
+          salaryMin: '',
+          salaryMax: '',
+          salaryCurrency: defaultCurrency(),
+          salaryPeriod: 'year',
+          source: '',
+          notes: '',
+        },
+  );
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -67,9 +107,10 @@ export function ApplicationForm({ prefill, onSaved, onCancel }: Props) {
   const currencies = useMemo(() => knownCurrencies(), []);
 
   // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
-  useEffect(() => {
-    fieldRefs.current[prefill?.draft.url ? 'company' : 'url']?.focus();
-  }, [prefill]);
+  // A layout effect, so focus moves in the same commit that shows the form.
+  useLayoutEffect(() => {
+    fieldRefs.current[draft?.url ? 'company' : 'url']?.focus();
+  }, [draft]);
 
   // A hint stays while the field still holds exactly what was captured.
   const hints = {
@@ -91,8 +132,10 @@ export function ApplicationForm({ prefill, onSaved, onCancel }: Props) {
     saving.current = true;
     setIsSaving(true);
     try {
-      // addApplication validates once and reports field errors through ValidationError.
-      onSaved(await addApplication(values));
+      // Saving validates once and reports field errors through ValidationError.
+      onSaved(
+        await (application ? updateApplication(application.id, values) : addApplication(values)),
+      );
     } catch (error) {
       saving.current = false;
       setIsSaving(false);
@@ -102,7 +145,11 @@ export function ApplicationForm({ prefill, onSaved, onCancel }: Props) {
         if (first) fieldRefs.current[first]?.focus();
         return;
       }
-      console.error('addApplication failed', error);
+      if (error instanceof NotFoundError) {
+        setSaveError("This application was deleted, so the changes can't be saved.");
+        return;
+      }
+      console.error('Saving the application failed', error);
       setSaveError("Couldn't save. Please try again.");
     }
   }
@@ -135,7 +182,7 @@ export function ApplicationForm({ prefill, onSaved, onCancel }: Props) {
     <form
       onSubmit={handleSubmit}
       noValidate
-      aria-label="Add application"
+      aria-label={application ? 'Edit application' : 'Add application'}
       aria-busy={isSaving || undefined}
       className="flex flex-col gap-3"
     >
