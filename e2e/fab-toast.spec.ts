@@ -36,9 +36,7 @@ test('the floating Add button, the empty state and toasts above it', async ({ se
   // Other tabs have no floating button, and the toast drops back to the bottom.
   await page.getByRole('tab', { name: 'Stats' }).click();
   await expect(fab).toBeHidden();
-  await expect
-    .poll(async () => (await toast.boundingBox())!.y)
-    .toBeGreaterThan(toastBox.y);
+  await expect.poll(async () => (await toast.boundingBox())!.y).toBeGreaterThan(toastBox.y);
   await page.getByRole('tab', { name: 'Applications' }).click();
 
   // Dismissed: slides out, then it's gone.

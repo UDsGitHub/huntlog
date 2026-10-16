@@ -2,21 +2,37 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * Where the toast shows. An open sheet is a modal <dialog>: it sits in the top layer and makes
- * the rest of the panel inert, so a toast outside it would be hidden and unclickable. Each open
- * sheet registers a slot here, and the toast renders into the newest one (spec §3).
+ * the rest of the panel inert, so a toast outside it would be hidden, unclickable and (being in
+ * an inert subtree) not announced. Each open sheet registers a layer, and the toast uses the
+ * newest one (spec §3).
  */
-const slots: HTMLElement[] = [];
+export interface ToastLayer {
+  /** Where the toast card renders: a polite live region that exists before any card arrives. */
+  region: HTMLElement;
+}
+
+const layers: ToastLayer[] = [];
 const listeners = new Set<() => void>();
+let snapshot: ToastLayer | null = null;
 
-const notify = () => listeners.forEach((listener) => listener());
+function notify() {
+  snapshot = layers.at(-1) ?? null;
+  listeners.forEach((listener) => listener());
+}
 
-/** Registers a sheet's toast slot while it's open. Returns the unregister function. */
-export function registerToastSlot(slot: HTMLElement): () => void {
-  slots.push(slot);
+/**
+ * Registers a sheet's layer. Call it when the dialog is shown with showModal (which puts it on
+ * top of the top layer) and unregister once it has closed, so the order here matches the screen.
+ */
+export function registerToastLayer(layer: ToastLayer): () => void {
+  layers.push(layer);
   notify();
+  let registered = true;
   return () => {
-    const index = slots.lastIndexOf(slot);
-    if (index >= 0) slots.splice(index, 1);
+    if (!registered) return;
+    registered = false;
+    const index = layers.lastIndexOf(layer);
+    if (index >= 0) layers.splice(index, 1);
     notify();
   };
 }
@@ -26,9 +42,7 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-const top = () => slots.at(-1) ?? null;
-
-/** The slot of the newest open sheet, or null when no sheet is open (toast shows in the page). */
-export function useToastSlot(): HTMLElement | null {
-  return useSyncExternalStore(subscribe, top);
+/** The newest open sheet's layer, or null when no sheet is open (the toast shows in the page). */
+export function useToastLayer(): ToastLayer | null {
+  return useSyncExternalStore(subscribe, () => snapshot);
 }

@@ -1,20 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { inert } from './inert';
 import { XIcon } from './icons';
-import { useToastSlot } from './toastLayer';
+import { prefersReducedMotion } from './motion';
+import { useToastLayer } from './toastLayer';
+import { usePublishedHeight } from './usePublishedHeight';
 
 export const TOAST_DURATION_MS = 5000;
 /** How long a toast takes to slide out. Reduced motion skips it. */
 export const TOAST_EXIT_MS = 150;
-
-function prefersReducedMotion(): boolean {
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
-  }
-}
 
 /** Why a toast closed: it timed out, the user dismissed it, or the user took its action. */
 export type DismissReason = 'timeout' | 'dismiss' | 'action';
@@ -55,10 +49,15 @@ export function useToast() {
 }
 
 /**
- * Bottom-of-panel toast in an always-mounted polite live region. It disappears after 5 seconds,
- * and the timer stops while the pointer or keyboard focus is on it (WCAG 2.2.1), restarting in
- * full when they leave. It slides in, and slides out before it goes (spec §3). While a sheet is
- * open, it shows inside that sheet, which keeps it visible and clickable over the modal.
+ * The bottom-of-panel toast. It disappears after 5 seconds, and the timer stops while the pointer
+ * or keyboard focus is on it (WCAG 2.2.1), restarting in full when they leave. It slides in, and
+ * slides out before it goes (spec §3).
+ *
+ * While a sheet is open, it shows inside that sheet, which keeps it visible and clickable over
+ * the modal. Both the page and an open sheet have a polite live region that exists before any
+ * toast arrives, so a new toast is announced wherever it appears. A toast that moves (a sheet
+ * opened over it, or closed under it) arrives inside `aria-live="off"`: it was already announced
+ * where it first appeared, so the move is silent, and its timer (kept here) doesn't restart.
  */
 export function Toast({
   toast,
@@ -69,7 +68,34 @@ export function Toast({
   onDismiss: (reason: DismissReason) => void;
   duration?: number;
 }) {
-  const slot = useToastSlot();
+  const layer = useToastLayer();
+  const region = layer?.region ?? null;
+
+  // Where the current toast first appeared (null: the page). Showing it anywhere else is a move.
+  const [arrived, setArrived] = useState<{ id: number; region: HTMLElement | null } | null>(null);
+  if ((toast?.id ?? null) !== (arrived?.id ?? null)) {
+    setArrived(toast ? { id: toast.id, region } : null);
+  }
+  const moved = !!toast && arrived?.id === toast.id && arrived.region !== region;
+
+  // Paused while the pointer or focus is on the card. Kept here, not in the card, so the card
+  // moving between the page and a sheet doesn't restart the time.
+  const [pause, setPause] = useState({ id: -1, hovered: false, focused: false });
+  const paused = pause.id === toast?.id && (pause.hovered || pause.focused);
+  const reportPause = useCallback(
+    (id: number, change: { hovered?: boolean; focused?: boolean }) =>
+      setPause((current) => {
+        const base = current.id === id ? current : { id, hovered: false, focused: false };
+        return { ...base, ...change };
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (!toast || paused) return;
+    const timer = setTimeout(() => onDismiss('timeout'), duration);
+    return () => clearTimeout(timer);
+  }, [toast, paused, duration, onDismiss]);
+
   // The toast that just went, kept on screen (inert) while it slides out.
   const [leaving, setLeaving] = useState<ToastData | null>(null);
   const shown = useRef<ToastData | null>(null);
@@ -85,64 +111,52 @@ export function Toast({
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const region = (
+  // Keyed per toast, so nothing carries over to the next one.
+  const current = toast ?? leaving;
+  const card = current && (
     <div
-      aria-live="polite"
-      // Clear of a sticky bottom bar or the floating button when one is showing; each publishes
-      // the room it takes. Inside a sheet, the slot already sits above its footer.
-      style={
-        slot
-          ? undefined
-          : {
-              bottom: 'calc(var(--sticky-bar-height, 0px) + var(--fab-clearance, 0px) + 1rem)',
-            }
-      }
-      className={
-        slot
-          ? 'flex w-full justify-center'
-          : 'pointer-events-none fixed inset-x-4 flex justify-center'
-      }
+      key={current.id}
+      aria-live={moved ? 'off' : undefined}
+      className="flex w-full justify-center"
     >
-      {/* Keyed per toast, so pause state never carries over to the next one. */}
-      {toast ? (
-        <ToastCard key={toast.id} toast={toast} onDismiss={onDismiss} duration={duration} />
-      ) : (
-        leaving && (
-          <ToastCard
-            key={leaving.id}
-            toast={leaving}
-            onDismiss={onDismiss}
-            duration={duration}
-            leaving
-          />
-        )
-      )}
+      <ToastCard toast={current} onDismiss={onDismiss} onPause={reportPause} leaving={!toast} />
     </div>
   );
-  return slot ? createPortal(region, slot) : region;
+
+  return (
+    <>
+      {/* The page's region: always mounted, so a toast appearing in it is announced. */}
+      <div
+        aria-live="polite"
+        // Clear of a sticky bottom bar or the floating button when one is showing; each
+        // publishes the room it takes. Inside a sheet, its region already sits above its footer.
+        style={{
+          bottom: 'calc(var(--sticky-bar-height, 0px) + var(--fab-clearance, 0px) + 1rem)',
+        }}
+        className="pointer-events-none fixed inset-x-4 flex justify-center"
+      >
+        {!region && card}
+      </div>
+      {region && card && createPortal(card, region)}
+    </>
+  );
 }
 
 function ToastCard({
   toast,
   onDismiss,
-  duration,
+  onPause,
   leaving = false,
 }: {
   toast: ToastData;
   onDismiss: (reason: DismissReason) => void;
-  duration: number;
-  /** Sliding out: shown, but no longer usable or timed. */
+  onPause: (id: number, change: { hovered?: boolean; focused?: boolean }) => void;
+  /** Sliding out: shown, but no longer usable or announced. */
   leaving?: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const paused = hovered || focused;
-
-  useEffect(() => {
-    if (paused || leaving) return;
-    const timer = setTimeout(() => onDismiss('timeout'), duration);
-    return () => clearTimeout(timer);
-  }, [paused, leaving, duration, onDismiss]);
+  const { id } = toast;
+  // Moved (remounted) or gone: no pointer or focus is on this card any more.
+  useEffect(() => () => onPause(id, { hovered: false, focused: false }), [id, onPause]);
 
   return (
     <div
@@ -150,11 +164,11 @@ function ToastCard({
       // Sliding out: still painted, but gone for assistive tech.
       aria-hidden={leaving || undefined}
       data-state={leaving ? 'closing' : 'open'}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
+      onMouseEnter={() => onPause(id, { hovered: true })}
+      onMouseLeave={() => onPause(id, { hovered: false })}
+      onFocus={() => onPause(id, { focused: true })}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+        if (!event.currentTarget.contains(event.relatedTarget)) onPause(id, { focused: false });
       }}
       className={`toast flex w-full max-w-sm min-w-0 items-center gap-3 rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg ${leaving ? 'pointer-events-none' : 'pointer-events-auto'}`}
     >
@@ -187,20 +201,6 @@ function ToastCard({
  * Publishes a sticky bottom bar's height as `--sticky-bar-height` on the document while it's
  * mounted, so the toast and focus scrolling keep clear of it, whatever its size.
  */
-export function useStickyBar(bar: React.RefObject<HTMLElement | null>) {
-  useLayoutEffect(() => {
-    const element = bar.current;
-    if (!element) return;
-    const root = document.documentElement;
-    const publish = () =>
-      root.style.setProperty('--sticky-bar-height', `${element.offsetHeight}px`);
-    publish();
-    const observer =
-      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(publish);
-    observer?.observe(element);
-    return () => {
-      observer?.disconnect();
-      root.style.removeProperty('--sticky-bar-height');
-    };
-  }, [bar]);
+export function useStickyBar(bar: RefObject<HTMLElement | null>) {
+  usePublishedHeight(bar, '--sticky-bar-height');
 }

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { Toast, TOAST_DURATION_MS, TOAST_EXIT_MS, useToast, type ToastData } from './Toast';
+import { registerToastLayer } from './toastLayer';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -156,5 +157,43 @@ describe('Toast', () => {
       'data-state',
       'open',
     );
+  });
+
+  it('moves into an open sheet silently, without restarting its time', () => {
+    render(<Harness />);
+    show({ message: 'Deleted Acme.' });
+    act(() => vi.advanceTimersByTime(3000));
+    const region = document.createElement('div');
+    region.setAttribute('aria-live', 'polite');
+    document.body.append(region);
+    let unregister!: () => void;
+    act(() => {
+      unregister = registerToastLayer({ region });
+    });
+    expect(region).toContainElement(screen.getByText('Deleted Acme.'));
+    expect(screen.getByText('Deleted Acme.').closest('[aria-live]')).toHaveAttribute(
+      'aria-live',
+      'off',
+    );
+    act(() => vi.advanceTimersByTime(TOAST_DURATION_MS - 3000));
+    expect(dismissReasons).toEqual(['timeout']);
+    act(() => unregister());
+    region.remove();
+  });
+
+  it('a toast that first appears in a sheet is announced there', () => {
+    const region = document.createElement('div');
+    region.setAttribute('aria-live', 'polite');
+    document.body.append(region);
+    let unregister!: () => void;
+    act(() => {
+      unregister = registerToastLayer({ region });
+    });
+    render(<Harness />);
+    show({ message: 'Saved.' });
+    const wrapper = screen.getByText('Saved.').closest('[aria-live]');
+    expect(wrapper).toBe(region);
+    act(() => unregister());
+    region.remove();
   });
 });

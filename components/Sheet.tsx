@@ -6,26 +6,20 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
 import { ArrowLeftIcon, XIcon } from './icons';
 import { inert } from './inert';
-import { registerToastSlot } from './toastLayer';
+import { prefersReducedMotion } from './motion';
+import { registerToastLayer } from './toastLayer';
 
 /** How long the slide in or out takes. Reduced motion skips it. */
 export const SHEET_ANIMATION_MS = 200;
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-function prefersReducedMotion(): boolean {
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch {
-    return false;
-  }
-}
 
 interface Props {
   open: boolean;
@@ -76,11 +70,15 @@ export function Sheet({
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const body = useRef<HTMLDivElement>(null);
-  const slot = useRef<HTMLDivElement>(null);
+  const toastRegion = useRef<HTMLDivElement>(null);
   const keepEditing = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  // Set from showModal until the dialog has closed: this sheet's toast layer.
+  const unregisterLayer = useRef<(() => void) | null>(null);
   // What had focus when the discard question opened, to go back to on Keep editing.
   const confirmFrom = useRef<HTMLElement | null>(null);
+  // A press that started on the dimmed area (not a drag that ended there).
+  const pressedOutside = useRef(false);
   const [confirming, setConfirming] = useState(false);
   // Each opening starts without the discard question (state adjusted during render, not in an
   // effect, so there's no extra render pass).
@@ -94,6 +92,25 @@ export function Sheet({
     onClosedRef.current = onClosed;
   });
 
+  /** Closes the dialog for good: toasts move back to the page, and focus goes back. */
+  function finishClosing(element: HTMLDialogElement) {
+    if (element.open) element.close();
+    unregisterLayer.current?.();
+    unregisterLayer.current = null;
+    // Back to the opener, unless something else already took focus.
+    const opener = returnFocus.current;
+    returnFocus.current = null;
+    const active = document.activeElement;
+    if (opener?.isConnected && (!active || active === document.body || element.contains(active))) {
+      opener.focus();
+    }
+    onClosedRef.current?.();
+  }
+  const finishRef = useRef(finishClosing);
+  useEffect(() => {
+    finishRef.current = finishClosing;
+  });
+
   useLayoutEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -102,6 +119,10 @@ export function Sheet({
         returnFocus.current =
           document.activeElement instanceof HTMLElement ? document.activeElement : null;
         element.showModal();
+        // Registered as it enters the top layer, so the newest layer is the one on top.
+        if (toastRegion.current) {
+          unregisterLayer.current = registerToastLayer({ region: toastRegion.current });
+        }
       }
       const target =
         initialFocus?.current ?? body.current?.querySelector<HTMLElement>(FOCUSABLE) ?? null;
@@ -109,36 +130,26 @@ export function Sheet({
       return;
     }
     if (!element.open) return;
-    // Slides out (data-state="closing"), then closes.
-    const finish = () => {
-      element.close();
-      returnFocus.current?.focus();
-      returnFocus.current = null;
-      onClosedRef.current?.();
-    };
+    // Slides out (data-state="closing", everything inert), then closes. Toasts stay in it until
+    // then: the page behind is still inert while it slides out.
     if (prefersReducedMotion()) {
-      finish();
+      finishRef.current(element);
       return;
     }
-    const timer = setTimeout(finish, SHEET_ANIMATION_MS);
+    const timer = setTimeout(() => finishRef.current(element), SHEET_ANIMATION_MS);
     return () => clearTimeout(timer);
     // initialFocus is read once per opening.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Unmounting while open (e.g. the view behind it went away) still closes the dialog.
+  // Unmounting while open or sliding out (e.g. the view behind it went away) still closes the
+  // dialog properly: toasts go back to the page, focus is returned, and onClosed runs.
   useEffect(() => {
     const element = dialog.current;
     return () => {
-      if (element?.open) element.close();
+      if (element && (element.open || unregisterLayer.current)) finishRef.current(element);
     };
   }, []);
-
-  // While open, this sheet's slot is where toasts show.
-  useLayoutEffect(() => {
-    if (!open || !slot.current) return;
-    return registerToastSlot(slot.current);
-  }, [open]);
 
   useLayoutEffect(() => {
     if (confirming) keepEditing.current?.focus();
@@ -149,7 +160,7 @@ export function Sheet({
   }, [confirming]);
 
   function requestClose() {
-    if (!open) return;
+    if (!open || confirming) return;
     if (dirty) {
       confirmFrom.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -166,10 +177,20 @@ export function Sheet({
     else requestClose();
   }
 
-  function onClick(event: MouseEvent) {
-    // A click on the dialog itself, not its panel, is a click on the dimmed area outside.
-    if (event.target === dialog.current && dismissible) requestClose();
+  // A click on the dialog itself, not its panel, is a click on the dimmed area outside. Both the
+  // press and the release must be there: a text selection dragged out of the panel isn't one.
+  function onPointerDown(event: PointerEvent) {
+    pressedOutside.current = event.target === dialog.current;
   }
+  function onClick(event: MouseEvent) {
+    const outside = pressedOutside.current && event.target === dialog.current;
+    pressedOutside.current = false;
+    if (outside && dismissible) requestClose();
+  }
+
+  // Sliding out: nothing in it can be used any more (a second click on Save does nothing).
+  // Asking to discard: only the question can be used.
+  const panelInert = !open || confirming;
 
   return (
     // The dialog fills the panel; its ::backdrop dims the page and the panel slides up from the
@@ -182,6 +203,7 @@ export function Sheet({
       // While open: 'open'. Once asked to close, it stays shown just long enough to slide out.
       data-state={open ? 'open' : 'closing'}
       onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
       onClick={onClick}
       onCancel={(event) => {
         event.preventDefault();
@@ -194,7 +216,7 @@ export function Sheet({
           size === 'full' ? 'h-[calc(100%-0.75rem)]' : 'max-h-[calc(100%-2rem)]'
         }`}
       >
-        <div className="flex shrink-0 items-center gap-2 px-4 pt-2 pb-2">
+        <div {...inert(panelInert)} className="flex shrink-0 items-center gap-2 px-4 pt-2 pb-2">
           {closeButton === 'back' && (
             <button
               type="button"
@@ -228,19 +250,20 @@ export function Sheet({
         </div>
         <div
           ref={body}
-          {...inert(confirming)}
+          {...inert(panelInert)}
           className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
         >
           {children}
         </div>
         <div className="relative shrink-0">
-          {/* Toasts render here while this sheet is open: just above the footer. */}
+          {/* Toasts render here while this sheet is open: just above the footer. Never inert. */}
           <div
-            ref={slot}
+            ref={toastRegion}
+            aria-live="polite"
             className="pointer-events-none absolute inset-x-3 bottom-full mb-2 flex justify-center"
           />
           {footer && (
-            <div {...inert(confirming)} className="border-t bg-background px-4 py-3">
+            <div {...inert(panelInert)} className="border-t bg-background px-4 py-3">
               {footer}
             </div>
           )}

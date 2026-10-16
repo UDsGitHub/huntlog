@@ -1,4 +1,5 @@
-import { forwardRef, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { forwardRef, useRef, type ReactNode } from 'react';
+import { usePublishedHeight } from './usePublishedHeight';
 
 /**
  * A floating action button at the bottom right of the panel (spec §3): an icon and a short
@@ -11,23 +12,7 @@ export const Fab = forwardRef<
   { label: string; icon: ReactNode; children: ReactNode; onClick: () => void }
 >(function Fab({ label, icon, children, onClick }, ref) {
   const own = useRef<HTMLButtonElement | null>(null);
-  useLayoutEffect(() => {
-    const element = own.current;
-    if (!element) return;
-    const root = document.documentElement;
-    const publish = () => {
-      const bottom = parseFloat(getComputedStyle(element).bottom) || 0;
-      root.style.setProperty('--fab-clearance', `${element.offsetHeight + bottom}px`);
-    };
-    publish();
-    const observer =
-      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(publish);
-    observer?.observe(element);
-    return () => {
-      observer?.disconnect();
-      root.style.removeProperty('--fab-clearance');
-    };
-  }, []);
+  usePublishedHeight(own, '--fab-clearance', { withBottomOffset: true });
   return (
     <button
       ref={(element) => {

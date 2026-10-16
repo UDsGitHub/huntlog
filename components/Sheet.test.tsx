@@ -62,6 +62,12 @@ function Harness({
 
 const dialog = () => document.querySelector('dialog')!;
 
+/** A press and release on the dimmed area outside the panel. */
+function clickOutside() {
+  fireEvent.pointerDown(dialog());
+  fireEvent.click(dialog());
+}
+
 async function openSheet(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Open' }));
   return dialog();
@@ -131,7 +137,7 @@ describe('Sheet', () => {
     const user = userEvent.setup();
     const { unmount } = render(<Harness />);
     await openSheet(user);
-    fireEvent.click(dialog());
+    clickOutside();
     expect(dialog().open).toBe(true);
     // A click inside the panel never closes it.
     fireEvent.click(screen.getByLabelText('First'));
@@ -142,7 +148,7 @@ describe('Sheet', () => {
     await openSheet(user);
     fireEvent.click(screen.getByLabelText('First'));
     expect(dialog().open).toBe(true);
-    fireEvent.click(dialog());
+    clickOutside();
     expect(dialog().open).toBe(false);
   });
 
@@ -166,7 +172,7 @@ describe('Sheet', () => {
     expect(dialog().open).toBe(true);
 
     // Escape inside the question is Keep editing too.
-    fireEvent.click(dialog());
+    clickOutside();
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('alertdialog')).toBeNull();
@@ -225,5 +231,85 @@ describe('Sheet', () => {
 
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(dialog()).not.toContainElement(screen.getByText('Inside'));
+  });
+
+  it("doesn't close for a drag that started in the panel and ended outside", async () => {
+    reduceMotion();
+    const user = userEvent.setup();
+    render(<Harness dismissible />);
+    await openSheet(user);
+    fireEvent.pointerDown(screen.getByLabelText('First'));
+    fireEvent.click(dialog());
+    expect(dialog().open).toBe(true);
+  });
+
+  it('is inert while it slides out, so a second click does nothing', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await openSheet(user);
+    vi.useFakeTimers();
+    fireEvent.keyDown(screen.getByLabelText('First'), { key: 'Escape' });
+    expect(screen.getByLabelText('First').closest('[inert]')).not.toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Done', hidden: true }).closest('[inert]'),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Close', hidden: true }).closest('[inert]'),
+    ).not.toBeNull();
+  });
+
+  it('keeps the header out of reach while asking to discard', async () => {
+    reduceMotion();
+    const user = userEvent.setup();
+    render(<Harness dirty />);
+    await openSheet(user);
+    await user.keyboard('{Escape}');
+    expect(
+      screen.getByRole('button', { name: 'Close', hidden: true }).closest('[inert]'),
+    ).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Keep editing' }).closest('[inert]')).toBeNull();
+  });
+
+  it('unmounting while it slides out still returns focus and reports closed', async () => {
+    const onClosed = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness onClosed={onClosed} />);
+    await openSheet(user);
+    fireEvent.keyDown(screen.getByLabelText('First'), { key: 'Escape' });
+    expect(dialog().open).toBe(true);
+    rerender(<button type="button">Open</button>);
+    expect(onClosed).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument();
+  });
+
+  it('keeps toasts inside itself until it has finished sliding out', async () => {
+    let show!: ReturnType<typeof useToast>['show'];
+    function WithToast() {
+      const toast = useToast();
+      useEffect(() => {
+        show = toast.show;
+      }, [toast.show]);
+      return (
+        <>
+          <Harness />
+          <Toast toast={toast.toast} onDismiss={toast.dismiss} />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<WithToast />);
+    await openSheet(user);
+    vi.useFakeTimers();
+    fireEvent.keyDown(screen.getByLabelText('First'), { key: 'Escape' });
+    // Shown as it closes, e.g. "Deleted": still in the sheet, which is still on top.
+    act(() => show({ message: 'Deleted Acme.' }));
+    const card = () => screen.getByText('Deleted Acme.');
+    expect(dialog()).toContainElement(card());
+    expect(card().closest('[inert]')).toBeNull();
+    act(() => vi.advanceTimersByTime(SHEET_ANIMATION_MS));
+    expect(dialog().open).toBe(false);
+    expect(dialog()).not.toContainElement(card());
+    // Moved, not new: it isn't announced a second time.
+    expect(card().closest('[aria-live]')).toHaveAttribute('aria-live', 'off');
   });
 });
