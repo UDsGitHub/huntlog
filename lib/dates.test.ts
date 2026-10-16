@@ -1,4 +1,10 @@
-import { formatLocalDate, formatTimestampDate, msUntilNextDay, todayLocal } from './dates';
+import {
+  formatLocalDate,
+  formatShortLocalDate,
+  formatTimestampDate,
+  msUntilNextDay,
+  todayLocal,
+} from './dates';
 
 describe('todayLocal', () => {
   const originalTz = process.env.TZ;
@@ -98,5 +104,31 @@ describe('formatTimestampDate', () => {
 
   it('shows an unreadable timestamp as stored', () => {
     expect(formatTimestampDate('garbage', 'en-US')).toBe('garbage');
+  });
+});
+
+describe('formatShortLocalDate', () => {
+  it.each([
+    ['2026-10-01', 'day-month', 'en-US', 'Oct 1'],
+    ['2026-10-01', 'day-month', 'en-GB', '1 Oct'],
+    ['2026-10-01', 'month-year', 'en-US', 'Oct 2026'],
+    ['2026-01-01', 'day-month', 'en-US', 'Jan 1'],
+  ] as const)('%s as %s in %s → %s', (value, style, locale, expected) => {
+    expect(formatShortLocalDate(value, style, locale)).toBe(expected);
+  });
+
+  it('never shifts a day west of UTC', () => {
+    const original = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      expect(formatShortLocalDate('2026-10-01', 'day-month', 'en-US')).toBe('Oct 1');
+    } finally {
+      if (original === undefined) delete process.env.TZ;
+      else process.env.TZ = original;
+    }
+  });
+
+  it('shows an invalid value as stored', () => {
+    expect(formatShortLocalDate('2026-02-30', 'day-month', 'en-US')).toBe('2026-02-30');
   });
 });

@@ -94,6 +94,9 @@ describe('Stats tab', () => {
     expect(response).not.toHaveTextContent('0%');
     expect(within(response).getByText('No rate yet')).toHaveClass('sr-only');
     expect(panel).toHaveTextContent('Nothing applied in this range yet.');
+    // One empty-state message, not a second one from an empty chart.
+    expect(within(panel).queryByRole('region', { name: /^Applications per/ })).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Where they stand now' })).toBeNull();
   });
 
   it('a custom range starts at the last 30 days and follows the dates typed', async () => {

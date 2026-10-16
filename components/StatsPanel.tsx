@@ -180,8 +180,12 @@ export function StatsPanel() {
                 Nothing applied in this range yet. The rates fill in as you apply.
               </p>
             )}
-            <OutcomesBar outcomes={stats.outcomes} />
-            <ActivityChart activity={stats.activity} />
+            {stats.applied > 0 && (
+              <>
+                <OutcomesBar outcomes={stats.outcomes} />
+                <ActivityChart activity={stats.activity} total={stats.applied} />
+              </>
+            )}
           </>
         )
       )}

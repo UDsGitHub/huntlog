@@ -51,7 +51,8 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await expect(outcomes.getByRole('listitem')).toHaveText(['Applied2', 'Interviewing1']);
   const perDay = stats.getByRole('region', { name: 'Applications per day' });
   await expect(perDay).toContainText('3 applications in this range.');
-  await expect(perDay.locator('rect')).toHaveCount(31);
+  // A bar for each day with applications: Oct 2, 12 and 16.
+  await expect(perDay.locator('rect')).toHaveCount(3);
   await expectNoHorizontalScroll(page);
 
   // Custom: the From/To pair fits 320px too.

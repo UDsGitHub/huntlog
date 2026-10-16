@@ -19,7 +19,7 @@ describe('OutcomesBar', () => {
     expect(items.map((item) => item.textContent)).toEqual(['Applied3', 'Closed – not selected2']);
   });
 
-  it('sizes each segment by its share and never colors rejections red', () => {
+  it('sizes each segment by its count and never colors rejections red', () => {
     const { container } = render(
       <OutcomesBar
         outcomes={[
@@ -29,8 +29,29 @@ describe('OutcomesBar', () => {
       />,
     );
     const segments = container.querySelectorAll<HTMLElement>('[aria-hidden="true"] > div');
-    expect([...segments].map((s) => s.style.width)).toEqual(['25%', '75%']);
+    expect([...segments].map((s) => s.style.flexGrow)).toEqual(['1', '3']);
     expect(container.innerHTML).not.toMatch(/red|rose/);
+  });
+
+  it('gives every status its own color, so segments match the legend', () => {
+    const statuses = [
+      'saved',
+      'applied',
+      'screening',
+      'interviewing',
+      'offer',
+      'accepted',
+      'rejected',
+      'withdrawn',
+      'ghosted',
+    ] as const;
+    const { container } = render(
+      <OutcomesBar outcomes={statuses.map((status) => ({ status, count: 1 }))} />,
+    );
+    const colors = [...container.querySelectorAll<HTMLElement>('[aria-hidden="true"] > div')].map(
+      (segment) => [...segment.classList].find((c) => c.startsWith('bg-')),
+    );
+    expect(new Set(colors).size).toBe(statuses.length);
   });
 
   it('shows nothing with no applications', () => {
@@ -50,7 +71,7 @@ const days: Activity = {
 
 describe('ActivityChart', () => {
   it('sums up the chart in text and gives screen readers the data as a table', () => {
-    render(<ActivityChart activity={days} />);
+    render(<ActivityChart activity={days} total={4} />);
     const section = screen.getByRole('region', { name: 'Applications per day' });
     expect(section).toHaveTextContent(
       '4 applications in this range. The busiest day was Oct 12, 2026, with 3.',
@@ -65,23 +86,67 @@ describe('ActivityChart', () => {
     expect(table).toHaveClass('sr-only');
   });
 
-  it('draws a bar per bucket, the busiest one full height', () => {
-    const { container } = render(<ActivityChart activity={days} />);
+  it('draws a bar per busy bucket, the busiest one full height', () => {
+    const { container } = render(<ActivityChart activity={days} total={4} />);
     const bars = [...container.querySelectorAll('rect')];
-    expect(bars).toHaveLength(3);
+    expect(bars).toHaveLength(2); // no bar for an empty day
     const heights = bars.map((bar) => Number(bar.getAttribute('height')));
-    expect(heights[0]).toBe(0);
-    expect(heights[1]).toBeGreaterThan(heights[2]!);
-    expect(heights[2]).toBeCloseTo(heights[1]! / 3);
+    expect(heights[1]).toBeCloseTo(heights[0]! / 3);
     // The drawing is decorative: the text and the table carry the numbers.
     expect(container.querySelector('svg')!.closest('[aria-hidden="true"]')).not.toBeNull();
     expect(screen.getByText('Oct 11')).toBeInTheDocument();
     expect(screen.getByText('Oct 13')).toBeInTheDocument();
   });
 
+  it('shows the year on the axis when the range crosses one', () => {
+    render(
+      <ActivityChart
+        total={1}
+        activity={{
+          unit: 'day',
+          buckets: [
+            { from: '2026-12-31', to: '2026-12-31', count: 1 },
+            { from: '2027-01-01', to: '2027-01-01', count: 0 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText('Dec 31, 2026', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('Jan 1, 2027', { selector: 'span' })).toBeInTheDocument();
+  });
+
+  it('names months and years', () => {
+    const { unmount } = render(
+      <ActivityChart
+        total={3}
+        activity={{
+          unit: 'month',
+          buckets: [
+            { from: '2025-09-15', to: '2025-09-30', count: 1 },
+            { from: '2025-10-01', to: '2025-10-31', count: 2 },
+          ],
+        }}
+      />,
+    );
+    const section = screen.getByRole('region', { name: 'Applications per month' });
+    expect(section).toHaveTextContent('The busiest month was Oct 2025, with 2.');
+    expect(within(section).getByRole('rowheader', { name: 'Sep 2025' })).toBeTruthy();
+    unmount();
+    render(
+      <ActivityChart
+        total={1}
+        activity={{ unit: 'year', buckets: [{ from: '2020-03-01', to: '2020-12-31', count: 1 }] }}
+      />,
+    );
+    expect(screen.getByRole('region', { name: 'Applications per year' })).toHaveTextContent(
+      'The busiest year was 2020, with 1.',
+    );
+  });
+
   it('names weeks by their first day', () => {
     render(
       <ActivityChart
+        total={7}
         activity={{
           unit: 'week',
           buckets: [
@@ -97,14 +162,9 @@ describe('ActivityChart', () => {
   });
 
   it('says so when the range is empty, with no bars drawn', () => {
-    const { container } = render(
-      <ActivityChart
-        activity={{ unit: 'day', buckets: days.buckets.map((b) => ({ ...b, count: 0 })) }}
-      />,
-    );
+    const empty = { unit: 'day' as const, buckets: days.buckets.map((b) => ({ ...b, count: 0 })) };
+    const { container } = render(<ActivityChart activity={empty} total={0} />);
     expect(screen.getByText('No applications in this range yet.')).toBeInTheDocument();
-    expect(
-      [...container.querySelectorAll('rect')].every((r) => r.getAttribute('height') === '0'),
-    ).toBe(true);
+    expect(container.querySelectorAll('rect')).toHaveLength(0);
   });
 });

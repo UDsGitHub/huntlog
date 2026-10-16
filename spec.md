@@ -135,7 +135,7 @@ This is a side-panel tab.
   - Both rates count a stage reached at any time, even after the range ends, so a recent range isn't stuck at 0%. Ghosted and Withdrawn aren't responses. With nothing applied in the range, a rate shows "—" rather than 0%, and each rate shows its counts ("4 of 12").
   - A job without a Date applied (the user pressed Skip) isn't counted in Applied or the rates, but its interviews and offers still count.
 - **Outcomes breakdown:** a stacked bar of how applications in the range currently stand, with Rejected as one segment. It is labeled neutrally ("Closed – not selected") and never shown as a headline number.
-- **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, longer ones per week, with weeks starting on the user's first day of the week.
+- **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, up to 53 weeks per week (weeks start on the user's first day of the week), up to 5 years per month, and longer ones per year, so a long Custom or All time range still has bars wide enough to see.
 - **Weekly goal (optional):** the user sets N per week in Settings. A progress ring shows this week's count against N. Weeks start on the locale's first day of the week, which can be overridden in Settings.
 - **Tone:** copy stays factual and encouraging. Rejections are never highlighted in red.
 

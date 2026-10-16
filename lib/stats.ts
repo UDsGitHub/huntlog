@@ -207,7 +207,7 @@ export interface ActivityBucket {
 }
 
 export interface Activity {
-  unit: 'day' | 'week';
+  unit: 'day' | 'week' | 'month' | 'year';
   buckets: ActivityBucket[];
 }
 
@@ -228,31 +228,69 @@ export interface Stats {
   activity: Activity;
 }
 
-/** Ranges up to this many days chart per day; longer ones per week (spec §4.7). */
+/**
+ * The chart's unit (spec §4.7): per day up to 31 days, per week up to a year (53 weeks), then
+ * per month up to 5 years, then per year. Each step keeps the bars few enough to see at
+ * panel width, however long a Custom or All time range is.
+ */
 export const MAX_DAILY_DAYS = 31;
+export const MAX_WEEKLY_DAYS = 53 * 7;
+export const MAX_MONTHLY_MONTHS = 60;
 
-/** Applications per day or per week across the range, by Date applied. */
+export type ActivityUnit = Activity['unit'];
+
+const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
+const monthStart = (index: number) =>
+  `${String(Math.floor(index / 12)).padStart(4, '0')}-${String((index % 12) + 1).padStart(2, '0')}-01`;
+
+function activityUnit(range: DateRange): ActivityUnit {
+  const days = daysBetween(range.from, range.to);
+  if (days <= MAX_DAILY_DAYS) return 'day';
+  if (days <= MAX_WEEKLY_DAYS) return 'week';
+  return monthIndex(range.to) - monthIndex(range.from) + 1 <= MAX_MONTHLY_MONTHS ? 'month' : 'year';
+}
+
+/** Applications per day, week, month or year across the range, by Date applied. */
 export function activity(
   apps: readonly Application[],
   range: DateRange,
   weekStartsOn: WeekStart,
 ): Activity {
-  const unit = daysBetween(range.from, range.to) <= MAX_DAILY_DAYS ? 'day' : 'week';
-  const step = unit === 'day' ? 1 : 7;
-  const first = unit === 'day' ? range.from : startOfWeek(range.from, weekStartsOn);
-  const buckets: ActivityBucket[] = [];
-  for (let start = first; start <= range.to; start = addDays(start, step)) {
-    const last = addDays(start, step - 1);
-    buckets.push({
+  const unit = activityUnit(range);
+  // Bucket starts, unclamped: whole days, weeks, months or years from the one holding `from`.
+  const starts: string[] = [];
+  if (unit === 'day' || unit === 'week') {
+    const step = unit === 'day' ? 1 : 7;
+    const first = unit === 'day' ? range.from : startOfWeek(range.from, weekStartsOn);
+    for (let start = first; start <= range.to; start = addDays(start, step)) starts.push(start);
+  } else {
+    const months = unit === 'month' ? 1 : 12;
+    let index = unit === 'month' ? monthIndex(range.from) : Number(range.from.slice(0, 4)) * 12;
+    for (; monthStart(index) <= range.to; index += months) starts.push(monthStart(index));
+  }
+  const buckets: ActivityBucket[] = starts.map((start, i) => {
+    const last = i + 1 < starts.length ? addDays(starts[i + 1]!, -1) : range.to;
+    return {
       from: start < range.from ? range.from : start,
       to: last > range.to ? range.to : last,
       count: 0,
-    });
-  }
+    };
+  });
+  const indexOf = (date: string): number => {
+    switch (unit) {
+      case 'day':
+        return daysBetween(starts[0]!, date) - 1;
+      case 'week':
+        return Math.floor((daysBetween(starts[0]!, date) - 1) / 7);
+      case 'month':
+        return monthIndex(date) - monthIndex(starts[0]!);
+      case 'year':
+        return Number(date.slice(0, 4)) - Number(starts[0]!.slice(0, 4));
+    }
+  };
   for (const app of apps) {
-    if (!inRange(app.appliedAt, range)) continue;
-    // Buckets are contiguous and all `step` days long from `first`, so index directly.
-    buckets[Math.floor((daysBetween(first, app.appliedAt!) - 1) / step)]!.count++;
+    // Buckets are contiguous from the first start, so index directly.
+    if (inRange(app.appliedAt, range)) buckets[indexOf(app.appliedAt!)]!.count++;
   }
   return { unit, buckets };
 }
