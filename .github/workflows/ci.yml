@@ -8,9 +8,13 @@ on:
 permissions:
   contents: read
 
+# A newer push to a PR branch makes its older run pointless, so cancel that. Never cancel runs on
+# main: each one checks a commit that may be released (a cancelled run blocked tagging v0.3.0).
+# Each main commit gets its own group, since even without cancel-in-progress GitHub cancels an
+# older *pending* run in the same group.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
