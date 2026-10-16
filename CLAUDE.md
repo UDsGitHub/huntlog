@@ -31,7 +31,7 @@ Gotchas:
 **Capture flow spans three pieces:**
 1. `entrypoints/background.ts` handles the context-menu click or the keyboard command. That user gesture grants `activeTab`.
 2. The background script (`handleCapture`) first calls `chrome.sidePanel.open({ windowId })` synchronously inside the gesture handler, before any `await`, or Chrome rejects it. Then it runs `lib/extract.ts` in the tab via `chrome.scripting.executeScript({ func })` and writes the result through `lib/captureDraft.ts` to `chrome.storage.session` under `captureDraft:<windowId>`. On a restricted page it falls back to the tab URL only. If two captures in one window overlap, only the newest one writes its draft.
-3. The side panel (`components/useCaptureDraft.ts`) reads and clears its own window's draft, both on load and on `storage.session` change (the panel can open before the draft exists), and ignores drafts older than 5 minutes. `App` remounts the Add form keyed by capture, so each capture replaces the form's contents and shows the "Auto-filled, please check" hints.
+3. The side panel (`components/useCaptureDraft.ts`) reads and clears its own window's draft, both on load and on `storage.session` change (the panel can open before the draft exists), and ignores drafts older than 5 minutes. A capture switches `App` to the Add view and remounts the form keyed by capture, so each capture replaces the form's contents and shows the "Auto-filled, please check" hints. Saving or cancelling marks the capture consumed, so it never prefills a later manual Add.
 
 Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside the side panel do **not** grant `activeTab`, so the panel can't read the current tab itself.
 
@@ -46,6 +46,8 @@ Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside
 - A resume referenced by any application is archived, never hard-deleted. Applications also store `resumeNameSnapshot`.
 
 **`lib/stats.ts` is pure.** It takes applications, a range and `weekStartsOn`, and returns numbers, which keeps it unit-testable. Rejections appear only inside the neutral outcomes breakdown ("Closed – not selected"), never as a headline stat or in red.
+
+**Side-panel views:** `App` switches between views with plain component state (no router): the list (with "+ Add application") and the Add form. Closing a view returns focus to the list (spec §10). Field validation and normalization live in `lib/applicationInput.ts`; `lib/applications.ts` re-validates on write.
 
 **UI constraint:** every screen lives in a ~320–400px side panel. Design for that width; changing status is a one-tap chip with Undo, not a Kanban board.
 
