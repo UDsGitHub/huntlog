@@ -67,11 +67,11 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - **Tests:** range boundaries, week start, the "first entered" rule, and an empty dataset.
 
 ## M6 — Settings & weekly goal
-**Slice:** Set a weekly goal of 10 → the Stats tab shows the goal progress ring at 3/10. Switch to dark mode.
+**Slice:** Set a weekly goal of 10 → the Stats tab shows the goal progress ring at 3 of 10. Switch to dark mode.
 
 - A Settings tab using `chrome.storage.local`: weekly goal, first day of the week (feeds into `stats.ts`), and theme (System / Light / Dark).
 - **Delete all data** (applications and resumes, typed confirmation; settings stay) and **Reset settings** (with an "Also delete all my data" checkbox that brings back the typed confirmation) (§4.8).
-- A placeholder link to the privacy policy (a bundled page; M9 writes the final text).
+- A placeholder link to the privacy policy (a bundled page; M9 writes the final text), and a bundled third-party notices page with the Geist (OFL) and Lucide (ISC) licenses.
 - **UI redesign** (owner's screen-by-screen review, 2026-10-16; the decisions are in spec §3, §4 and §9):
   - **Foundation:** the shadcn look, hand-built with nothing installed (no shadcn, Radix or helper packages, for bundle size). Design tokens on `:root` using shadcn's names, with a zinc neutral primary, light and dark sets, Geist bundled locally, and Lucide icons copied into one file. Shared button, field, badge and chip styles replace the class strings repeated per component. Buttons get the pointer cursor back (Tailwind v4 dropped it).
   - **Shared pieces:** one bottom **Sheet** (a native `<dialog>`), animated toasts, and a floating action button. Every animation is instant under reduced motion.

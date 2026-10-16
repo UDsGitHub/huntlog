@@ -52,9 +52,11 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 **Look and shared patterns** (decided in the M6 UI review):
 - The look follows shadcn/ui: zinc neutrals with a near-black primary (near-white in dark), subtle borders and rounded cards. It's built by hand; no UI library is installed, to keep the panel small.
-- **Sheets:** focused tasks (Add/Edit, changing a status, filters, uploads, renames and confirmations) open in a bottom sheet that slides up over the current screen. Escape or the sheet's back/close button closes it; a sheet holding unsaved typing asks before discarding it.
+- **Sheets:** focused tasks (Add/Edit, changing a status, filters, uploads, renames and confirmations) open in a bottom sheet that slides up over the current screen. Escape or the sheet's back/close button closes it.
+  - **Sheets without typing** (status, filters, menus) also close on a click outside them.
+  - **Sheets that hold typing** (Add/Edit, upload, rename, typed confirmations) don't close on an outside click, and leaving one with unsaved changes asks before discarding them. A capture is the exception (§4.1).
 - **Floating button:** the Applications and Resumes tabs have a floating action button at the bottom right (**+ Add**, **+ Upload**). Toasts sit above it.
-- Toasts slide in and out.
+- **Toasts** slide in and out. While a sheet is open, a toast shows inside it, at its bottom above its content, so it stays visible and usable; a sheet makes the rest of the panel inert.
 
 ## 4. Core flows
 
@@ -64,7 +66,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 1. On a job posting, the user right-clicks and chooses **"Add job to Job Log"**, or presses the shortcut.
 2. That gesture grants `activeTab`. The background service worker first calls `chrome.sidePanel.open` for the tab's window, synchronously inside the gesture handler (before any `await`), then runs a one-off extractor in the tab with `chrome.scripting.executeScript`.
-3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the Add form. While an existing application is being edited, the capture waits instead (a toast says so) and opens once the edit is saved or cancelled, so unsaved edits are never discarded.
+3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the Add form without asking, since the capture itself is the user's explicit request. While an existing application is being edited, the capture waits instead (a toast says so) and opens once the edit closes: saved, or left with Back or Escape (after confirming any discard). If the user cancels the discard prompt, Edit stays open and the capture keeps waiting, so unsaved edits are never discarded.
 4. The side panel shows the Add form prefilled with the draft. Prefilled fields get a subtle "auto-filled, please check" hint.
 5. The user reviews the fields, picks a resume, and saves. If a duplicate is detected, a warning appears (§4.5).
 
@@ -103,7 +105,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 ### 4.4 Browse & find
 
 - **Search** sits above the list, with a filter button beside it. It matches company, title, location, and notes, ignoring case and accents; every word typed must appear (in any of those fields). Characters such as `C++` or `.NET` match literally.
-- **The filter button** opens a sheet with sort, a date range and status filters. Changes apply as they're made; the sheet has Reset and Done. While any filter is active, the button shows how many, and the list shows "Showing N of M" with a way to clear them.
+- **The filter button** opens a sheet with sort, a date range and status filters. Changes apply as they're made; the sheet has Reset and Done. The button shows a count of active filters: one for a date range other than Any time, plus one for a status filter (whatever chips are on). Sort is never counted. Whenever search or filters hide rows, the list shows "Showing N of M" with a way to clear them.
   - **Sort:** last activity (default, newest first), date applied, or company.
   - **Date applied:** Any time (default), This week, This month, Last 30 days, or Custom, with the same boundaries as the Stats ranges (§4.7). A job without a Date applied is hidden while a date range is set.
   - **Status:** a wrapping list of chips, one per status, any number of which can be on. **Active** (Saved, Applied, Screening, Interviewing, Offer) and **Closed** (Accepted, Rejected, Withdrawn, Ghosted) chips turn on their whole group. With no status chip on, every status shows.
@@ -174,13 +176,13 @@ A Settings tab of grouped cards. Changes save as they're made and apply in every
   - Export / Import (§6).
   - **Delete all data:** permanently deletes every application and resume (with its file), and the remembered form defaults. Settings stay. The user must type `DELETE` before the button works.
   - **Reset settings:** puts the weekly goal, first day of the week and theme back to their defaults, after a confirmation. It has an "Also delete all my data" checkbox, off by default. Ticking it adds the same typed `DELETE` confirmation and changes the button to "Reset and delete everything". Unticking clears what was typed.
-- **About:** a link to the privacy policy (a page bundled with the extension), and the version.
+- **About:** a link to the privacy policy (a page bundled with the extension), a link to the third-party notices (font and icon licenses), and the version.
 
 
 
 ## 5. Data model
 
-All records use UUIDv4 IDs and `createdAt` / `updatedAt` timestamps (ISO 8601 UTC), and deletes are soft (`deletedAt`). This keeps the data ready for sync later. The one exception is **Delete all data** (§4.8), which removes everything permanently: it is a privacy promise, and no sync exists to need tombstones. Deleting an application takes effect immediately and shows an Undo toast for about 5 seconds; Undo clears `deletedAt` and moves `updatedAt` forward, so with last-write-wins sync the restore is the newest change.
+All records use UUIDv4 IDs and `createdAt` / `updatedAt` timestamps (ISO 8601 UTC), and deletes are soft (`deletedAt`). This keeps the data ready for sync later. The one exception is **Delete all data** (§4.8), which permanently removes every application and resume (settings stay): it is a privacy promise, and no sync exists to need tombstones. Deleting an application takes effect immediately and shows an Undo toast for about 5 seconds; Undo clears `deletedAt` and moves `updatedAt` forward, so with last-write-wins sync the restore is the newest change.
 
 ```ts
 type Status =
@@ -303,9 +305,9 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 - **WXT** (Manifest V3 framework): dev server with hot reload, cross-entry bundling, and `wxt zip` for store uploads.
 - **React 18 + TypeScript (strict).**
 - **Dexie** for IndexedDB, with `dexie-react-hooks` for live queries.
-- **Tailwind CSS v4**, with design tokens as CSS variables on `:root` (shadcn's names: `--background`, `--foreground`, `--muted`, `--primary`, `--border`, `--ring`, `--destructive`, …). The dark set applies under `[data-theme=dark]`, and under `prefers-color-scheme: dark` unless `[data-theme=light]` is set. `light-dark()` isn't used because it needs Chrome 123. The stored theme is mirrored to `localStorage` so pages set it before their first paint.
+- **Tailwind CSS v4**, with design tokens as CSS variables on `:root` (shadcn's names: `--background`, `--foreground`, `--muted`, `--primary`, `--border`, `--ring`, `--destructive`, …). The dark set applies under `[data-theme=dark]`, and under `prefers-color-scheme: dark` unless `[data-theme=light]` is set. `light-dark()` isn't used because it needs Chrome 123. To avoid a flash of the wrong theme, the stored theme is mirrored to `localStorage`, and each extension page sets it before its first paint from a small separate script file loaded in `<head>`, since MV3's CSP forbids inline scripts. Every page refreshes the mirror whenever the setting changes, including a Reset or a change from another window.
 - **Look:** shadcn/ui's visual style, built by hand. No shadcn, Radix, `class-variance-authority`, `tailwind-merge`, `clsx` or `lucide-react` is installed, to keep the bundle small. A widget that's hard to make accessible by hand may justify adding a single Radix primitive, not the kit.
-- **Font:** Geist, one variable `woff2` (Latin subset), bundled locally. **Icons:** Lucide SVGs (ISC license) copied into one local file.
+- **Font:** Geist, one variable `woff2` (Latin subset), bundled locally. **Icons:** Lucide SVGs (ISC license) copied into one local file. Their licenses (Geist: SIL OFL 1.1; Lucide: ISC) ship in a bundled third-party notices page, linked from Settings → About.
 - **Charts:** hand-written SVG and CSS, no chart library. Decided in M5 after measuring: one Recharts 3 bar chart adds about 320 KB minified (97 KB gzipped), more than the whole side panel (about 200 KB), for two simple charts.
 - **Testing:** Vitest + React Testing Library for unit and component tests, `fake-indexeddb` for database tests, and Playwright with a persistent context loading the unpacked extension for end-to-end tests.
 - **Lint/format:** ESLint + Prettier.
