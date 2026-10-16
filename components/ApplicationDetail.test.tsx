@@ -54,7 +54,7 @@ describe('Detail view', () => {
     );
     expect(terms).toMatchObject({
       Status: 'Applied',
-      'Date applied': '2026-10-01',
+      'Date applied': 'Oct 1, 2026',
       Location: 'Berlin',
       'Work mode': 'Hybrid',
       Salary: '€85,000–€95,000 per year',

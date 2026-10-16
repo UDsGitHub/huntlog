@@ -76,7 +76,7 @@ describe('Status timeline', () => {
       expect((await db.applications.get(app.id))?.appliedAt).toBe('2026-01-05'),
     );
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Acme' })).toHaveTextContent('2026-01-05'),
+      expect(screen.getByRole('region', { name: 'Acme' })).toHaveTextContent('Jan 5, 2026'),
     );
   });
 

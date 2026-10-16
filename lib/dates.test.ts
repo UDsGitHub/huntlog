@@ -1,4 +1,4 @@
-import { todayLocal } from './dates';
+import { formatLocalDate, formatTimestampDate, todayLocal } from './dates';
 
 describe('todayLocal', () => {
   const originalTz = process.env.TZ;
@@ -21,5 +21,59 @@ describe('todayLocal', () => {
     process.env.TZ = 'Asia/Tokyo';
     // 00:30 in Tokyo on Oct 16 is still Oct 15 in UTC.
     expect(todayLocal(new Date('2026-10-15T15:30:00Z'))).toBe('2026-10-16');
+  });
+});
+
+describe('formatLocalDate', () => {
+  it.each([
+    ['2026-10-01', 'en-US', 'Oct 1, 2026'],
+    ['2026-10-01', 'en-GB', '1 Oct 2026'],
+    ['2026-01-31', 'de-DE', '31.01.2026'],
+  ])('%s in %s → %s', (value, locale, expected) => {
+    expect(formatLocalDate(value, locale)).toBe(expected);
+  });
+
+  it.each([['America/Chicago'], ['Pacific/Auckland'], ['UTC']])(
+    'never shifts the day in %s',
+    (tz) => {
+      // A UTC parse of "2026-10-01" shows Sep 30 west of UTC; local parts don't.
+      const original = process.env.TZ;
+      process.env.TZ = tz;
+      try {
+        expect(formatLocalDate('2026-10-01', 'en-US')).toBe('Oct 1, 2026');
+      } finally {
+        process.env.TZ = original;
+      }
+    },
+  );
+
+  it.each([['not a date'], ['2026-02-30'], ['']])('shows %j as stored', (value) => {
+    expect(formatLocalDate(value, 'en-US')).toBe(value);
+  });
+});
+
+it('keeps formatting the right day after the time zone changes (cached formatters)', () => {
+  const original = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'Pacific/Auckland', 'America/Chicago', 'Asia/Kolkata']) {
+      process.env.TZ = tz;
+      expect(formatLocalDate('2026-10-01', 'en-US')).toBe('Oct 1, 2026');
+      expect(formatTimestampDate(new Date(2026, 9, 1, 23, 30).toISOString(), 'en-US')).toBe(
+        'Oct 1, 2026',
+      );
+    }
+  } finally {
+    process.env.TZ = original;
+  }
+});
+
+describe('formatTimestampDate', () => {
+  it('formats the local calendar date of a timestamp', () => {
+    const local = new Date(2026, 9, 1, 23, 30).toISOString();
+    expect(formatTimestampDate(local, 'en-US')).toBe('Oct 1, 2026');
+  });
+
+  it('shows an unreadable timestamp as stored', () => {
+    expect(formatTimestampDate('garbage', 'en-US')).toBe('garbage');
   });
 });

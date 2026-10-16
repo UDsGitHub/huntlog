@@ -268,6 +268,23 @@ describe('Add view', () => {
 });
 
 describe('Application list', () => {
+  it('shows the date applied in the locale format and a link icon, not the full URL', async () => {
+    await applications.addApplication({
+      url: 'https://boards.greenhouse.io/acme/jobs/123?gh_jid=123',
+      company: 'Acme',
+      appliedAt: '2026-10-01',
+    });
+    render(<App />);
+    const list = await screen.findByRole('list', { name: 'Applications' });
+    expect(list).toHaveTextContent('Applied Oct 1, 2026');
+    expect(list).not.toHaveTextContent('greenhouse');
+    const link = within(list).getByRole('link', { name: 'Open job posting for Acme' });
+    expect(link).toHaveAttribute('href', 'https://boards.greenhouse.io/acme/jobs/123?gh_jid=123');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noreferrer');
+    expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('shows a message instead of a blank panel when the list query fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(applications, 'listApplications').mockRejectedValue(new Error('DB blocked'));
@@ -287,9 +304,14 @@ describe('Application list', () => {
       createdAt: '2026-10-15T00:00:00.000Z',
       updatedAt: '2026-10-15T00:00:00.000Z',
     });
+    const user = userEvent.setup();
     render(<App />);
     const list = await screen.findByRole('list', { name: 'Applications' });
-    expect(list).toHaveTextContent('javascript:alert(1)');
+    // No posting link in the row; the detail view shows the stored text, not a link.
     expect(within(list).queryByRole('link')).toBeNull();
+    await user.click(within(list).getByRole('button', { name: /^Imported/ }));
+    const detail = await screen.findByRole('region', { name: 'Imported' });
+    expect(detail).toHaveTextContent('javascript:alert(1)');
+    expect(within(detail).queryByRole('link')).toBeNull();
   });
 });

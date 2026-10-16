@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { listApplications, safeHref } from '@/lib/applications';
+import { formatLocalDate } from '@/lib/dates';
 import { DEFAULT_QUERY, queryApplications, rankOf, type ListQuery } from '@/lib/listQuery';
 import type { Application } from '@/lib/types';
 import { ListControls } from './ListControls';
@@ -132,24 +133,76 @@ export function ApplicationList({
                 </button>
                 <StatusChip application={app} onPick={(pick) => onStatusPick(app, pick)} />
               </div>
-              {safeHref(app.url) ? (
-                <a
-                  href={safeHref(app.url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs break-all text-indigo-700 underline"
-                >
-                  {app.url}
-                </a>
-              ) : (
-                <span className="text-xs break-all text-slate-600">{app.url}</span>
-              )}
-              {app.appliedAt && (
-                <span className="text-xs text-slate-600">Applied {app.appliedAt}</span>
-              )}
+              <RowMeta
+                company={app.company}
+                title={app.title}
+                url={app.url}
+                appliedAt={app.appliedAt}
+              />
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 2.5h4.5V7M13.5 2.5 7 9M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" />
+    </svg>
+  );
+}
+
+/**
+ * Date applied and a small icon link to the posting, not the full URL, which would wrap over
+ * several lines at 320px. A URL that isn't a web link (e.g. imported) shows as one truncated line.
+ */
+function RowMeta({
+  company,
+  title,
+  url,
+  appliedAt,
+}: {
+  company: string;
+  title?: string;
+  url: string;
+  appliedAt?: string;
+}) {
+  const href = safeHref(url);
+  if (!appliedAt && !href && !url) return null;
+  // Unique when several roles share a company.
+  const label = `Open job posting for ${company}${title ? `: ${title}` : ''}`;
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
+      {appliedAt && <span className="shrink-0">Applied {formatLocalDate(appliedAt)}</span>}
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={label}
+          title={label}
+          // 24px target (WCAG 2.5.8), next to other controls in a narrow panel.
+          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded text-indigo-700 hover:bg-slate-100 focus:outline-2 focus:outline-indigo-600"
+        >
+          <ExternalLinkIcon />
+        </a>
+      ) : (
+        <span className="min-w-0 truncate" title={url}>
+          {url}
+        </span>
       )}
     </div>
   );

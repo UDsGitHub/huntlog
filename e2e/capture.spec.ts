@@ -71,7 +71,10 @@ test('a captured page prefills the form, and saving lists it with its title', as
   const list = panel.getByRole('list', { name: 'Applications' });
   await expect(list).toContainText('Acme');
   await expect(list).toContainText('Senior Engineer at Acme');
-  await expect(list).toContainText(JOB_URL);
+  await expect(list.getByRole('link', { name: 'Open job posting for Acme' })).toHaveAttribute(
+    'href',
+    JOB_URL,
+  );
   await expect(panel.getByText(HINT)).toHaveCount(0);
 });
 
