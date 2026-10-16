@@ -54,6 +54,8 @@ Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside
 
 **List (spec §4.4):** `lib/listQuery.ts` filters, searches (accent- and case-insensitive, every word) and sorts, pure. The query lives in `App` so it survives navigation. `ApplicationList` freezes row order and membership per query while it's mounted (`frozen`: ranks plus the ids shown, refreshed when the query changes or on remount), so a status change can't move or hide a row from under the pointer. `listApplications` alone filters soft-deleted rows; `queryApplications` takes its output.
 
+**Showing dates:** stored dates stay `YYYY-MM-DD` (local) or ISO timestamps; display them with `formatLocalDate` / `formatTimestampDate` (`lib/dates.ts`), never raw and never via `new Date('YYYY-MM-DD')`, which parses as UTC and can show the previous day.
+
 **UI constraint:** every screen lives in a ~320–400px side panel. Design for that width; changing status is a one-tap chip with Undo, not a Kanban board.
 
 ## Definition of done
