@@ -88,9 +88,9 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 ### 4.5 Duplicate warning
 
-On save, the extension checks for an existing application with the same **normalized URL**, or the same **company + title** (case- and whitespace-insensitive). If one exists, a non-blocking warning offers "View existing" or "Save anyway".
+On save, the extension checks for an existing application with the same **normalized URL**, or the same **company + title** (case-, whitespace- and Unicode-form-insensitive). The company + title check runs only when a title is present; matching on company alone would flag every second role at the same employer. Soft-deleted applications and the record being edited never count. If one exists, a non-blocking warning offers "View existing" or "Save anyway".
 
-URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `trackingId`, `gh_src`, fragments, and trailing slashes, and keeps the query parameters that identify the job (for example `currentJobId`, `jk`, `gh_jid`).
+URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `trackingId`, `gh_src` (matched case-insensitively), fragments, and trailing slashes, and keeps the query parameters that identify the job (for example `currentJobId`, `jk`, `gh_jid`). It also treats `http` and `https` as the same, drops default ports, and sorts the remaining parameters so their order doesn't matter. Unknown parameters are kept, since they may identify the job. Known limitation: a LinkedIn search URL keeps its `keywords`, so the same `currentJobId` reached from two searches doesn't match by URL; it can still match by company + title.
 
 ### 4.6 Resume library
 
@@ -145,6 +145,7 @@ interface Application {
   id: string;
   url: string;                 // required
   urlNormalized: string;       // for duplicate detection (indexed)
+  companyTitleKey?: string;    // normalized company + title (indexed); absent without a title
   company: string;             // required
   title?: string;              // optional
   resumeId?: string;           // FK → Resume
@@ -189,7 +190,7 @@ interface Settings {
 
 ## 6. Storage, export & import
 
-- **IndexedDB via Dexie** holds Applications and Resumes. Indexes cover `urlNormalized`, `status`, `appliedAt`, `updatedAt`, and `[company+title]`.
+- **IndexedDB via Dexie** holds Applications and Resumes. Indexes cover `urlNormalized`, `status`, `appliedAt`, `updatedAt`, and `companyTitleKey`. `companyTitleKey` is a derived field (normalized company and title) rather than a `[company+title]` compound index, because a compound index can't match case- and whitespace-insensitively, and Dexie leaves rows without a title out of it.
 - `chrome.storage.local` holds Settings, and `chrome.storage.session` holds the transient capture draft.
 - The `unlimitedStorage` permission is requested because resume files add up.
 - **Migrations:** versioned Dexie schema (`schemaVersion`).
