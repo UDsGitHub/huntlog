@@ -232,6 +232,7 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 
 
 - **No host permissions, no** `tabs` **permission, no remote code, no network requests.**
+- **Minimum Chrome version: 116.** `chrome.sidePanel` arrived in 114 and `setPanelBehavior` in 116.
 - **Single purpose statement:** "Track the job applications you submit."
 - **Privacy policy:** required. It states that all data stays on the device, nothing is collected or transmitted, and no analytics are used.
 - **Store assets:** screenshots of the list, add form, stats, and resumes, plus a 440×280 promo tile.

@@ -4,17 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Job Log is a Manifest V3 Chrome extension for tracking job applications. The repo is **pre-implementation**: the only source of truth is `spec.md`. Read it before building any feature, and update it when a product decision changes. Build order is in `milestones.md` (thin end-to-end slices M0–M9); work one milestone at a time. No `package.json` exists yet, so the commands below are the planned ones for the chosen stack (WXT + React + TypeScript). Update this section once the project is scaffolded.
+Job Log is a Manifest V3 Chrome extension for tracking job applications, built with WXT + React 18 + TypeScript (strict) + Tailwind v4. `spec.md` is the source of truth: read it before building any feature, and update it when a product decision changes. Build order is in `milestones.md` (thin end-to-end slices M0–M9); work one milestone at a time.
 
-## Commands (planned, WXT + Vitest + Playwright)
+## Commands
 
-- `npm run dev`: WXT dev mode. It launches Chrome with the unpacked extension and hot reload.
+- `npm run dev`: WXT dev mode. It launches Chrome with the unpacked extension and hot reload. Dev builds add their own permissions; only the production manifest counts for spec §8.
 - `npm run build`: production build to `.output/chrome-mv3/`.
-- `npm run zip`: Chrome Web Store upload zip.
-- `npx vitest run`: all unit and component tests.
+- `npm run zip`: Chrome Web Store upload zip in `.output/`.
+- `npx vitest run`: all unit and component tests (`lib/`, `components/`, `tests/`).
 - `npx vitest run lib/stats.test.ts -t "week start"`: a single test file or test name.
-- `npx playwright test`: end-to-end tests, loading the built extension into a persistent Chromium context. Run `npm run build` first.
-- `npm run lint` / `npx tsc --noEmit`: ESLint and type check.
+- `npx playwright test`: end-to-end tests in `e2e/`, loading the built extension into a persistent Chromium context. Run `npm run build` first. `e2e/manifest.spec.ts` asserts the built manifest's permissions, so update it when a milestone adds one.
+- `npm run lint` / `npx tsc --noEmit` / `npx prettier --check .`: ESLint, type check and formatting. ESLint bans `fetch`, `XMLHttpRequest`, `WebSocket` and `EventSource` as bare globals and on `window`/`self`/`globalThis`, plus `navigator.sendBeacon`. It's a guardrail, not a proof: the PR review still checks for network creep.
+
+Gotchas:
+- Every file in `entrypoints/` is treated as an entrypoint, so tests for entrypoints go in `tests/`, not next to the file.
+- Use WXT's `browser` global (typed), not `chrome`. In Playwright `serviceWorker.evaluate` callbacks the global is `chrome`; declare it as `typeof browser`.
+- TypeScript is pinned to `~6.0` because typescript-eslint doesn't support TS 7 yet.
 
 ## Architecture (from spec.md §3–§9)
 
