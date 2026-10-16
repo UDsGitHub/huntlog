@@ -9,7 +9,6 @@ beforeEach(async () => {
   await db.open();
 });
 
-
 async function seed() {
   const add = (company: string, extra: Record<string, string> = {}, at = '2026-10-01T10:00:00Z') =>
     saveApplication(
