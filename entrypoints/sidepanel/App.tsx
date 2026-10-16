@@ -16,6 +16,7 @@ import {
 import { STATUS_LABELS } from '@/lib/status';
 import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
+import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
@@ -40,6 +41,7 @@ export default function App() {
   const [formSession, setFormSession] = useState(0);
   const [announcement, setAnnouncement] = useState({ text: '', count: 0 });
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
+  const [listQuery, setListQuery] = useState<ListQuery>(DEFAULT_QUERY);
   // A capture that arrived while an edit was open; it opens once the edit closes.
   const deferredCapture = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -276,6 +278,8 @@ export default function App() {
             }
           >
             <ApplicationList
+              query={listQuery}
+              onQueryChange={setListQuery}
               onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
               onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
               focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
