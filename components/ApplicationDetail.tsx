@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
 import { formatSalary } from '@/lib/format';
-import { STATUS_LABELS } from '@/lib/status';
+import { StatusChip, type StatusPick } from './StatusChip';
 import type { Application } from '@/lib/types';
 
 interface Props {
@@ -13,12 +13,20 @@ interface Props {
   onBack: () => void;
   onEdit: () => void;
   onDeleted: (application: Application) => void;
+  onStatusPick: (application: Application, pick: StatusPick) => void;
 }
 
 const button =
   'rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600';
 
-export function ApplicationDetail({ id, initialFocus, onBack, onEdit, onDeleted }: Props) {
+export function ApplicationDetail({
+  id,
+  initialFocus,
+  onBack,
+  onEdit,
+  onDeleted,
+  onStatusPick,
+}: Props) {
   // null: not found or soft-deleted (maybe in another window); undefined: still loading.
   const app = useLiveQuery(async () => (await getApplication(id)) ?? null, [id]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -92,7 +100,9 @@ export function ApplicationDetail({ id, initialFocus, onBack, onEdit, onDeleted 
       </div>
 
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
-        <Row label="Status">{STATUS_LABELS[app.status]}</Row>
+        <Row label="Status">
+          <StatusChip application={app} align="start" onPick={(pick) => onStatusPick(app, pick)} />
+        </Row>
         {app.appliedAt && <Row label="Date applied">{app.appliedAt}</Row>}
         {app.location && <Row label="Location">{app.location}</Row>}
         {app.workMode && <Row label="Work mode">{WORK_MODE_LABELS[app.workMode]}</Row>}

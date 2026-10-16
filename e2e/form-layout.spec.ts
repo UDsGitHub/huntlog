@@ -1,10 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
 // The service worker has the raw `chrome` global; borrow WXT's typings for it.
 declare const chrome: typeof browser;
-
-const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
 
 /** True when the element is fully inside the viewport, i.e. reachable without scrolling. */
 async function inViewport(page: Page, locator: Locator) {
@@ -41,11 +39,7 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   }));
   expect(scrollHeight).toBeGreaterThan(clientHeight);
   expect(await inViewport(page, save)).toBe(true);
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  await expectNoHorizontalScroll(page);
 
   await save.click();
   await page.getByRole('button', { name: /^Acme/ }).click();

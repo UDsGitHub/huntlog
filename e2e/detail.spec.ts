@@ -1,7 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, launchExtension, test } from './fixtures';
-
-const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
+import { expect, expectNoHorizontalScroll, launchExtension, panelUrl, test } from './fixtures';
 
 async function addJob(page: Page, fields: { url: string; company: string; notes?: string }) {
   await page.getByRole('button', { name: '+ Add application' }).click();
@@ -103,16 +101,9 @@ test('the detail view and toast fit a 320px panel', async ({ session }) => {
 
   await page.getByRole('button', { name: /^CompanyX/ }).click();
   await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
-  const noHorizontalScroll = async () => {
-    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }));
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
-  };
-  await noHorizontalScroll();
+  await expectNoHorizontalScroll(page);
 
   await page.getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
-  await noHorizontalScroll();
+  await expectNoHorizontalScroll(page);
 });

@@ -1,6 +1,4 @@
-import { expect, test } from './fixtures';
-
-const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
+import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
 // M2 slice: add, view, edit and delete an application with every v1 field (except the resume),
 // and get warned about duplicates.
@@ -88,9 +86,5 @@ test('the duplicate warning fits a 320px panel', async ({ session }) => {
     await page.getByRole('button', { name: 'Save' }).click();
   }
   await expect(page.getByRole('group', { name: 'You may have logged this already' })).toBeVisible();
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  await expectNoHorizontalScroll(page);
 });
