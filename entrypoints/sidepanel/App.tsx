@@ -5,7 +5,15 @@ import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
-import { getApplication, NotFoundError, restoreApplication } from '@/lib/applications';
+import {
+  getApplication,
+  NotFoundError,
+  restoreApplication,
+  setStatus,
+  undoStatusChange,
+} from '@/lib/applications';
+import { STATUS_LABELS } from '@/lib/status';
+import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
@@ -115,6 +123,38 @@ export default function App() {
     });
   }
 
+  /** One tap on the chip (spec §4.3): change, announce, and offer Undo for about 5 seconds. */
+  async function handleStatusPick(application: Application, pick: StatusPick) {
+    try {
+      const change = await setStatus(application.id, pick.status, { appliedAt: pick.appliedAt });
+      if (change.after === change.before) return;
+      // The toast is a live region itself; announcing too would read the message twice.
+      showToast({
+        message: `Moved ${application.company} to ${STATUS_LABELS[pick.status]}.`,
+        action: {
+          label: 'Undo',
+          onAction: () => {
+            undoStatusChange(change).then(
+              (undone) =>
+                announce(
+                  undone
+                    ? `${application.company} is back to ${STATUS_LABELS[change.before.status]}.`
+                    : `Couldn't undo: ${application.company} changed since.`,
+                ),
+              (error: unknown) => {
+                console.error('Undo status change failed', error);
+                announce("Couldn't undo the status change.");
+              },
+            );
+          },
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof NotFoundError)) console.error('setStatus failed', error);
+      announce(`Couldn't change the status of ${application.company}.`);
+    }
+  }
+
   function handleToastDismiss(reason: DismissReason) {
     dismissToast();
     // The toast's button had focus and is gone; put focus somewhere sensible. After Undo, the
@@ -146,6 +186,7 @@ export default function App() {
           onBack={() => toList({ kind: 'row', id: view.id })}
           onEdit={() => navigate({ name: 'edit', id: view.id })}
           onDeleted={(application) => handleDeleted(view, application)}
+          onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
         />
       ) : view.name === 'edit' ? (
         <EditView
@@ -221,6 +262,7 @@ export default function App() {
           >
             <ApplicationList
               onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
+              onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
               focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
               awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
               onRowFocused={clearFocusTarget}
