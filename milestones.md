@@ -40,12 +40,15 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 
 ## M3 — Status pipeline
 **Slice:** Tap a row's status chip → pick "Interviewing" → the list updates, the timeline records the date, and Undo reverts it.
+**Also:** Open + Add application → only the top fields show, with Save visible → open More details, enter a salary → save. Move a Saved job to Interviewing → asked for the date applied.
 
-- Fixed 9-value `Status` union, `statusHistory` (append-only), and the auto-set `appliedAt` rule (§5).
+- **Form layout first** (§4.2), so M3's Status field and M4's Resume field land in the final layout: top section, collapsed More details that opens on its own for errors, captured values and stored values, a sticky Save/Cancel bar, common currencies first, and remembered source and work mode for manual adds (`chrome.storage.local`).
+- Fixed 9-value `Status` union, `statusHistory` (append-only), and the `appliedAt` rules (§4.3, §5): Applied sets today, other statuses that imply an application ask (Set date / Skip), Withdrawn doesn't, a stored date is never overwritten, and Undo clears a date the change set.
+- A Status selector in the form (default Applied), so a job can be logged as Saved.
 - `StatusChip` + picker (keyboard and ARIA), with an Undo toast.
 - A timeline in the detail view whose dates can be edited.
 - List filters (All / Active / Closed / any single status), search, and sort (§4.4).
-- **Tests:** status transitions and history, undo, and filter/search logic.
+- **Tests:** status transitions and history, the `appliedAt` prompt (Set date, Skip, Withdrawn, existing date), undo, filter/search logic, More details auto-opening, the sticky bar at 320px, currency order, and remembered defaults applying to manual adds but not to captures or Edit.
 
 ## M4 — Resume library
 **Slice:** Upload "Backend v3.pdf" → pick it on an application → open it later from that application.
