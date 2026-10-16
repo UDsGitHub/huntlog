@@ -21,6 +21,9 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
 
   await page.getByRole('tab', { name: 'Resumes' }).focus();
   await page.keyboard.press('ArrowLeft');
+  await expect(page.getByRole('tab', { name: 'Stats' })).toBeFocused();
+  await expect(page.getByRole('tabpanel', { name: 'Stats' })).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
   await expect(page.getByRole('tab', { name: 'Applications' })).toBeFocused();
   await expect(page.getByRole('tab', { name: 'Applications' })).toHaveAttribute(
     'aria-selected',

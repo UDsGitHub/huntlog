@@ -4,6 +4,7 @@ import { ApplicationForm, readFailedMessage } from '@/components/ApplicationForm
 import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
+import { StatsPanel } from '@/components/StatsPanel';
 import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
 import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
@@ -23,10 +24,11 @@ import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
-type TabId = 'applications' | 'resumes';
+type TabId = 'applications' | 'stats' | 'resumes';
 const TAB_PREFIX = 'section';
 const TABS: Tab<TabId>[] = [
   { id: 'applications', label: 'Applications' },
+  { id: 'stats', label: 'Stats' },
   { id: 'resumes', label: 'Resumes' },
 ];
 
@@ -351,6 +353,24 @@ export default function App() {
             </ErrorBoundary>
           </section>
         )}
+      </div>
+      <div
+        role="tabpanel"
+        id={panelId(TAB_PREFIX, 'stats')}
+        aria-labelledby={tabId(TAB_PREFIX, 'stats')}
+        tabIndex={0}
+        hidden={inForm || tab !== 'stats'}
+        className="focus:outline-2 focus:outline-indigo-600"
+      >
+        <ErrorBoundary
+          fallback={
+            <p role="alert" className="text-sm text-slate-700">
+              Couldn't load your stats. Close and reopen the side panel to try again.
+            </p>
+          }
+        >
+          <StatsPanel />
+        </ErrorBoundary>
       </div>
       {/* Mounted while hidden, like Applications, so the tab keeps its state. Focusable itself:
           until it has controls, Tab from the tab bar must still reach its content. */}

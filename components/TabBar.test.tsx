@@ -17,7 +17,7 @@ afterEach(() => vi.restoreAllMocks());
 const tab = (name: string) => screen.getByRole('tab', { name });
 
 describe('Tab bar', () => {
-  it('shows Applications and Resumes, Applications selected, wired to its panel', async () => {
+  it('shows Applications, Stats and Resumes, Applications selected, wired to its panel', async () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     const tablist = screen.getByRole('tablist', { name: 'Job Log sections' });
@@ -25,7 +25,7 @@ describe('Tab bar', () => {
       within(tablist)
         .getAllByRole('tab')
         .map((t) => t.textContent),
-    ).toEqual(['Applications', 'Resumes']);
+    ).toEqual(['Applications', 'Stats', 'Resumes']);
     expect(tab('Applications')).toHaveAttribute('aria-selected', 'true');
     expect(tab('Resumes')).toHaveAttribute('aria-selected', 'false');
     const panel = screen.getByRole('tabpanel', { name: 'Applications' });
@@ -51,8 +51,10 @@ describe('Tab bar', () => {
     await screen.findByText(/No applications yet/);
     act(() => tab('Applications').focus());
     await user.keyboard('{ArrowRight}');
+    expect(tab('Stats')).toHaveFocus();
+    expect(tab('Stats')).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{ArrowRight}');
     expect(tab('Resumes')).toHaveFocus();
-    expect(tab('Resumes')).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{ArrowRight}');
     expect(tab('Applications')).toHaveFocus();
     await user.keyboard('{End}');
