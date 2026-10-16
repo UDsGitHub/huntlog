@@ -49,21 +49,29 @@ export interface Application {
 }
 
 /**
- * An uploaded resume (spec §4.6, §5). The file is kept as raw bytes (`data`) plus its type rather
- * than a Blob: bytes store and round-trip everywhere (fake-indexeddb loses Blobs), and a Blob is
- * built when the file is opened. `data` is removed once a deleted resume's Undo window has passed.
+ * An uploaded resume (spec §4.6, §5): the metadata. The file's bytes live in their own table
+ * (`ResumeFile`, same id), so listing resumes never loads files; the bytes are removed once a
+ * deleted resume's Undo window has passed, and the record stays for future sync.
  */
 export interface Resume {
   id: string;
   name: string; // display name, e.g. "Backend v3"
   fileName: string; // original file name
   mimeType: string;
-  size: number; // bytes
-  data?: ArrayBuffer;
+  size: number; // bytes actually stored
   note?: string;
   /** Hidden from the resume picker, still viewable; kept because applications use it. */
   archived: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+}
+
+/**
+ * A resume's file: raw bytes rather than a Blob, since bytes store and round-trip everywhere
+ * (fake-indexeddb loses Blobs); a Blob is built when the file is opened.
+ */
+export interface ResumeFile {
+  id: string; // the resume's id
+  data: ArrayBuffer;
 }

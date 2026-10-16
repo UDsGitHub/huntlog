@@ -88,7 +88,9 @@ describe('JobLogDB', () => {
       'urlNormalized',
     ]);
     expect(db.resumes.schema.primKey.name).toBe('id');
-    expect(db.resumes.schema.indexes.map((i) => i.name)).toEqual(['updatedAt']);
+    expect(db.resumes.schema.indexes.map((i) => i.name).sort()).toEqual(['createdAt', 'updatedAt']);
+    expect(db.resumeFiles.schema.primKey.name).toBe('id');
+    expect(db.resumeFiles.schema.indexes).toEqual([]);
     db.close();
   });
 
@@ -102,7 +104,7 @@ describe('JobLogDB', () => {
       return v2;
     }
 
-    it('adds the resumes table and resumeId index, leaving every row unchanged', async () => {
+    it('adds the resume tables and resumeId index, leaving every row unchanged', async () => {
       const v2 = openV2();
       const rows = [
         {
@@ -146,6 +148,7 @@ describe('JobLogDB', () => {
       expect(db.verno).toBe(3);
       for (const row of rows) expect(await db.applications.get(row.id)).toEqual(row);
       expect(await db.resumes.count()).toBe(0);
+      expect(await db.resumeFiles.count()).toBe(0);
       expect(await db.applications.where('resumeId').equals('r1').count()).toBe(0);
       await db.applications.update('a1', { resumeId: 'r1' });
       expect(await db.applications.where('resumeId').equals('r1').primaryKeys()).toEqual(['a1']);

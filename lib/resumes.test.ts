@@ -1,26 +1,31 @@
-import { addApplication, softDeleteApplication } from './applications';
+import {
+  addApplication,
+  isResumeInUse,
+  NotFoundError,
+  RECENTLY_DELETED_MS,
+  softDeleteApplication,
+} from './applications';
 import { JobLogDB } from './db';
 import {
   addResume,
+  checkContents,
   checkResumeFile,
   defaultResumeName,
   deleteResume,
   formatLabel,
   getResume,
-  isResumeReferenced,
+  getResumeBlob,
   listResumes,
   MAX_RESUME_BYTES,
   purgeDeletedResumeData,
   restoreResume,
-  resumeBlob,
   ResumeValidationError,
   RESUME_UNDO_WINDOW_MS,
   safeFileName,
   setResumeArchived,
   updateResume,
-  type ResumeFile,
+  type PickedFile,
 } from './resumes';
-import { NotFoundError } from './applications';
 
 let db: JobLogDB;
 beforeEach(() => {
@@ -30,59 +35,95 @@ afterEach(async () => {
   await db.delete();
 });
 
-const PDF = 'application/pdf';
-const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+/** The first bytes of real files of each format. */
+const HEAD: Record<string, number[]> = {
+  pdf: [0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37], // %PDF-1.7
+  docx: [0x50, 0x4b, 0x03, 0x04],
+  doc: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1],
+  rtf: [0x7b, 0x5c, 0x72, 0x74, 0x66, 0x31], // {\rtf1
+  txt: [0x48, 0x69], // Hi
+};
 
-/** A file-like object with real bytes. */
-function file(name: string, type = PDF, bytes: number[] = [37, 80, 68, 70, 45]): ResumeFile {
-  const data = new Uint8Array(bytes);
-  return { name, type, size: data.byteLength, arrayBuffer: async () => data.slice().buffer };
+/** A picked file with real bytes; `size` is what the browser reports (defaults to the truth). */
+function file(name: string, bytes?: number[], reportedSize?: number): PickedFile {
+  const extension = name.split('.').pop()!.toLowerCase();
+  const data = new Uint8Array(bytes ?? [...(HEAD[extension] ?? [1, 2, 3]), 1, 2, 3]);
+  return {
+    name,
+    size: reportedSize ?? data.byteLength,
+    arrayBuffer: async () => data.slice().buffer,
+  };
 }
 
-describe('checkResumeFile', () => {
+describe('checkResumeFile (before reading)', () => {
   it.each([
-    ['cv.pdf', PDF],
-    ['cv.PDF', PDF],
-    ['cv.docx', DOCX],
+    ['cv.pdf', 'application/pdf'],
+    ['cv.PDF', 'application/pdf'],
+    ['cv.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
     ['cv.doc', 'application/msword'],
     ['cv.txt', 'text/plain'],
     ['cv.rtf', 'application/rtf'],
-    ['cv.rtf', 'text/rtf'],
-  ])('accepts %s reported as %s', (name, type) => {
-    expect(checkResumeFile({ name, type, size: 10 })).toEqual({ mimeType: type });
+  ])('accepts %s, storing %s', (name, mimeType) => {
+    expect(checkResumeFile({ name, size: 10 })).toEqual({ mimeType });
   });
 
-  it.each([
-    ['cv.doc', '', 'application/msword'],
-    ['cv.rtf', 'application/octet-stream', 'application/rtf'],
-    ['cv.pdf', '', PDF],
-  ])('accepts %s with an unknown type %j, storing %s', (name, type, stored) => {
-    expect(checkResumeFile({ name, type, size: 10 })).toEqual({ mimeType: stored });
-  });
-
-  it.each([
-    ['photo.png', 'image/png', 'Choose a PDF, DOCX, DOC, TXT or RTF file.'],
-    ['cv', PDF, 'Choose a PDF, DOCX, DOC, TXT or RTF file.'],
-    ['.pdf', PDF, 'Choose a PDF, DOCX, DOC, TXT or RTF file.'],
-    ['cv.pdf.exe', 'application/x-msdownload', 'Choose a PDF, DOCX, DOC, TXT or RTF file.'],
-    ['cv.pdf', 'image/png', "This file's contents don't match its extension."],
-    ['cv.docx', PDF, "This file's contents don't match its extension."],
-  ])('rejects %s (%s)', (name, type, error) => {
-    expect(checkResumeFile({ name, type, size: 10 })).toEqual({ error });
+  it.each([['photo.png'], ['cv'], ['.pdf'], ['cv.pdf.exe']])('rejects %s', (name) => {
+    expect(checkResumeFile({ name, size: 10 })).toEqual({
+      error: 'Choose a PDF, DOCX, DOC, TXT or RTF file.',
+    });
   });
 
   it.each([
     [0, 'This file is empty.'],
     [MAX_RESUME_BYTES + 1, 'Choose a file of 10 MB or less.'],
-  ])('rejects a size of %d bytes', (size, error) => {
-    expect(checkResumeFile({ name: 'cv.pdf', type: PDF, size })).toEqual({ error });
+  ])('rejects a reported size of %d bytes', (size, error) => {
+    expect(checkResumeFile({ name: 'cv.pdf', size })).toEqual({ error });
   });
 
   it('accepts exactly 10 MB and 1 byte', () => {
-    expect(checkResumeFile({ name: 'cv.pdf', type: PDF, size: MAX_RESUME_BYTES })).toEqual({
-      mimeType: PDF,
-    });
-    expect(checkResumeFile({ name: 'cv.pdf', type: PDF, size: 1 })).toEqual({ mimeType: PDF });
+    expect(checkResumeFile({ name: 'cv.pdf', size: MAX_RESUME_BYTES })).toHaveProperty('mimeType');
+    expect(checkResumeFile({ name: 'cv.pdf', size: 1 })).toHaveProperty('mimeType');
+  });
+});
+
+describe('checkContents (after reading)', () => {
+  const bytes = (values: number[]) => new Uint8Array(values).buffer;
+
+  it.each(Object.entries(HEAD))('accepts a real %s', (extension, head) => {
+    expect(checkContents(`cv.${extension}`, bytes([...head, 0, 0]))).toBeUndefined();
+  });
+
+  it.each([
+    [
+      'cv.pdf',
+      HEAD.docx!,
+      "This file doesn't look like a PDF. Check that it opens, then try again.",
+    ],
+    [
+      'cv.docx',
+      HEAD.pdf!,
+      "This file doesn't look like a DOCX. Check that it opens, then try again.",
+    ],
+    [
+      'cv.doc',
+      [0x48, 0x69],
+      "This file doesn't look like a DOC. Check that it opens, then try again.",
+    ],
+    [
+      'cv.rtf',
+      [0x7b, 0x5c],
+      "This file doesn't look like a RTF. Check that it opens, then try again.",
+    ],
+  ])('rejects %s whose bytes are another format', (name, head, error) => {
+    expect(checkContents(name, bytes(head))).toBe(error);
+  });
+
+  it('accepts any text as TXT, and checks the bytes actually read for size', () => {
+    expect(checkContents('cv.txt', bytes([0xff]))).toBeUndefined();
+    expect(checkContents('cv.pdf', new ArrayBuffer(0))).toBe('This file is empty.');
+    expect(checkContents('cv.txt', new ArrayBuffer(MAX_RESUME_BYTES + 1))).toBe(
+      'Choose a file of 10 MB or less.',
+    );
   });
 });
 
@@ -114,24 +155,54 @@ describe('names and labels', () => {
   ])('safeFileName(%j) → %j', (input, expected) => {
     expect(safeFileName(input)).toBe(expected);
   });
+
+  it('shortens a long name by characters, keeping the extension and no trailing dot', () => {
+    expect(safeFileName(`${'x'.repeat(160)}.pdf`)).toBe(`${'x'.repeat(146)}.pdf`);
+    const emoji = safeFileName(`${'🚀'.repeat(200)}.pdf`);
+    expect(emoji.endsWith('.pdf')).toBe(true);
+    expect(emoji.isWellFormed()).toBe(true);
+    expect(safeFileName(`${'x'.repeat(145)}. .pdf`)).toBe(`${'x'.repeat(145)}.pdf`);
+  });
 });
 
 describe('addResume', () => {
-  it('stores the bytes, type, size and a default name; the bytes round-trip exactly', async () => {
-    const bytes = Array.from({ length: 300 }, (_, i) => i % 256);
-    const resume = await addResume(file('Backend v3.pdf', PDF, bytes), {}, db);
+  it('stores metadata and the file apart; the bytes round-trip exactly', async () => {
+    const bytes = [...HEAD.pdf!, ...Array.from({ length: 300 }, (_, i) => i % 256)];
+    const resume = await addResume(file('Backend v3.pdf', bytes), {}, db);
     expect(resume).toMatchObject({
       name: 'Backend v3',
       fileName: 'Backend v3.pdf',
-      mimeType: PDF,
-      size: 300,
+      mimeType: 'application/pdf',
+      size: bytes.length,
       archived: false,
     });
-    const stored = await db.applications.db.table('resumes').get(resume.id);
-    expect(Array.from(new Uint8Array(stored.data))).toEqual(bytes);
-    const blob = resumeBlob(stored)!;
-    expect(blob.type).toBe(PDF);
-    expect(blob.size).toBe(300);
+    expect(await db.resumes.get(resume.id)).not.toHaveProperty('data');
+    const { blob } = (await getResumeBlob(resume.id, db))!;
+    expect(blob.type).toBe('application/pdf');
+    expect(blob.size).toBe(bytes.length);
+    const stored = await db.resumeFiles.get(resume.id);
+    expect(Array.from(new Uint8Array(stored!.data))).toEqual(bytes);
+  });
+
+  it('stores the size actually read, and checks limits against it', async () => {
+    const resume = await addResume(file('cv.pdf', undefined, 5), {}, db);
+    expect(resume.size).toBe(11);
+    const huge: PickedFile = {
+      name: 'cv.pdf',
+      size: 5,
+      arrayBuffer: async () => new ArrayBuffer(MAX_RESUME_BYTES + 1),
+    };
+    await expect(addResume(huge, {}, db)).rejects.toBeInstanceOf(ResumeValidationError);
+    expect(await db.resumes.count()).toBe(1);
+  });
+
+  it('rejects contents that do not match the extension, storing nothing', async () => {
+    const error = await addResume(file('cv.pdf', HEAD.docx), {}, db).catch((e: unknown) => e);
+    expect((error as ResumeValidationError).fields).toEqual({
+      file: "This file doesn't look like a PDF. Check that it opens, then try again.",
+    });
+    expect(await db.resumes.count()).toBe(0);
+    expect(await db.resumeFiles.count()).toBe(0);
   });
 
   it('takes a display name and note, trimmed', async () => {
@@ -143,9 +214,9 @@ describe('addResume', () => {
     expect(resume).toMatchObject({ name: 'Backend v3', note: 'For SRE' });
   });
 
-  it('reports every problem at once and stores nothing', async () => {
+  it('reports every problem it can before reading, and stores nothing', async () => {
     const error = await addResume(
-      file('photo.png', 'image/png'),
+      file('photo.png'),
       { name: '  ', note: 'x'.repeat(501) },
       db,
     ).catch((e: unknown) => e);
@@ -160,27 +231,31 @@ describe('addResume', () => {
 
   it('allows the same display name twice (e.g. PDF and DOCX)', async () => {
     await addResume(file('Backend v3.pdf'), {}, db);
-    await addResume(file('Backend v3.docx', DOCX), {}, db);
+    await addResume(file('Backend v3.docx'), {}, db);
     expect((await listResumes(db)).map((r) => r.name)).toEqual(['Backend v3', 'Backend v3']);
   });
 });
 
 describe('reading, renaming, archiving', () => {
-  it('lists live resumes newest first, archived included, deleted not', async () => {
+  it('lists live resumes newest first, archived included, deleted not, without files', async () => {
     const a = await addResume(file('a.pdf'), {}, db, new Date('2026-10-01T00:00:00Z'));
     const b = await addResume(file('b.pdf'), {}, db, new Date('2026-10-02T00:00:00Z'));
     const c = await addResume(file('c.pdf'), {}, db, new Date('2026-10-03T00:00:00Z'));
     await setResumeArchived(b.id, true, db);
     await deleteResume(c.id, db);
-    expect((await listResumes(db)).map((r) => r.id)).toEqual([b.id, a.id]);
+    const listed = await listResumes(db);
+    expect(listed.map((r) => r.id)).toEqual([b.id, a.id]);
+    expect(listed.some((r) => 'data' in r)).toBe(false);
     expect(await getResume(c.id, db)).toBeUndefined();
+    expect(await getResumeBlob(c.id, db)).toBeUndefined();
   });
 
-  it('renames and sets the note, leaving the file alone', async () => {
-    const resume = await addResume(file('cv.pdf'), {}, db);
-    const updated = await updateResume(resume.id, { name: 'Backend v3 (old)', note: '' }, db);
-    expect(updated).toMatchObject({ name: 'Backend v3 (old)', fileName: 'cv.pdf', size: 5 });
-    expect(updated).not.toHaveProperty('note');
+  it('renames, keeping the note unless one is given; an empty note clears it', async () => {
+    const resume = await addResume(file('cv.pdf'), { note: 'For SRE' }, db);
+    const renamed = await updateResume(resume.id, { name: 'Backend v4' }, db);
+    expect(renamed).toMatchObject({ name: 'Backend v4', note: 'For SRE', fileName: 'cv.pdf' });
+    const cleared = await updateResume(resume.id, { name: 'Backend v4', note: '' }, db);
+    expect(cleared).not.toHaveProperty('note');
   });
 
   it('archives and unarchives', async () => {
@@ -189,54 +264,60 @@ describe('reading, renaming, archiving', () => {
     expect((await setResumeArchived(resume.id, false, db)).archived).toBe(false);
   });
 
-  it.each([
-    ['rename', 'updateResume'],
-    ['archive', 'setResumeArchived'],
-  ])('refuses to %s a deleted resume', async (_label, fn) => {
+  it('refuses to rename or archive a deleted resume', async () => {
     const resume = await addResume(file('cv.pdf'), {}, db);
     await deleteResume(resume.id, db);
-    const call =
-      fn === 'updateResume'
-        ? updateResume(resume.id, { name: 'x' }, db)
-        : setResumeArchived(resume.id, true, db);
-    await expect(call).rejects.toBeInstanceOf(NotFoundError);
+    await expect(updateResume(resume.id, { name: 'x' }, db)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(setResumeArchived(resume.id, true, db)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
 describe('delete rules (spec §4.6)', () => {
-  const linkResume = async (resumeId: string) => {
-    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
+  const t0 = new Date('2026-10-01T00:00:00Z');
+  const at = (ms: number) => new Date(t0.getTime() + ms);
+
+  async function usedBy(resumeId: string) {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
     await db.applications.update(app.id, { resumeId, resumeNameSnapshot: 'cv' });
     return app;
-  };
+  }
 
   it('archives instead of deleting a resume an application uses', async () => {
-    const resume = await addResume(file('cv.pdf'), {}, db);
-    await linkResume(resume.id);
-    expect(await isResumeReferenced(resume.id, db)).toBe(true);
-    const { outcome, resume: after } = await deleteResume(resume.id, db);
+    const resume = await addResume(file('cv.pdf'), {}, db, t0);
+    await usedBy(resume.id);
+    expect(await isResumeInUse(resume.id, db, t0)).toBe(true);
+    const { outcome, resume: after } = await deleteResume(resume.id, db, t0);
     expect(outcome).toBe('archived');
     expect(after).toMatchObject({ archived: true });
     expect(after).not.toHaveProperty('deletedAt');
-    expect(after.data).toBeDefined();
+    expect(await db.resumeFiles.get(resume.id)).toBeDefined();
   });
 
-  it('still archives when only a soft-deleted application uses it (it can be restored)', async () => {
-    const resume = await addResume(file('cv.pdf'), {}, db);
-    const app = await linkResume(resume.id);
-    await softDeleteApplication(app.id, db);
-    expect((await deleteResume(resume.id, db)).outcome).toBe('archived');
+  it('archives while a just-deleted application could still be restored with Undo', async () => {
+    const resume = await addResume(file('cv.pdf'), {}, db, t0);
+    const app = await usedBy(resume.id);
+    await softDeleteApplication(app.id, db, t0);
+    expect((await deleteResume(resume.id, db, at(RECENTLY_DELETED_MS - 1))).outcome).toBe(
+      'archived',
+    );
+  });
+
+  it('deletes once that application can no longer come back', async () => {
+    const resume = await addResume(file('cv.pdf'), {}, db, t0);
+    const app = await usedBy(resume.id);
+    await softDeleteApplication(app.id, db, t0);
+    expect(await isResumeInUse(resume.id, db, at(RECENTLY_DELETED_MS))).toBe(false);
+    expect((await deleteResume(resume.id, db, at(RECENTLY_DELETED_MS))).outcome).toBe('deleted');
   });
 
   it('soft-deletes an unused resume, which Undo restores', async () => {
-    const resume = await addResume(file('cv.pdf'), {}, db, new Date('2026-10-01T00:00:00Z'));
-    const { outcome } = await deleteResume(resume.id, db, new Date('2026-10-02T00:00:00Z'));
-    expect(outcome).toBe('deleted');
+    const resume = await addResume(file('cv.pdf'), {}, db, t0);
+    expect((await deleteResume(resume.id, db, at(1000))).outcome).toBe('deleted');
     expect(await getResume(resume.id, db)).toBeUndefined();
-    const restored = await restoreResume(resume.id, db, new Date('2026-10-02T00:00:30Z'));
+    const restored = await restoreResume(resume.id, db, at(2000));
     expect(restored).not.toHaveProperty('deletedAt');
-    expect(restored.updatedAt).toBe('2026-10-02T00:00:30.000Z');
-    expect(await getResume(resume.id, db)).toBeDefined();
+    expect(restored.updatedAt).toBe(at(2000).toISOString());
+    expect(await getResumeBlob(resume.id, db)).toBeDefined();
   });
 
   it('refuses to delete or restore what it should not', async () => {
@@ -252,25 +333,28 @@ describe('purgeDeletedResumeData', () => {
   const t0 = new Date('2026-10-01T00:00:00Z');
   const later = (ms: number) => new Date(t0.getTime() + ms);
 
-  it("removes a deleted resume's bytes once the Undo window has passed", async () => {
+  it("removes a deleted resume's file once the Undo window has passed", async () => {
     const resume = await addResume(file('cv.pdf'), {}, db, t0);
     await deleteResume(resume.id, db, t0);
     expect(await purgeDeletedResumeData({}, db, later(RESUME_UNDO_WINDOW_MS - 1))).toBe(0);
     expect(await purgeDeletedResumeData({}, db, later(RESUME_UNDO_WINDOW_MS))).toBe(1);
-    const stored = await db.resumes.get(resume.id);
-    expect(stored).not.toHaveProperty('data');
+    expect(await db.resumeFiles.get(resume.id)).toBeUndefined();
     // The small record stays, for future sync.
-    expect(stored).toMatchObject({ name: 'cv', deletedAt: t0.toISOString() });
+    expect(await db.resumes.get(resume.id)).toMatchObject({
+      name: 'cv',
+      deletedAt: t0.toISOString(),
+    });
     await expect(restoreResume(resume.id, db)).rejects.toBeInstanceOf(NotFoundError);
+    expect(await purgeDeletedResumeData({}, db, later(1e9))).toBe(0);
   });
 
-  it('can clear one resume right away (its toast ended)', async () => {
+  it('can clear one resume right away (its toast ended), leaving others', async () => {
     const a = await addResume(file('a.pdf'), {}, db, t0);
     const b = await addResume(file('b.pdf'), {}, db, t0);
     await deleteResume(a.id, db, t0);
     await deleteResume(b.id, db, t0);
     expect(await purgeDeletedResumeData({ id: a.id, olderThanMs: 0 }, db, t0)).toBe(1);
-    expect((await db.resumes.get(b.id))?.data).toBeDefined();
+    expect(await db.resumeFiles.get(b.id)).toBeDefined();
   });
 
   it('never touches live or archived resumes', async () => {
@@ -278,14 +362,7 @@ describe('purgeDeletedResumeData', () => {
     const archived = await addResume(file('b.pdf'), {}, db, t0);
     await setResumeArchived(archived.id, true, db, t0);
     expect(await purgeDeletedResumeData({ olderThanMs: 0 }, db, later(1e9))).toBe(0);
-    expect((await db.resumes.get(live.id))?.data).toBeDefined();
-    expect((await db.resumes.get(archived.id))?.data).toBeDefined();
-  });
-
-  it('a resume without bytes has no Blob', async () => {
-    const resume = await addResume(file('cv.pdf'), {}, db, t0);
-    await deleteResume(resume.id, db, t0);
-    await purgeDeletedResumeData({ id: resume.id, olderThanMs: 0 }, db, t0);
-    expect(resumeBlob((await db.resumes.get(resume.id))!)).toBeUndefined();
+    expect(await purgeDeletedResumeData({ id: live.id, olderThanMs: 0 }, db, later(1e9))).toBe(0);
+    expect(await db.resumeFiles.count()).toBe(2);
   });
 });
