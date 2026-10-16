@@ -93,3 +93,30 @@ test('a focused field is never hidden behind the sticky bar', async ({ session }
     expect(field.y + field.height, `panel height ${height}`).toBeLessThanOrEqual(bar.y);
   }
 });
+
+test('remembered source and work mode survive a panel reload', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
+  await page.getByLabel('Company').fill('Acme');
+  await page.getByRole('button', { name: 'More details' }).click();
+  await page.getByLabel(/Source/).fill('Referral');
+  await page.getByLabel(/Work mode/).selectOption('remote');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('button', { name: /^Acme/ })).toBeVisible();
+  // The defaults are written just after the save; wait for them before reloading.
+  await expect
+    .poll(() =>
+      session.serviceWorker.evaluate(
+        async () => (await chrome.storage.local.get('formDefaults')).formDefaults,
+      ),
+    )
+    .toEqual({ source: 'Referral', workMode: 'remote' });
+
+  await page.reload();
+  await page.getByRole('button', { name: '+ Add application' }).click();
+  await expect(page.getByText('Remote · Referral')).toBeVisible();
+  await page.getByRole('button', { name: 'More details' }).click();
+  await expect(page.getByLabel(/Source/)).toHaveValue('Referral');
+});
