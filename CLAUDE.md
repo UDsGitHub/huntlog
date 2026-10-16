@@ -19,6 +19,7 @@ Job Log is a Manifest V3 Chrome extension for tracking job applications, built w
 Gotchas:
 - Every file in `entrypoints/` is treated as an entrypoint, so tests for entrypoints go in `tests/`, not next to the file.
 - Use WXT's `browser` global (typed), not `chrome`. In Playwright `serviceWorker.evaluate` callbacks the global is `chrome`; declare it as `typeof browser`.
+- Playwright can't click native context menus or the toolbar, and its key presses never reach extension shortcuts. `clickToolbarIcon` in `e2e/fixtures.ts` clicks the toolbar icon through CDP (`Extensions.triggerAction`, enabled by `--enable-unsafe-extension-debugging`). That click grants `activeTab` only when `openPanelOnActionClick` is off.
 - TypeScript is pinned to `~6.0` because typescript-eslint doesn't support TS 7 yet.
 
 ## Architecture (from spec.md §3–§9)
@@ -29,8 +30,8 @@ Gotchas:
 
 **Capture flow spans three pieces:**
 1. `entrypoints/background.ts` handles the context-menu click or the keyboard command. That user gesture grants `activeTab`.
-2. The background script runs `lib/extract.ts` in the tab via `chrome.scripting.executeScript({ func })`, writes the result as a draft to `chrome.storage.session`, and calls `chrome.sidePanel.open()`. That call must happen synchronously inside the gesture handler, before any `await`, or Chrome rejects it.
-3. The side panel (`entrypoints/sidepanel/`) reads and clears the draft, then opens the Add form prefilled.
+2. The background script (`handleCapture`) first calls `chrome.sidePanel.open({ windowId })` synchronously inside the gesture handler, before any `await`, or Chrome rejects it. Then it runs `lib/extract.ts` in the tab via `chrome.scripting.executeScript({ func })` and writes the result through `lib/captureDraft.ts` to `chrome.storage.session` under `captureDraft:<windowId>`. On a restricted page it falls back to the tab URL only.
+3. The side panel (`entrypoints/sidepanel/`) reads and clears its own window's draft, both on load and on `storage.session` change (the panel can open before the draft exists), then opens the Add form prefilled. Drafts older than 5 minutes are ignored.
 
 Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside the side panel do **not** grant `activeTab`, so the panel can't read the current tab itself.
 

@@ -55,8 +55,8 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 ### 4.1 Add application: prefilled from a page (user-initiated)
 
 1. On a job posting, the user right-clicks and chooses **"Add job to Job Log"**, or presses the shortcut.
-2. That gesture grants `activeTab`. The background service worker runs a one-off extractor in the tab with `chrome.scripting.executeScript`.
-3. The extraction result is saved as a draft in `chrome.storage.session`, and the side panel opens with `chrome.sidePanel.open`, which is allowed inside a user-gesture handler.
+2. That gesture grants `activeTab`. The background service worker first calls `chrome.sidePanel.open` for the tab's window, synchronously inside the gesture handler (before any `await`), then runs a one-off extractor in the tab with `chrome.scripting.executeScript`.
+3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the form.
 4. The side panel shows the Add form prefilled with the draft. Prefilled fields get a subtle "auto-filled, please check" hint.
 5. The user reviews the fields, picks a resume, and saves. If a duplicate is detected, a warning appears (§4.5).
 
@@ -236,6 +236,14 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 - **Single purpose statement:** "Track the job applications you submit."
 - **Privacy policy:** required. It states that all data stays on the device, nothing is collected or transmitted, and no analytics are used.
 - **Store assets:** screenshots of the list, add form, stats, and resumes, plus a 440×280 promo tile.
+
+**Verified Chrome behavior** (M1, Chrome for Testing via Playwright with the production build; see `e2e/page-access.spec.ts`):
+
+- Without a user gesture, `scripting.executeScript` on a normal page fails with "Cannot access contents of the page". The extension has no ambient page access.
+- Clicking the toolbar icon while `openPanelOnActionClick` is on opens the side panel but does **not** grant `activeTab`. The toolbar icon therefore can't prefill; capture goes through the context menu or shortcut.
+- Once a gesture grants `activeTab`, the serialized extractor runs in the tab and returns its URL and title.
+- `chrome://` pages stay unreadable even with `activeTab`, so the form falls back to blank.
+- `sidePanel.open()` from the context-menu and command handlers, and the requirement to call it before any `await`: Playwright can't click native context menus or send browser-level shortcuts, so these are covered by unit tests (`tests/background.test.ts`) and a manual check on the production build.
 
 **Known limitation:** a button *inside* the side panel does not grant `activeTab`, so the blank manual form cannot read the current tab. Page prefill happens only through the context menu or the shortcut, and the side panel's empty state should explain this ("Tip: right-click any job posting → Add job to Job Log").
 
