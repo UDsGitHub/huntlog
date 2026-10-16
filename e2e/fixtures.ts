@@ -24,6 +24,8 @@ export async function launchExtension(userDataDir: string): Promise<ExtensionSes
   }
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
+    // Tests assert en-US date formats; don't depend on the machine's language.
+    locale: 'en-US',
     args: [
       `--disable-extensions-except=${EXTENSION_PATH}`,
       `--load-extension=${EXTENSION_PATH}`,

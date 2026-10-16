@@ -33,14 +33,38 @@ describe('formatLocalDate', () => {
     expect(formatLocalDate(value, locale)).toBe(expected);
   });
 
-  it('never shifts the day, whatever the time zone', () => {
-    // A UTC parse of "2026-10-01" shows Sep 30 west of UTC; local parts don't.
-    expect(formatLocalDate('2026-10-01', 'en-US')).toBe('Oct 1, 2026');
-  });
+  it.each([['America/Chicago'], ['Pacific/Auckland'], ['UTC']])(
+    'never shifts the day in %s',
+    (tz) => {
+      // A UTC parse of "2026-10-01" shows Sep 30 west of UTC; local parts don't.
+      const original = process.env.TZ;
+      process.env.TZ = tz;
+      try {
+        expect(formatLocalDate('2026-10-01', 'en-US')).toBe('Oct 1, 2026');
+      } finally {
+        process.env.TZ = original;
+      }
+    },
+  );
 
   it.each([['not a date'], ['2026-02-30'], ['']])('shows %j as stored', (value) => {
     expect(formatLocalDate(value, 'en-US')).toBe(value);
   });
+});
+
+it('keeps formatting the right day after the time zone changes (cached formatters)', () => {
+  const original = process.env.TZ;
+  try {
+    for (const tz of ['UTC', 'Pacific/Auckland', 'America/Chicago', 'Asia/Kolkata']) {
+      process.env.TZ = tz;
+      expect(formatLocalDate('2026-10-01', 'en-US')).toBe('Oct 1, 2026');
+      expect(formatTimestampDate(new Date(2026, 9, 1, 23, 30).toISOString(), 'en-US')).toBe(
+        'Oct 1, 2026',
+      );
+    }
+  } finally {
+    process.env.TZ = original;
+  }
 });
 
 describe('formatTimestampDate', () => {

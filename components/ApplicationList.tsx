@@ -133,22 +133,12 @@ export function ApplicationList({
                 </button>
                 <StatusChip application={app} onPick={(pick) => onStatusPick(app, pick)} />
               </div>
-              {/* A small icon link, not the full URL, which would wrap over lines at 320px. */}
-              <div className="flex items-center gap-2 text-xs text-slate-600">
-                {app.appliedAt && <span>Applied {formatLocalDate(app.appliedAt)}</span>}
-                {safeHref(app.url) && (
-                  <a
-                    href={safeHref(app.url)}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Open job posting for ${app.company}`}
-                    title="Open job posting"
-                    className="inline-flex rounded p-0.5 text-indigo-700 hover:bg-slate-100 focus:outline-2 focus:outline-indigo-600"
-                  >
-                    <ExternalLinkIcon />
-                  </a>
-                )}
-              </div>
+              <RowMeta
+                company={app.company}
+                title={app.title}
+                url={app.url}
+                appliedAt={app.appliedAt}
+              />
             </li>
           ))}
         </ul>
@@ -172,5 +162,48 @@ function ExternalLinkIcon() {
     >
       <path d="M9 2.5h4.5V7M13.5 2.5 7 9M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" />
     </svg>
+  );
+}
+
+/**
+ * Date applied and a small icon link to the posting, not the full URL, which would wrap over
+ * several lines at 320px. A URL that isn't a web link (e.g. imported) shows as one truncated line.
+ */
+function RowMeta({
+  company,
+  title,
+  url,
+  appliedAt,
+}: {
+  company: string;
+  title?: string;
+  url: string;
+  appliedAt?: string;
+}) {
+  const href = safeHref(url);
+  if (!appliedAt && !href && !url) return null;
+  // Unique when several roles share a company.
+  const label = `Open job posting for ${company}${title ? `: ${title}` : ''}`;
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
+      {appliedAt && <span className="shrink-0">Applied {formatLocalDate(appliedAt)}</span>}
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={label}
+          title={label}
+          // 24px target (WCAG 2.5.8), next to other controls in a narrow panel.
+          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded text-indigo-700 hover:bg-slate-100 focus:outline-2 focus:outline-indigo-600"
+        >
+          <ExternalLinkIcon />
+        </a>
+      ) : (
+        <span className="min-w-0 truncate" title={url}>
+          {url}
+        </span>
+      )}
+    </div>
   );
 }

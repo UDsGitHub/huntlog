@@ -220,10 +220,11 @@ describe('capture prefill', () => {
 
     const list = await screen.findByRole('list', { name: 'Applications' });
     expect(list).toHaveTextContent('Senior Engineer at Acme');
-    expect(within(list).getByRole('link', { name: 'Open job posting for Acme' })).toHaveAttribute(
-      'href',
-      'https://jobs.example.test/posting/1',
-    );
+    expect(
+      within(list).getByRole('link', {
+        name: 'Open job posting for Acme: Senior Engineer at Acme',
+      }),
+    ).toHaveAttribute('href', 'https://jobs.example.test/posting/1');
     expect(screen.queryByText(HINT)).toBeNull();
 
     // The consumed capture doesn't come back on the next manual Add.
