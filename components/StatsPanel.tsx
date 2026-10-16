@@ -22,8 +22,7 @@ import {
 import { ActivityChart, OutcomesBar } from './StatsCharts';
 import { useSettings } from './useSettings';
 
-const field =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
+const field = 'field';
 
 const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent' });
 
@@ -114,7 +113,7 @@ export function StatsPanel() {
 
   return (
     <section aria-labelledby="stats-heading" className="flex min-w-0 flex-col gap-4">
-      <h2 id="stats-heading" className="text-base font-semibold">
+      <h2 id="stats-heading" className="section-heading">
         Stats
       </h2>
 
@@ -156,7 +155,7 @@ export function StatsPanel() {
                   className={field}
                 />
                 {errors[end] && (
-                  <p id={`${id}-${end}-error`} className="text-xs text-red-700">
+                  <p id={`${id}-${end}-error`} className="field-error">
                     {errors[end]}
                   </p>
                 )}
@@ -164,11 +163,11 @@ export function StatsPanel() {
             ))}
           </fieldset>
         )}
-        {range && <p className="text-xs text-slate-600">{rangeText(range)}</p>}
+        {range && <p className="text-xs text-muted-foreground">{rangeText(range)}</p>}
       </div>
 
       {apps.length === 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           Your stats show up here once you log applications. Every one you send counts.
         </p>
       ) : (
@@ -184,7 +183,7 @@ export function StatsPanel() {
               <RateCard label="Interview rate" rate={stats.interviewRate} outcome="interviewed" />
             </dl>
             {stats.applied === 0 && (
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 Nothing applied in this range yet. The rates fill in as you apply.
               </p>
             )}
@@ -201,12 +200,12 @@ export function StatsPanel() {
   );
 }
 
-const card = 'flex min-w-0 flex-col-reverse gap-0.5 rounded border border-slate-200 p-2';
+const card = 'card flex min-w-0 flex-col-reverse gap-0.5 p-2';
 
 function Count({ label, value }: { label: string; value: number }) {
   return (
     <div className={card}>
-      <dt className="text-xs text-slate-600">{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xl font-semibold tabular-nums">{value}</dd>
     </div>
   );
@@ -218,7 +217,7 @@ function RateCard({ label, rate, outcome }: { label: string; rate: Rate; outcome
     rate.total === 0 ? 'None applied in range' : `${rate.count} of ${rate.total} ${outcome}`;
   return (
     <div className={card}>
-      <dt className="text-xs text-slate-600">
+      <dt className="text-xs text-muted-foreground">
         {label}
         {/* A separate sentence, so screen readers don't run it into the label. */}
         <span className="sr-only">. </span>

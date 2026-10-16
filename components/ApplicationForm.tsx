@@ -73,8 +73,7 @@ const DETAIL_VALUE_FIELDS = DETAIL_FIELDS.filter(
     field !== 'salaryCurrency' && field !== 'salaryPeriod',
 );
 
-const input =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
+const input = 'field';
 
 /** Stored values shown as form text; salaries use the locale's decimal separator. */
 function formValuesFrom(app: Application): FormValues {
@@ -246,7 +245,7 @@ export function ApplicationForm({
     <>
       {hint && <AutoFilledHint id={`${id}-${field}-hint`} />}
       {errors[field] && (
-        <p id={`${id}-${field}-error`} className="text-xs text-red-700">
+        <p id={`${id}-${field}-error`} className="field-error">
           {errors[field]}
         </p>
       )}
@@ -277,7 +276,9 @@ export function ApplicationForm({
     >
       {/* Locked while saving: the save writes what was there when Save was pressed. */}
       <fieldset disabled={isSaving} className="flex min-w-0 flex-col gap-3">
-        {readFailed && <p className="text-sm text-slate-700">{readFailedMessage(draft?.url)}</p>}
+        {readFailed && (
+          <p className="text-sm text-muted-foreground">{readFailedMessage(draft?.url)}</p>
+        )}
 
         <Field label="Job posting URL" htmlFor={`${id}-url`}>
           <input
@@ -377,13 +378,13 @@ export function ApplicationForm({
             aria-expanded={detailsOpen}
             aria-controls={`${id}-details`}
             onClick={() => setDetailsOpen((open) => !open)}
-            className="flex items-center gap-1 self-start rounded text-sm font-medium text-indigo-700 hover:underline focus:outline-2 focus:outline-indigo-600"
+            className="flex items-center gap-1 self-start rounded-sm text-sm font-medium hover:underline focus-ring"
           >
             <span aria-hidden="true">{detailsOpen ? '▾' : '▸'}</span>
             More details
           </button>
           {!detailsOpen && detailsSummary && (
-            <p className="text-xs break-words text-slate-600">{detailsSummary}</p>
+            <p className="text-xs break-words text-muted-foreground">{detailsSummary}</p>
           )}
         </div>
 
@@ -417,8 +418,8 @@ export function ApplicationForm({
           </Field>
 
           <fieldset className="flex min-w-0 flex-col gap-2">
-            <legend className="text-sm font-medium">
-              Salary <span className="font-normal text-slate-600">(optional)</span>
+            <legend className="field-label">
+              Salary <span className="font-normal text-muted-foreground">(optional)</span>
             </legend>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
@@ -520,27 +521,19 @@ export function ApplicationForm({
         />
       )}
       {saveError && (
-        <p role="alert" className="text-xs text-red-700">
+        <p role="alert" className="field-error">
           {saveError}
         </p>
       )}
       {/* Sticky: Save is always reachable without scrolling (spec §4.2, §10). */}
       <div
         ref={stickyBar}
-        className="sticky bottom-0 -mx-4 flex gap-2 border-t border-slate-200 bg-white px-4 py-3"
+        className="sticky bottom-0 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3"
       >
-        <button
-          type="submit"
-          aria-disabled={isSaving || undefined}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-        >
+        <button type="submit" aria-disabled={isSaving || undefined} className="btn btn-primary">
           {isSaving ? 'Saving…' : 'Save'}
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-        >
+        <button type="button" onClick={onCancel} className="btn btn-outline">
           Cancel
         </button>
       </div>
@@ -563,9 +556,9 @@ function Field({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={htmlFor} className={small ? 'text-xs font-medium' : 'text-sm font-medium'}>
+      <label htmlFor={htmlFor} className={small ? 'text-xs font-medium' : 'field-label'}>
         {label}
-        {optional && <span className="font-normal text-slate-600"> (optional)</span>}
+        {optional && <span className="font-normal text-muted-foreground"> (optional)</span>}
       </label>
       {children}
     </div>
@@ -580,7 +573,7 @@ export function readFailedMessage(keptUrl: string | undefined): string {
 
 function AutoFilledHint({ id }: { id: string }) {
   return (
-    <p id={id} className="text-xs text-slate-600">
+    <p id={id} className="text-xs text-muted-foreground">
       Auto-filled, please check
     </p>
   );

@@ -2,8 +2,7 @@ import { useId, type Ref } from 'react';
 import { isSortKey, isStatusFilter, type ListQuery, type SortKey } from '@/lib/listQuery';
 import { ACTIVE_STATUSES, CLOSED_STATUSES, STATUS_LABELS } from '@/lib/status';
 
-const control =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600';
+const control = 'field';
 
 const SORT_LABELS: Record<SortKey, string> = {
   activity: 'Last activity',

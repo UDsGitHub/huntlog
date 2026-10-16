@@ -22,9 +22,9 @@ export function StatusTimeline({ application }: { application: Application }) {
         Status history
       </h3>
       {sorted.length === 0 ? (
-        <p className="text-sm text-slate-600">No history yet.</p>
+        <p className="text-sm text-muted-foreground">No history yet.</p>
       ) : (
-        <ol className="flex flex-col gap-2 border-l border-slate-200 pl-3">
+        <ol className="flex flex-col gap-2 border-l border-border pl-3">
           {sorted.map(({ entry, index }) => (
             <TimelineEntry
               key={`${index}-${entry.at}`}
@@ -101,10 +101,10 @@ function TimelineEntry({
         }}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${inputId}-error` : undefined}
-        className="min-w-0 rounded border border-slate-300 px-2 py-1 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700"
+        className="field w-auto py-1"
       />
       {error && (
-        <p id={`${inputId}-error`} className="w-full text-xs text-red-700">
+        <p id={`${inputId}-error`} className="field-error w-full">
           {error}
         </p>
       )}

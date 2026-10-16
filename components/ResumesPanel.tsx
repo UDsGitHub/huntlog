@@ -24,10 +24,8 @@ interface Props {
   announce: (message: string) => void;
 }
 
-const input =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
-const button =
-  'rounded border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600';
+const input = 'field';
+const button = 'btn btn-outline btn-sm';
 
 /** The Resumes tab (spec §4.6): upload, list, rename, archive, delete with Undo, open. */
 export function ResumesPanel({ showToast, announce }: Props) {
@@ -97,19 +95,19 @@ export function ResumesPanel({ showToast, announce }: Props) {
         id="resumes-heading"
         ref={heading}
         tabIndex={-1}
-        className="text-base font-semibold focus:outline-none"
+        className="section-heading focus:outline-none"
       >
         Resumes
       </h2>
       <ResumeUpload variant="panel" onUploaded={(resume) => announce(`Uploaded ${resume.name}.`)} />
 
       {active.length === 0 && archived.length === 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           No resumes yet. Upload the versions you send, so you always know which one went with each
           application.
         </p>
       ) : (
-        <ul aria-label="Resumes" className="flex flex-col divide-y divide-slate-200">
+        <ul aria-label="Resumes" className="flex flex-col divide-y divide-border">
           {active.map((resume) => (
             <ResumeRow key={resume.id} resume={resume} {...rowProps} />
           ))}
@@ -123,7 +121,7 @@ export function ResumesPanel({ showToast, announce }: Props) {
             aria-expanded={showArchived}
             aria-controls={archivedId}
             onClick={() => setShowArchived((open) => !open)}
-            className="flex items-center gap-1 self-start rounded text-sm font-medium text-indigo-700 hover:underline focus:outline-2 focus:outline-indigo-600"
+            className="flex items-center gap-1 self-start rounded-sm text-sm font-medium hover:underline focus-ring"
           >
             <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
             Archived ({archived.length})
@@ -132,7 +130,7 @@ export function ResumesPanel({ showToast, announce }: Props) {
             id={archivedId}
             hidden={!showArchived}
             aria-label="Archived resumes"
-            className="flex flex-col divide-y divide-slate-200"
+            className="flex flex-col divide-y divide-border"
           >
             {archived.map((resume) => (
               <ResumeRow key={resume.id} resume={resume} {...rowProps} />
@@ -226,12 +224,12 @@ function ResumeRow({
             className={input}
           />
           {errors.name && (
-            <p id={`${id}-name-error`} className="text-xs text-red-700">
+            <p id={`${id}-name-error`} className="field-error">
               {errors.name}
             </p>
           )}
           <label htmlFor={`${id}-note`} className="text-xs font-medium">
-            Note <span className="font-normal text-slate-600">(optional)</span>
+            Note <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <input
             id={`${id}-note`}
@@ -242,7 +240,7 @@ function ResumeRow({
             className={input}
           />
           {errors.note && (
-            <p id={`${id}-note-error`} className="text-xs text-red-700">
+            <p id={`${id}-note-error`} className="field-error">
               {errors.note}
             </p>
           )}
@@ -258,8 +256,10 @@ function ResumeRow({
       ) : (
         <>
           <span className="text-sm font-medium break-words">{resume.name}</span>
-          <span className="text-xs text-slate-600">{details}</span>
-          {resume.note && <span className="text-xs break-words text-slate-700">{resume.note}</span>}
+          <span className="text-xs text-muted-foreground">{details}</span>
+          {resume.note && (
+            <span className="text-xs break-words text-muted-foreground">{resume.note}</span>
+          )}
           <div className="flex flex-wrap gap-2">
             <button type="button" className={button} onClick={() => void open()}>
               {opensInViewer(resume) ? 'Open' : 'Download'}

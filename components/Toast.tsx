@@ -96,7 +96,7 @@ function ToastCard({
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
-      className="pointer-events-auto flex w-full max-w-sm min-w-0 items-center gap-3 rounded bg-slate-900 px-3 py-2 text-sm text-white shadow-lg"
+      className="pointer-events-auto flex w-full max-w-sm min-w-0 items-center gap-3 rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg"
     >
       <span className="min-w-0 flex-1 break-words">{toast.message}</span>
       {toast.action && (
@@ -106,7 +106,7 @@ function ToastCard({
             toast.action!.onAction();
             onDismiss('action');
           }}
-          className="rounded px-2 py-1 font-semibold text-indigo-200 underline hover:text-white focus:outline-2 focus:outline-white"
+          className="btn btn-outline btn-sm"
         >
           {toast.action.label}
         </button>
@@ -115,7 +115,7 @@ function ToastCard({
         type="button"
         onClick={() => onDismiss('dismiss')}
         aria-label="Dismiss"
-        className="rounded px-1.5 py-1 text-slate-300 hover:text-white focus:outline-2 focus:outline-white"
+        className="btn btn-ghost btn-sm text-muted-foreground"
       >
         ×
       </button>

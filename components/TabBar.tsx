@@ -55,7 +55,7 @@ export function TabBar<Id extends string>({
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className="flex gap-1 border-b border-slate-200"
+      className="flex gap-1 border-b border-border"
     >
       {tabs.map((tab) => {
         const active = tab.id === selected;
@@ -73,10 +73,10 @@ export function TabBar<Id extends string>({
             aria-controls={panelId(idPrefix, tab.id)}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(tab.id)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium focus:outline-2 focus:outline-indigo-600 ${
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium focus-ring ${
               active
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.label}

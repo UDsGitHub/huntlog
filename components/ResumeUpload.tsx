@@ -8,8 +8,7 @@ import {
 } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
 
-const input =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
+const input = 'field';
 
 interface Props {
   /**
@@ -93,7 +92,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
   };
   const errorText = (field: keyof ResumeErrors) =>
     errors[field] && (
-      <p id={`${id}-${field}-error`} className="text-xs text-red-700">
+      <p id={`${id}-${field}-error`} className="field-error">
         {errors[field]}
       </p>
     );
@@ -118,7 +117,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
           className="w-full min-w-0 text-sm"
           {...described('file', `${id}-file-hint`)}
         />
-        <p id={`${id}-file-hint`} className="text-xs text-slate-600">
+        <p id={`${id}-file-hint`} className="text-xs text-muted-foreground">
           PDF, DOCX, DOC, TXT or RTF, up to 10 MB.
         </p>
         {errorText('file')}
@@ -147,7 +146,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
       {variant === 'panel' && (
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor={`${id}-note`} className="text-sm font-medium">
-            Note <span className="font-normal text-slate-600">(optional)</span>
+            Note <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <input
             ref={noteInput}
@@ -165,8 +164,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
     </>
   );
 
-  const primary =
-    'rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600';
+  const primary = 'btn btn-primary';
 
   if (variant === 'panel') {
     return (
@@ -178,7 +176,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
         noValidate
         aria-label="Upload a resume"
         aria-busy={saving || undefined}
-        className="flex min-w-0 flex-col gap-2 rounded border border-slate-200 p-3"
+        className="card flex min-w-0 flex-col gap-2 p-3"
       >
         {fields}
         <button
@@ -204,18 +202,14 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
           void upload();
         }
       }}
-      className="flex min-w-0 flex-col gap-2 rounded border border-slate-200 p-2"
+      className="card flex min-w-0 flex-col gap-2 p-2"
     >
       {fields}
       <div className="flex gap-2">
         <button type="button" onClick={() => void upload()} className={primary}>
           {saving ? 'Uploading…' : 'Upload and use'}
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-        >
+        <button type="button" onClick={onCancel} className="btn btn-outline">
           {/* Not just "Cancel": the application form's own Cancel is on screen too. */}
           Cancel upload
         </button>

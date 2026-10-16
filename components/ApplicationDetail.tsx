@@ -20,8 +20,7 @@ interface Props {
   onStatusPick: (application: Application, pick: StatusPick) => void;
 }
 
-const button =
-  'rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600';
+const button = 'btn btn-outline';
 
 export function ApplicationDetail({
   id,
@@ -55,10 +54,10 @@ export function ApplicationDetail({
     return (
       <section aria-labelledby="detail-heading" className="flex flex-col gap-3">
         {back}
-        <h2 id="detail-heading" ref={heading} tabIndex={-1} className="text-base font-semibold">
+        <h2 id="detail-heading" ref={heading} tabIndex={-1} className="section-heading">
           This application isn't available
         </h2>
-        <p className="text-sm text-slate-700">It may have been deleted in another window.</p>
+        <p className="text-sm text-muted-foreground">It may have been deleted in another window.</p>
       </section>
     );
   }
@@ -84,22 +83,22 @@ export function ApplicationDetail({
           id="detail-heading"
           ref={heading}
           tabIndex={-1}
-          className="text-base font-semibold break-words focus:outline-none"
+          className="section-heading break-words focus:outline-none"
         >
           {app.company}
         </h2>
-        {app.title && <p className="text-sm break-words text-slate-700">{app.title}</p>}
+        {app.title && <p className="text-sm break-words text-muted-foreground">{app.title}</p>}
         {href ? (
           <a
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="text-sm break-all text-indigo-700 underline"
+            className="link self-start text-sm break-all"
           >
             Open job posting
           </a>
         ) : (
-          <span className="text-xs break-all text-slate-600">{app.url}</span>
+          <span className="text-xs break-all text-muted-foreground">{app.url}</span>
         )}
       </div>
 
@@ -126,12 +125,12 @@ export function ApplicationDetail({
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-medium">Notes</h3>
           {/* Plain text: line breaks kept, nothing rendered as markup (spec §5). */}
-          <p className="text-sm break-words whitespace-pre-wrap text-slate-800">{app.notes}</p>
+          <p className="text-sm break-words whitespace-pre-wrap text-foreground">{app.notes}</p>
         </div>
       )}
 
       {deleteError && (
-        <p role="alert" className="text-xs text-red-700">
+        <p role="alert" className="field-error">
           {deleteError}
         </p>
       )}
@@ -150,7 +149,7 @@ export function ApplicationDetail({
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
-      <dt className="text-slate-600">{label}</dt>
+      <dt className="text-muted-foreground">{label}</dt>
       <dd className="min-w-0 break-words">{children}</dd>
     </>
   );
@@ -181,12 +180,12 @@ function ResumeLink({ resumeId, snapshot }: { resumeId: string; snapshot?: strin
             },
           )
         }
-        className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+        className="btn btn-outline btn-sm py-0.5"
       >
         {opensInViewer(resume) ? 'Open' : 'Download'}
         <span className="sr-only"> resume {resume.name}</span>
       </button>
-      {failed && <span className="text-xs text-slate-600">The file isn't available.</span>}
+      {failed && <span className="text-xs text-muted-foreground">The file isn't available.</span>}
     </span>
   );
 }

@@ -20,15 +20,15 @@ export function outcomeLabel(status: Status): string {
 // browns for the closed ones (Rejected is never red). Segments are separated by gaps and the
 // bar is outlined, so even the lighter ones read against the panel.
 const OUTCOME_COLORS: Record<Status, string> = {
-  saved: 'bg-sky-300',
-  applied: 'bg-indigo-300',
-  screening: 'bg-indigo-500',
-  interviewing: 'bg-indigo-700',
-  offer: 'bg-emerald-500',
-  accepted: 'bg-emerald-700',
-  rejected: 'bg-slate-500',
-  withdrawn: 'bg-stone-400',
-  ghosted: 'bg-slate-300',
+  saved: 'bg-status-saved',
+  applied: 'bg-status-applied',
+  screening: 'bg-status-screening',
+  interviewing: 'bg-status-interviewing',
+  offer: 'bg-status-offer',
+  accepted: 'bg-status-accepted',
+  rejected: 'bg-status-rejected',
+  withdrawn: 'bg-status-withdrawn',
+  ghosted: 'bg-status-ghosted',
 };
 
 /** Where the applications applied in the range stand now: a stacked bar and its legend. */
@@ -43,7 +43,7 @@ export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
       </h3>
       <div
         aria-hidden="true"
-        className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full border border-slate-400 bg-white p-px"
+        className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full border border-input bg-background p-px"
       >
         {outcomes.map(({ status, count }) => (
           <div
@@ -58,7 +58,7 @@ export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
           <li key={status} className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className={`size-2.5 shrink-0 rounded-sm ring-1 ring-slate-400 ${OUTCOME_COLORS[status]}`}
+              className={`size-2.5 shrink-0 rounded-sm ring-1 ring-input ${OUTCOME_COLORS[status]}`}
             />
             <span className="min-w-0 flex-1">{outcomeLabel(status)}</span>
             <span className="font-medium tabular-nums">{count}</span>
@@ -121,7 +121,7 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
       <h3 id={`${id}-heading`} className="text-sm font-semibold">
         Applications per {per}
       </h3>
-      <p className="text-xs text-slate-600">{summary}</p>
+      <p className="text-xs text-muted-foreground">{summary}</p>
       <div aria-hidden="true" className="flex min-w-0 flex-col gap-1">
         <svg viewBox={`0 0 ${width} ${HEIGHT}`} preserveAspectRatio="none" className="h-16 w-full">
           <line
@@ -129,7 +129,7 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
             x2={width}
             y1={HEIGHT - 0.5}
             y2={HEIGHT - 0.5}
-            className="stroke-slate-300"
+            className="stroke-border"
             strokeWidth={1}
             vectorEffect="non-scaling-stroke"
           />
@@ -141,12 +141,12 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
                 y={HEIGHT - (bucket.count / max) * (HEIGHT - 2)}
                 width={1 - GAP_RATIO}
                 height={(bucket.count / max) * (HEIGHT - 2)}
-                className="fill-indigo-500"
+                className="fill-chart-1"
               />
             ),
           )}
         </svg>
-        <div className="flex justify-between text-xs text-slate-600">
+        <div className="flex justify-between text-xs text-muted-foreground">
           <span>{axisLabel(unit, first, crossesYear)}</span>
           <span>{axisLabel(unit, last, crossesYear)}</span>
         </div>

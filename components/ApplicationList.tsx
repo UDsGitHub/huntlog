@@ -79,7 +79,7 @@ export function ApplicationList({
   if (!applications || !visible) return null;
   if (applications.length === 0) {
     return (
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted-foreground">
         No applications yet. Tap + Add application, or right-click any job posting and choose Add
         job to Job Log.
       </p>
@@ -91,13 +91,13 @@ export function ApplicationList({
     <div className="flex min-w-0 flex-col gap-3">
       <ListControls query={query} onChange={onQueryChange} searchRef={search} />
       {filtered && (
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-muted-foreground">
           Showing {visible.length} of {applications.length}
         </p>
       )}
       {visible.length === 0 ? (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-sm text-slate-600">No applications match.</p>
+          <p className="text-sm text-muted-foreground">No applications match.</p>
           <button
             type="button"
             onClick={() => {
@@ -105,13 +105,13 @@ export function ApplicationList({
               // This button disappears with the empty state; keep focus in the controls.
               search.current?.focus();
             }}
-            className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+            className="btn btn-outline"
           >
             Clear search and filter
           </button>
         </div>
       ) : (
-        <ul aria-label="Applications" className="flex flex-col divide-y divide-slate-200">
+        <ul aria-label="Applications" className="flex flex-col divide-y divide-border">
           {visible.map((app) => (
             <li key={app.id} className="flex min-w-0 flex-col gap-0.5 py-2">
               {/* The chip sits beside the row button, never inside it (no nested controls). */}
@@ -123,14 +123,14 @@ export function ApplicationList({
                     else rowButtons.current.delete(app.id);
                   }}
                   onClick={() => onOpen(app.id)}
-                  className="flex min-w-0 flex-1 flex-col gap-0.5 rounded text-left hover:bg-slate-50 focus:outline-2 focus:outline-indigo-600"
+                  className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left hover:bg-accent focus-ring"
                 >
                   <span className="text-sm font-medium break-words">{app.company}</span>
                   {app.title && (
-                    <span className="text-sm break-words text-slate-700">{app.title}</span>
+                    <span className="text-sm break-words text-muted-foreground">{app.title}</span>
                   )}
                   {(app.location || app.workMode) && (
-                    <span className="text-xs break-words text-slate-600">
+                    <span className="text-xs break-words text-muted-foreground">
                       {[app.location, app.workMode && WORK_MODE_LABELS[app.workMode]]
                         .filter(Boolean)
                         .join(' · ')}
@@ -198,7 +198,7 @@ function RowMeta({
   // Unique when several roles share a company.
   const label = `Open job posting for ${company}${title ? `: ${title}` : ''}`;
   return (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
+    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
       {appliedAt && <span className="shrink-0">Applied {formatLocalDate(appliedAt)}</span>}
       {resumeName && (
         <span className="min-w-0 truncate" title={`Resume: ${resumeName}`}>
@@ -214,7 +214,7 @@ function RowMeta({
           aria-label={label}
           title={label}
           // 24px target (WCAG 2.5.8), next to other controls in a narrow panel.
-          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded text-indigo-700 hover:bg-slate-100 focus:outline-2 focus:outline-indigo-600"
+          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-ring"
         >
           <ExternalLinkIcon />
         </a>

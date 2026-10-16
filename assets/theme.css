@@ -1,0 +1,138 @@
+/*
+ * Design tokens for every extension page (spec §3, §9): shadcn/ui's names and zinc neutrals,
+ * hand-written, with a light and a dark set. Pages set `data-theme` on <html> to the resolved
+ * theme ('light' or 'dark') before their first paint (`lib/theme.ts`, `entrypoints/theme-init.ts`).
+ *
+ * Colors are hex so `lib/contrast.test.ts` can check every text/background pair for WCAG AA in
+ * both themes. Change a value here and that test tells you if a pair stops passing.
+ */
+
+/* Geist (SIL OFL 1.1, see the third-party notices page), Latin subset, bundled: no network. */
+@font-face {
+  font-family: 'Geist';
+  src: url('./fonts/geist-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #63636b;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  /* Decorative lines (cards, dividers). */
+  --border: #e4e4e7;
+  /* Form-control outlines: 3:1 against the page, so a field's edge is visible (WCAG 1.4.11). */
+  --input: #8b8b94;
+  --ring: #71717a;
+
+  --warning: #fffbeb;
+  --warning-foreground: #78350f;
+  --warning-border: #f59e0b;
+
+  --chart-1: #2563eb;
+
+  /* Status chips, by group. Closed outcomes are neutral, never red (spec §4.7). */
+  --status-neutral: #f4f4f5;
+  --status-neutral-foreground: #3f3f46;
+  --status-progress: #eff6ff;
+  --status-progress-foreground: #1e40af;
+  --status-progress-strong: #dbeafe;
+  --status-progress-strong-foreground: #1e3a8a;
+  --status-success: #ecfdf5;
+  --status-success-foreground: #065f46;
+  --status-success-strong: #d1fae5;
+  --status-success-strong-foreground: #064e3b;
+
+  /* One solid color per status: outcome segments and legend swatches. */
+  --status-saved: #7dd3fc;
+  --status-applied: #93c5fd;
+  --status-screening: #3b82f6;
+  --status-interviewing: #1d4ed8;
+  --status-offer: #10b981;
+  --status-accepted: #047857;
+  --status-rejected: #71717a;
+  --status-withdrawn: #a8a29e;
+  --status-ghosted: #d4d4d8;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --destructive-foreground: #09090b;
+  --border: #2e2e33;
+  --input: #6b6b74;
+  --ring: #a1a1aa;
+
+  --warning: #2a1f05;
+  --warning-foreground: #fcd34d;
+  --warning-border: #92400e;
+
+  --chart-1: #60a5fa;
+
+  --status-neutral: #27272a;
+  --status-neutral-foreground: #e4e4e7;
+  --status-progress: #172554;
+  --status-progress-foreground: #bfdbfe;
+  --status-progress-strong: #1e3a8a;
+  --status-progress-strong-foreground: #dbeafe;
+  --status-success: #022c22;
+  --status-success-foreground: #a7f3d0;
+  --status-success-strong: #064e3b;
+  --status-success-strong-foreground: #d1fae5;
+
+  --status-saved: #38bdf8;
+  --status-applied: #bfdbfe;
+  --status-screening: #60a5fa;
+  --status-interviewing: #2563eb;
+  --status-offer: #34d399;
+  --status-accepted: #059669;
+  --status-rejected: #a1a1aa;
+  --status-withdrawn: #d6d3d1;
+  --status-ghosted: #52525b;
+}
+
+html,
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family:
+    'Geist',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
