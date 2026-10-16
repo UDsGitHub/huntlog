@@ -1,9 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { NotFoundError } from '@/lib/applications';
 import { formatTimestampDate } from '@/lib/dates';
 import { formatBytes } from '@/lib/format';
-import { openResume } from '@/lib/openResume';
+import { openResume, opensInViewer } from '@/lib/openResume';
 import {
   addResume,
   defaultResumeName,
@@ -36,18 +36,39 @@ export function ResumesPanel({ showToast, announce }: Props) {
   const resumes = useLiveQuery(() => listResumes(), []);
   const [showArchived, setShowArchived] = useState(false);
   const archivedId = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
   if (!resumes) return null;
   const active = resumes.filter((resume) => !resume.archived);
   const archived = resumes.filter((resume) => resume.archived);
 
+  // A row's button had focus and the row moved (archived, unarchived) or went (deleted): keep
+  // focus in the tab, on its heading.
+  const keepFocus = () => heading.current?.focus();
+
+  async function setArchived(resume: Resume, archive: boolean) {
+    try {
+      await setResumeArchived(resume.id, archive);
+      announce(archive ? `Archived ${resume.name}.` : `${resume.name} is back in your resumes.`);
+      keepFocus();
+    } catch (error) {
+      if (!(error instanceof NotFoundError)) console.error('setResumeArchived failed', error);
+      announce(`Couldn't change ${resume.name}. It may have been deleted.`);
+    }
+  }
+
   async function remove(resume: Resume) {
     try {
-      const { outcome } = await deleteResume(resume.id);
+      const { outcome, wasArchived } = await deleteResume(resume.id);
+      keepFocus();
       if (outcome === 'archived') {
-        showToast({
-          message: `${resume.name} is used by applications, so it was archived instead.`,
-          action: { label: 'Undo', onAction: () => void setResumeArchived(resume.id, false) },
-        });
+        showToast(
+          wasArchived
+            ? { message: `${resume.name} is used by applications, so it stays archived.` }
+            : {
+                message: `${resume.name} is used by applications, so it was archived instead.`,
+                action: { label: 'Undo', onAction: () => void setArchived(resume, false) },
+              },
+        );
         return;
       }
       showToast({
@@ -60,7 +81,7 @@ export function ResumesPanel({ showToast, announce }: Props) {
               () => announce(`Couldn't restore ${resume.name}.`),
             ),
         },
-        // Once Undo can't happen any more, the file's bytes go (spec §4.6).
+        // Once Undo can't happen any more, the file goes (spec §4.6).
         onClose: (reason) => {
           if (reason !== 'action') void purgeDeletedResumeData({ id: resume.id, olderThanMs: 0 });
         },
@@ -71,9 +92,15 @@ export function ResumesPanel({ showToast, announce }: Props) {
     }
   }
 
+  const rowProps = { announce, onDelete: remove, onSetArchived: setArchived };
   return (
     <section aria-labelledby="resumes-heading" className="flex min-w-0 flex-col gap-4">
-      <h2 id="resumes-heading" className="text-base font-semibold">
+      <h2
+        id="resumes-heading"
+        ref={heading}
+        tabIndex={-1}
+        className="text-base font-semibold focus:outline-none"
+      >
         Resumes
       </h2>
       <UploadForm announce={announce} />
@@ -86,7 +113,7 @@ export function ResumesPanel({ showToast, announce }: Props) {
       ) : (
         <ul aria-label="Resumes" className="flex flex-col divide-y divide-slate-200">
           {active.map((resume) => (
-            <ResumeRow key={resume.id} resume={resume} announce={announce} onDelete={remove} />
+            <ResumeRow key={resume.id} resume={resume} {...rowProps} />
           ))}
         </ul>
       )}
@@ -110,7 +137,7 @@ export function ResumesPanel({ showToast, announce }: Props) {
             className="flex flex-col divide-y divide-slate-200"
           >
             {archived.map((resume) => (
-              <ResumeRow key={resume.id} resume={resume} announce={announce} onDelete={remove} />
+              <ResumeRow key={resume.id} resume={resume} {...rowProps} />
             ))}
           </ul>
         </div>
@@ -119,12 +146,14 @@ export function ResumesPanel({ showToast, announce }: Props) {
   );
 }
 
-/** Upload: pick a file, name it (defaulting from the file name), optional note. */
+/** Upload: pick a file, name it (suggested from the file name), optional note. */
 function UploadForm({ announce }: { announce: (message: string) => void }) {
   const id = useId();
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState('');
+  // A typed name is kept; a suggested one follows the file picked.
+  const [nameTyped, setNameTyped] = useState(false);
   const [note, setNote] = useState('');
   const [errors, setErrors] = useState<ResumeErrors>({});
   const [saving, setSaving] = useState(false);
@@ -143,6 +172,7 @@ function UploadForm({ announce }: { announce: (message: string) => void }) {
       announce(`Uploaded ${resume.name}.`);
       setFile(null);
       setName('');
+      setNameTyped(false);
       setNote('');
       setErrors({});
       if (fileInput.current) fileInput.current.value = '';
@@ -191,8 +221,7 @@ function UploadForm({ announce }: { announce: (message: string) => void }) {
             const picked = event.target.files?.[0] ?? null;
             setFile(picked);
             setErrors({});
-            // Suggest a name from the file, unless one was typed.
-            if (picked && !name.trim()) setName(defaultResumeName(picked.name));
+            if (picked && !nameTyped) setName(defaultResumeName(picked.name));
           }}
           className="w-full min-w-0 text-sm"
           {...described('file')}
@@ -210,7 +239,11 @@ function UploadForm({ announce }: { announce: (message: string) => void }) {
           autoComplete="off"
           placeholder="e.g. Backend v3"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => {
+            setName(event.target.value);
+            // Clearing the name hands it back to the suggestion.
+            setNameTyped(event.target.value.trim() !== '');
+          }}
           className={input}
           {...described('name')}
         />
@@ -246,26 +279,47 @@ function ResumeRow({
   resume,
   announce,
   onDelete,
+  onSetArchived,
 }: {
   resume: Resume;
   announce: (message: string) => void;
   onDelete: (resume: Resume) => Promise<void>;
+  onSetArchived: (resume: Resume, archive: boolean) => Promise<void>;
 }) {
   const id = useId();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(resume.name);
-  const [note, setNote] = useState(resume.note ?? '');
+  const [name, setName] = useState('');
+  const [note, setNote] = useState('');
   const [errors, setErrors] = useState<ResumeErrors>({});
   const renameButton = useRef<HTMLButtonElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  // Where focus goes once the rename form opens or closes (the target isn't rendered yet).
+  const [focusAfter, setFocusAfter] = useState<'name' | 'rename' | null>(null);
+  useLayoutEffect(() => {
+    if (focusAfter === 'name') nameInput.current?.focus();
+    if (focusAfter === 'rename') renameButton.current?.focus();
+  }, [focusAfter, editing]);
+
+  function startEditing() {
+    // Seed from what's stored now, not what was there when the row mounted.
+    setName(resume.name);
+    setNote(resume.note ?? '');
+    setErrors({});
+    setEditing(true);
+    setFocusAfter('name');
+  }
+
+  function stopEditing() {
+    setEditing(false);
+    setFocusAfter('rename');
+  }
 
   async function save(event: FormEvent) {
     event.preventDefault();
     try {
       await updateResume(resume.id, { name, note });
-      setEditing(false);
-      setErrors({});
       announce('Saved.');
-      renameButton.current?.focus();
+      stopEditing();
     } catch (error) {
       if (error instanceof ResumeValidationError) setErrors(error.fields);
       else {
@@ -276,7 +330,7 @@ function ResumeRow({
   }
 
   async function open() {
-    if (!(await openResume(resume.id))) announce(`${resume.name} isn't available any more.`);
+    if (!(await openResume(resume))) announce(`${resume.name} isn't available any more.`);
   }
 
   const details = `${formatLabel(resume.fileName)} · ${formatBytes(resume.size)} · Uploaded ${formatTimestampDate(resume.createdAt)}`;
@@ -294,6 +348,7 @@ function ResumeRow({
             Name
           </label>
           <input
+            ref={nameInput}
             id={`${id}-name`}
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -326,16 +381,7 @@ function ResumeRow({
             <button type="submit" className={button}>
               Save
             </button>
-            <button
-              type="button"
-              className={button}
-              onClick={() => {
-                setEditing(false);
-                setName(resume.name);
-                setNote(resume.note ?? '');
-                setErrors({});
-              }}
-            >
+            <button type="button" className={button} onClick={stopEditing}>
               Cancel
             </button>
           </div>
@@ -345,51 +391,27 @@ function ResumeRow({
           <span className="text-sm font-medium break-words">{resume.name}</span>
           <span className="text-xs text-slate-600">{details}</span>
           {resume.note && <span className="text-xs break-words text-slate-700">{resume.note}</span>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={button} onClick={() => void open()}>
+              {opensInViewer(resume) ? 'Open' : 'Download'}
+              <span className="sr-only"> {resume.name}</span>
+            </button>
+            <button ref={renameButton} type="button" className={button} onClick={startEditing}>
+              Rename<span className="sr-only"> {resume.name}</span>
+            </button>
+            <button
+              type="button"
+              className={button}
+              onClick={() => void onSetArchived(resume, !resume.archived)}
+            >
+              {resume.archived ? 'Unarchive' : 'Archive'}
+              <span className="sr-only"> {resume.name}</span>
+            </button>
+            <button type="button" className={button} onClick={() => void onDelete(resume)}>
+              Delete<span className="sr-only"> {resume.name}</span>
+            </button>
+          </div>
         </>
-      )}
-      {!editing && (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={button} onClick={() => void open()}>
-            {resume.mimeType === 'application/pdf' ? 'Open' : 'Download'}
-            <span className="sr-only"> {resume.name}</span>
-          </button>
-          <button
-            ref={renameButton}
-            type="button"
-            className={button}
-            onClick={() => setEditing(true)}
-          >
-            Rename<span className="sr-only"> {resume.name}</span>
-          </button>
-          {resume.archived ? (
-            <button
-              type="button"
-              className={button}
-              onClick={() =>
-                void setResumeArchived(resume.id, false).then(() =>
-                  announce(`${resume.name} is back in your resumes.`),
-                )
-              }
-            >
-              Unarchive<span className="sr-only"> {resume.name}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={button}
-              onClick={() =>
-                void setResumeArchived(resume.id, true).then(() =>
-                  announce(`Archived ${resume.name}.`),
-                )
-              }
-            >
-              Archive<span className="sr-only"> {resume.name}</span>
-            </button>
-          )}
-          <button type="button" className={button} onClick={() => void onDelete(resume)}>
-            Delete<span className="sr-only"> {resume.name}</span>
-          </button>
-        </div>
       )}
     </li>
   );

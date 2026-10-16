@@ -18,7 +18,7 @@ import {
 import { STATUS_LABELS } from '@/lib/status';
 import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
-import { purgeDeletedResumeData } from '@/lib/resumes';
+import { purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
 import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
@@ -70,7 +70,7 @@ export default function App() {
   const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
   // Files of resumes deleted in a session that closed before their Undo toast ended (spec §4.6).
   useEffect(() => {
-    purgeDeletedResumeData().catch((error: unknown) =>
+    purgeDeletedResumeData({ olderThanMs: RESUME_STARTUP_PURGE_MS }).catch((error: unknown) =>
       console.error('Removing deleted resume files failed', error),
     );
   }, []);

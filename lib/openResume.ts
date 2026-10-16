@@ -1,18 +1,28 @@
-import { getResumeBlob, safeFileName } from './resumes';
+import { getResumeBlob, resumeFileExists, safeFileName } from './resumes';
+import type { Resume } from './types';
+
+/** PDFs open in the viewer tab; every other format downloads. One rule for labels and behavior. */
+export function opensInViewer(resume: Pick<Resume, 'mimeType'>): boolean {
+  return resume.mimeType === 'application/pdf';
+}
 
 /**
  * Opens a resume (spec §4.6): a PDF in a new tab (the resume-viewer page, which reads it from the
  * extension's storage and shows Chrome's PDF viewer); any other format downloads under its
  * original, made-safe file name. Returns false if the file is gone.
  */
-export async function openResume(id: string): Promise<boolean> {
-  const file = await getResumeBlob(id);
-  if (!file) return false;
-  if (file.resume.mimeType === 'application/pdf') {
+export async function openResume(resume: Pick<Resume, 'id' | 'mimeType'>): Promise<boolean> {
+  if (opensInViewer(resume)) {
+    // The viewer reads the file itself; here, only check it's there (without loading it).
+    if (!(await resumeFileExists(resume.id))) return false;
     // Opening a tab needs no "tabs" permission.
-    await browser.tabs.create({ url: `${browser.runtime.getURL('/resume-viewer.html')}?id=${id}` });
+    await browser.tabs.create({
+      url: `${browser.runtime.getURL('/resume-viewer.html')}?id=${encodeURIComponent(resume.id)}`,
+    });
     return true;
   }
+  const file = await getResumeBlob(resume.id);
+  if (!file) return false;
   const url = URL.createObjectURL(file.blob);
   const link = document.createElement('a');
   link.href = url;

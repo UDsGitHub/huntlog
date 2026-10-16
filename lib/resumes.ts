@@ -8,6 +8,12 @@ export const MAX_RESUME_NAME_LENGTH = 100;
 export const MAX_RESUME_NOTE_LENGTH = 500;
 /** How long a deleted resume can be restored (the Undo toast) before its file goes. */
 export const RESUME_UNDO_WINDOW_MS = 60 * 1000;
+/**
+ * The startup cleanup waits much longer: another window's Undo toast pauses while hovered or
+ * focused, so a delete can stay undoable well past a minute. Normally the file goes when its
+ * toast closes; this only catches panels that closed first.
+ */
+export const RESUME_STARTUP_PURGE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Accepted formats: the stored type, and the bytes every file of that format starts with. The
@@ -177,6 +183,15 @@ export async function getResume(
   return resume && !resume.deletedAt ? resume : undefined;
 }
 
+/** Whether a live resume still has its file, checked by key without loading it. */
+export async function resumeFileExists(
+  id: string,
+  database: JobLogDB = defaultDb,
+): Promise<boolean> {
+  if (!(await getResume(id, database))) return false;
+  return (await database.resumeFiles.where(':id').equals(id).count()) > 0;
+}
+
 /** A live resume's file as a Blob, to view or download; undefined if it's gone. */
 export async function getResumeBlob(
   id: string,
@@ -236,13 +251,14 @@ export async function deleteResume(
   id: string,
   database: JobLogDB = defaultDb,
   now: Date = new Date(),
-): Promise<{ outcome: 'archived' | 'deleted'; resume: Resume }> {
+): Promise<{ outcome: 'archived' | 'deleted'; resume: Resume; wasArchived: boolean }> {
   const result = await database.transaction(
     'rw',
     database.resumes,
     database.applications,
     async () => {
-      if (!(await getResume(id, database))) return undefined;
+      const before = await getResume(id, database);
+      if (!before) return undefined;
       const at = now.toISOString();
       const inUse = await isResumeInUse(id, database, now);
       await database.resumes.update(
@@ -252,6 +268,8 @@ export async function deleteResume(
       return {
         outcome: inUse ? ('archived' as const) : ('deleted' as const),
         resume: (await database.resumes.get(id))!,
+        // An Undo of "archived instead" must not unarchive one that was archived already.
+        wasArchived: before.archived,
       };
     },
   );

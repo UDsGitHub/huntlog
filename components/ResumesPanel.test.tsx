@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { addApplication } from '@/lib/applications';
+import { addApplication, NotFoundError } from '@/lib/applications';
 import { db } from '@/lib/db';
+import * as resumes from '@/lib/resumes';
 import { addResume, type PickedFile } from '@/lib/resumes';
 import App from '@/entrypoints/sidepanel/App';
 
@@ -190,5 +191,92 @@ describe('Resumes tab', () => {
     act(() => {
       fireEvent.click(document.body);
     });
+  });
+
+  it('follows the picked file with its suggested name, but keeps a typed one', async () => {
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    const fileInput = within(panel).getByLabelText('Resume file');
+    const name = within(panel).getByLabelText('Name');
+    await user.upload(fileInput, pickedFile('Backend v3.pdf'));
+    await user.upload(fileInput, pickedFile('Frontend v2.pdf'));
+    expect(name).toHaveValue('Frontend v2');
+    await user.clear(name);
+    await user.type(name, 'Mine');
+    await user.upload(fileInput, pickedFile('Data v1.pdf'));
+    expect(name).toHaveValue('Mine');
+  });
+
+  it('keeps an already archived resume archived when Delete archives it again', async () => {
+    const resume = await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    await db.applications.update(app.id, { resumeId: resume.id });
+    await db.resumes.update(resume.id, { archived: true });
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    await user.click(await within(panel).findByRole('button', { name: /Archived \(1\)/ }));
+    await user.click(within(panel).getByRole('button', { name: 'Delete Backend v3' }));
+    expect(
+      await screen.findByText('Backend v3 is used by applications, so it stays archived.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+
+  it('returns focus to Rename after saving or cancelling, and opens with current values', async () => {
+    const resume = await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    // Renamed elsewhere after the row mounted: the form must open with the new name.
+    await act(async () => {
+      await db.resumes.update(resume.id, { name: 'Renamed elsewhere' });
+    });
+    const rename = await within(panel).findByRole('button', { name: 'Rename Renamed elsewhere' });
+    await user.click(rename);
+    const form = within(panel).getByRole('form', { name: 'Rename Renamed elsewhere' });
+    expect(within(form).getByLabelText('Name')).toHaveValue('Renamed elsewhere');
+    expect(within(form).getByLabelText('Name')).toHaveFocus();
+    await user.click(within(form).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(within(panel).getByRole('button', { name: 'Rename Renamed elsewhere' })).toHaveFocus(),
+    );
+    await user.click(within(panel).getByRole('button', { name: 'Rename Renamed elsewhere' }));
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(within(panel).getByRole('button', { name: 'Rename Renamed elsewhere' })).toHaveFocus(),
+    );
+  });
+
+  it('keeps focus in the tab after archiving', async () => {
+    await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    await user.click(await within(panel).findByRole('button', { name: 'Archive Backend v3' }));
+    await waitFor(() =>
+      expect(within(panel).getByRole('heading', { name: 'Resumes' })).toHaveFocus(),
+    );
+  });
+
+  it('explains when archiving fails because the resume is gone', async () => {
+    await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    vi.spyOn(resumes, 'setResumeArchived').mockRejectedValue(new NotFoundError('x'));
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    await user.click(await within(panel).findByRole('button', { name: 'Archive Backend v3' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "Couldn't change Backend v3. It may have been deleted.",
+      ),
+    );
+  });
+
+  it('leaves recently deleted files alone at startup (another window may still Undo)', async () => {
+    const resume = await addResume(asPicked(pickedFile('cv.pdf')));
+    await db.resumes.update(resume.id, {
+      deletedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    });
+    render(<App />);
+    await screen.findByRole('tab', { name: 'Resumes' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(await db.resumeFiles.get(resume.id)).toBeDefined();
   });
 });

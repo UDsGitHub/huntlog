@@ -44,12 +44,15 @@ export function formatSalary(
   return salaryPeriod ? `${range} per ${PERIOD_LABELS[salaryPeriod]}` : range;
 }
 
-/** "240 KB", "1.2 MB": a file size for display, in the user's locale. */
+/** "240 kB", "1.2 MB": a file size for display, in the user's locale. */
 export function formatBytes(bytes: number, locale?: string): string {
   const units = ['byte', 'kilobyte', 'megabyte'] as const;
-  let value = bytes;
+  const decimals = [0, 0, 1];
   let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
+  let value = bytes;
+  // Round first, then pick the unit, so 1,048,575 bytes reads "1 MB", not "1,024 kB".
+  const rounded = (v: number, u: number) => Number(v.toFixed(decimals[u]));
+  while (unit < units.length - 1 && rounded(value, unit) >= 1024) {
     value /= 1024;
     unit += 1;
   }
@@ -57,6 +60,6 @@ export function formatBytes(bytes: number, locale?: string): string {
     style: 'unit',
     unit: units[unit],
     unitDisplay: unit === 0 ? 'long' : 'short',
-    maximumFractionDigits: unit === 2 ? 1 : 0,
+    maximumFractionDigits: decimals[unit],
   }).format(value);
 }

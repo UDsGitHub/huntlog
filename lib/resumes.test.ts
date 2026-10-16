@@ -19,6 +19,7 @@ import {
   MAX_RESUME_BYTES,
   purgeDeletedResumeData,
   restoreResume,
+  resumeFileExists,
   ResumeValidationError,
   RESUME_UNDO_WINDOW_MS,
   safeFileName,
@@ -308,6 +309,21 @@ describe('delete rules (spec §4.6)', () => {
     await softDeleteApplication(app.id, db, t0);
     expect(await isResumeInUse(resume.id, db, at(RECENTLY_DELETED_MS))).toBe(false);
     expect((await deleteResume(resume.id, db, at(RECENTLY_DELETED_MS))).outcome).toBe('deleted');
+  });
+
+  it('says when a resume was already archived, so Undo leaves it archived', async () => {
+    const resume = await addResume(file('cv.pdf'), {}, db, t0);
+    await usedBy(resume.id);
+    expect((await deleteResume(resume.id, db, t0)).wasArchived).toBe(false);
+    expect((await deleteResume(resume.id, db, t0)).wasArchived).toBe(true);
+  });
+
+  it('checks a file exists without loading it', async () => {
+    const resume = await addResume(file('cv.pdf'), {}, db, t0);
+    expect(await resumeFileExists(resume.id, db)).toBe(true);
+    await deleteResume(resume.id, db, t0);
+    expect(await resumeFileExists(resume.id, db)).toBe(false);
+    expect(await resumeFileExists('missing', db)).toBe(false);
   });
 
   it('soft-deletes an unused resume, which Undo restores', async () => {

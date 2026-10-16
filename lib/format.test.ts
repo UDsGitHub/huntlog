@@ -58,6 +58,9 @@ describe('formatBytes', () => {
     [245_760, '240 kB'],
     [1_258_291, '1.2 MB'],
     [10 * 1024 * 1024, '10 MB'],
+    [1_048_575, '1 MB'],
+    [1023, '1,023 bytes'],
+    [1_048_064, '1 MB'],
   ])('%d → %s', (bytes, expected) => {
     expect(formatBytes(bytes, 'en-US')).toBe(expected);
   });
