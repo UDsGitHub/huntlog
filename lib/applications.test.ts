@@ -1,10 +1,4 @@
-import {
-  addApplication,
-  listApplications,
-  normalizeInputUrl,
-  safeHref,
-  ValidationError,
-} from './applications';
+import { addApplication, listApplications, safeHref, ValidationError } from './applications';
 import { JobLogDB } from './db';
 import type { Application } from './types';
 
@@ -16,38 +10,6 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await db.delete();
-});
-
-describe('normalizeInputUrl', () => {
-  it.each([
-    ['https://example.com/jobs/1', 'https://example.com/jobs/1'],
-    ['  http://example.com/a  ', 'http://example.com/a'],
-    ['example.com/jobs/1', 'https://example.com/jobs/1'],
-    [
-      'boards.greenhouse.io/acme/jobs/123?gh_jid=123',
-      'https://boards.greenhouse.io/acme/jobs/123?gh_jid=123',
-    ],
-    ['HTTPS://Example.COM/Path', 'https://example.com/Path'],
-    ['careers.acme.com:8443/jobs/12', 'https://careers.acme.com:8443/jobs/12'],
-    ['localhost:3000/jobs/1', 'https://localhost:3000/jobs/1'],
-  ])('accepts %j', (input, expected) => {
-    expect(normalizeInputUrl(input)).toBe(expected);
-  });
-
-  it.each([
-    [''],
-    ['   '],
-    ['javascript:alert(1)'],
-    ['JavaScript:alert(1)'],
-    ['data:text/html,<b>x</b>'],
-    ['ftp://example.com/file'],
-    ['chrome://extensions'],
-    ['https://'],
-    ['http://exa mple.com'],
-    ['mailto:jobs@acme.com'],
-  ])('rejects %j', (input) => {
-    expect(normalizeInputUrl(input)).toBeNull();
-  });
 });
 
 describe('safeHref', () => {

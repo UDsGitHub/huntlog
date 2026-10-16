@@ -1,4 +1,5 @@
-import { addApplication, findDuplicates, validateNewApplication } from './applications';
+import { validateApplication } from './applicationInput';
+import { addApplication, findDuplicates } from './applications';
 import { JobLogDB } from './db';
 import { companyTitleKey } from './dedupe';
 
@@ -119,7 +120,7 @@ describe('findDuplicates', () => {
 
   it('matches a typed scheme-less URL once it is validated like a stored one', async () => {
     const existing = await add('example.com/jobs/1', 'Acme');
-    const typed = validateNewApplication({ url: 'example.com/jobs/1/', company: 'Other' }).values!;
+    const typed = validateApplication({ url: 'example.com/jobs/1/', company: 'Other' }).values!;
     expect((await dupes(typed)).map((a) => a.id)).toEqual([existing.id]);
   });
 
