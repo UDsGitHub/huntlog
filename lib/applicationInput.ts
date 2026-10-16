@@ -1,5 +1,5 @@
 import { sanitizeTitle } from './captureDraft';
-import { todayLocal } from './dates';
+import { checkPastLocalDate, todayLocal } from './dates';
 import { defaultCurrency, isKnownCurrency, numberSeparators } from './locale';
 import { appliedAtOptional, isStatus } from './status';
 import type { SalaryPeriod, Status, WorkMode } from './types';
@@ -115,14 +115,6 @@ export function parseSalary(raw: string | number | undefined, locale?: string): 
   return Number(match[2] ? `${whole}.${match[2]}` : whole);
 }
 
-export function isValidLocalDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const date = new Date(y, m - 1, d);
-  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
-}
-
 function optionalText(
   raw: string | undefined,
   max: number,
@@ -147,10 +139,7 @@ export interface ValidateOptions {
 
 /** Error message for a Date applied, or undefined if it's a real local date not in the future. */
 export function checkAppliedAt(value: string, now: Date = new Date()): string | undefined {
-  if (!isValidLocalDate(value)) return 'Enter a valid date.';
-  // YYYY-MM-DD strings compare in date order.
-  if (value > todayLocal(now)) return "The date applied can't be in the future.";
-  return undefined;
+  return checkPastLocalDate(value, now, "The date applied can't be in the future.");
 }
 
 export function validateApplication(
