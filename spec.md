@@ -278,7 +278,7 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 - **React 18 + TypeScript (strict).**
 - **Dexie** for IndexedDB, with `dexie-react-hooks` for live queries.
 - **Tailwind CSS**, with a dark theme via the `class` strategy and support for `prefers-color-scheme`.
-- **Charts:** a lightweight library such as Recharts, or hand-rolled SVG if bundle size matters.
+- **Charts:** hand-written SVG and CSS, no chart library. Decided in M5 after measuring: one Recharts 3 bar chart adds about 320 KB minified (97 KB gzipped), more than the whole side panel (about 200 KB), for two simple charts.
 - **Testing:** Vitest + React Testing Library for unit and component tests, `fake-indexeddb` for database tests, and Playwright with a persistent context loading the unpacked extension for end-to-end tests.
 - **Lint/format:** ESLint + Prettier.
 
@@ -323,7 +323,6 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 ## 12. Open questions
 
 - **Product name and icon:** "Job Log" is a working title, and store name availability needs checking.
-- **Charts:** Recharts versus custom SVG, to be decided after measuring bundle size.
 - **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
 - **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
 
