@@ -120,3 +120,18 @@ test('remembered source and work mode survive a panel reload', async ({ session 
   await page.getByRole('button', { name: 'More details' }).click();
   await expect(page.getByLabel(/Source/)).toHaveValue('Referral');
 });
+
+test('a job logged as Saved has no date applied', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
+  await page.getByLabel('Company').fill('Acme');
+  await page.getByLabel('Status').selectOption('saved');
+  await expect(page.getByLabel(/Date applied/)).toBeHidden();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: /^Acme/ }).click();
+  const detail = page.getByRole('region', { name: 'Acme' });
+  await expect(detail.getByRole('definition').first()).toHaveText('Saved');
+  await expect(detail.getByText('Date applied')).toHaveCount(0);
+});
