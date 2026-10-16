@@ -1,6 +1,6 @@
-import { addApplication } from './applications';
+import { addApplication, findDuplicates, validateNewApplication } from './applications';
 import { JobLogDB } from './db';
-import { companyTitleKey, findDuplicates } from './dedupe';
+import { companyTitleKey } from './dedupe';
 
 describe('companyTitleKey', () => {
   it('ignores case, surrounding and repeated whitespace', () => {
@@ -46,10 +46,14 @@ describe('findDuplicates', () => {
 
   const add = (url: string, company: string, title?: string, now?: Date) =>
     addApplication({ url, company, title }, db, now);
+  const dupes = (
+    input: { url: string; company: string; title?: string },
+    options: { excludeId?: string } = {},
+  ) => findDuplicates(input, options, db);
 
   it('matches a URL that differs only in tracking parameters', async () => {
     const existing = await add('https://boards.greenhouse.io/acme/jobs/1?gh_jid=1', 'Acme');
-    const found = await findDuplicates(db, {
+    const found = await dupes({
       url: 'http://boards.greenhouse.io/acme/jobs/1/?utm_source=li&gh_src=x&gh_jid=1',
       company: 'Someone else',
     });
@@ -58,7 +62,7 @@ describe('findDuplicates', () => {
 
   it('matches company + title regardless of case and spacing', async () => {
     const existing = await add('https://a.com/1', 'Acme', 'Senior Engineer');
-    const found = await findDuplicates(db, {
+    const found = await dupes({
       url: 'https://b.com/2',
       company: ' acme ',
       title: 'SENIOR   engineer',
@@ -68,29 +72,24 @@ describe('findDuplicates', () => {
 
   it('does not match the same company with a different title', async () => {
     await add('https://a.com/1', 'Acme', 'Senior Engineer');
-    expect(
-      await findDuplicates(db, { url: 'https://b.com/2', company: 'Acme', title: 'Designer' }),
-    ).toEqual([]);
+    expect(await dupes({ url: 'https://b.com/2', company: 'Acme', title: 'Designer' })).toEqual([]);
   });
 
   it('does not match on company alone when titles are missing', async () => {
     await add('https://a.com/1', 'Acme');
-    expect(await findDuplicates(db, { url: 'https://b.com/2', company: 'Acme' })).toEqual([]);
+    expect(await dupes({ url: 'https://b.com/2', company: 'Acme' })).toEqual([]);
   });
 
   it('excludes soft-deleted rows', async () => {
     const gone = await add('https://a.com/1', 'Acme', 'Engineer');
     await db.applications.update(gone.id, { deletedAt: new Date().toISOString() });
-    expect(
-      await findDuplicates(db, { url: 'https://a.com/1', company: 'Acme', title: 'Engineer' }),
-    ).toEqual([]);
+    expect(await dupes({ url: 'https://a.com/1', company: 'Acme', title: 'Engineer' })).toEqual([]);
   });
 
   it('excludes the record being edited', async () => {
     const self = await add('https://a.com/1', 'Acme', 'Engineer');
     expect(
-      await findDuplicates(
-        db,
+      await dupes(
         { url: 'https://a.com/1', company: 'Acme', title: 'Engineer' },
         { excludeId: self.id },
       ),
@@ -110,7 +109,7 @@ describe('findDuplicates', () => {
       'Engineer',
       new Date('2026-10-05T00:00:00Z'),
     );
-    const found = await findDuplicates(db, {
+    const found = await dupes({
       url: 'https://a.com/1',
       company: 'Acme',
       title: 'Engineer',
@@ -118,7 +117,13 @@ describe('findDuplicates', () => {
     expect(found.map((a) => a.id)).toEqual([newer.id, older.id]);
   });
 
+  it('matches a typed scheme-less URL once it is validated like a stored one', async () => {
+    const existing = await add('example.com/jobs/1', 'Acme');
+    const typed = validateNewApplication({ url: 'example.com/jobs/1/', company: 'Other' }).values!;
+    expect((await dupes(typed)).map((a) => a.id)).toEqual([existing.id]);
+  });
+
   it('returns nothing for an empty database', async () => {
-    expect(await findDuplicates(db, { url: 'https://a.com', company: 'Acme' })).toEqual([]);
+    expect(await dupes({ url: 'https://a.com', company: 'Acme' })).toEqual([]);
   });
 });

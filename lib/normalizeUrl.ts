@@ -12,12 +12,14 @@ function isTrackingParam(name: string): boolean {
 
 /**
  * Normalizes a job posting URL for duplicate detection (spec §4.5). Pure and idempotent; never
- * throws. Input that isn't an http(s) URL comes back trimmed, so it can never match a valid one.
+ * throws. Input that isn't an http(s) URL comes back trimmed (non-strings as ''), so it can never
+ * match a valid one.
  *
  * Changing these rules changes stored `urlNormalized` values: add a Dexie migration that
  * re-normalizes existing rows, or old and new values stop matching.
  */
-export function normalizeUrl(raw: string): string {
+export function normalizeUrl(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
   const trimmed = raw.trim();
   let url: URL;
   try {
@@ -27,10 +29,12 @@ export function normalizeUrl(raw: string): string {
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return trimmed;
 
-  // The same posting is often reachable over both schemes. Switching to https also drops a port
-  // that is now the default (http://host:443 → https://host). The URL parser lowercases the host.
-  url.protocol = 'https:';
-  url.hash = '';
+  // The same posting is often reachable over both schemes. With an explicit port the two are
+  // different origins, so leave those alone. The URL parser already drops default ports and
+  // lowercases the host.
+  if (url.port === '') url.protocol = 'https:';
+  // Hash-routed careers sites put the job in the fragment (`#/jobs/123`, `#!/job/5`); keep those.
+  if (!/^#!?\//.test(url.hash)) url.hash = '';
 
   const kept = [...url.searchParams]
     .filter(([name]) => !isTrackingParam(name))

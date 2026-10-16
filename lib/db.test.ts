@@ -42,6 +42,15 @@ const v1Rows = [
     updatedAt: AT,
   },
   {
+    // Malformed (hand-edited or corrupted): must not abort the upgrade for everyone else.
+    id: 'malformed',
+    company: 42,
+    status: 'applied',
+    statusHistory: [],
+    createdAt: AT,
+    updatedAt: AT,
+  },
+  {
     id: 'deleted',
     url: 'https://acme.com/jobs/9',
     company: 'Gone',
@@ -110,6 +119,9 @@ describe('JobLogDB', () => {
       expect(noTitle?.urlNormalized).toBe('https://jobs.lever.co/beta/123');
       expect(noTitle).not.toHaveProperty('companyTitleKey');
       expect((await db.applications.get('invalid-url'))?.urlNormalized).toBe('javascript:alert(1)');
+      const malformed = await db.applications.get('malformed');
+      expect(malformed?.urlNormalized).toBe('');
+      expect(malformed).not.toHaveProperty('companyTitleKey');
       db.close();
     });
 
@@ -137,6 +149,67 @@ describe('JobLogDB', () => {
       expect(db.verno).toBe(2);
       expect(await db.applications.count()).toBe(0);
       db.close();
+    });
+  });
+
+  describe('derived-field hooks', () => {
+    let db: JobLogDB;
+    beforeEach(() => {
+      db = new JobLogDB(name);
+    });
+    afterEach(() => db.close());
+
+    const row = {
+      id: 'h1',
+      url: 'http://acme.com/jobs/1?utm_source=x',
+      urlNormalized: 'stale',
+      companyTitleKey: 'stale',
+      company: 'Acme',
+      title: 'Engineer',
+      status: 'applied' as const,
+      statusHistory: [],
+      createdAt: AT,
+      updatedAt: AT,
+    };
+
+    it('computes derived fields on add, ignoring what the caller passed', async () => {
+      await db.applications.add(row);
+      expect(await db.applications.get('h1')).toMatchObject({
+        urlNormalized: 'https://acme.com/jobs/1',
+        companyTitleKey: 'acme\u001fengineer',
+      });
+    });
+
+    it('recomputes on update when url, company or title change', async () => {
+      await db.applications.add(row);
+      await db.applications.update('h1', { url: 'https://acme.com/jobs/2/' });
+      expect((await db.applications.get('h1'))?.urlNormalized).toBe('https://acme.com/jobs/2');
+      await db.applications.update('h1', { company: 'Beta' });
+      expect((await db.applications.get('h1'))?.companyTitleKey).toBe('beta\u001fengineer');
+    });
+
+    it('removes the company + title key when the title is cleared', async () => {
+      await db.applications.add(row);
+      await db.applications.update('h1', { title: undefined });
+      // Dexie stores a hook's undefined as an undefined-valued property; the index skips it.
+      expect((await db.applications.get('h1'))?.companyTitleKey).toBeUndefined();
+      expect(
+        await db.applications.where('companyTitleKey').equals('acme\u001fengineer').count(),
+      ).toBe(0);
+    });
+
+    it('recomputes on put and modify too', async () => {
+      await db.applications.add(row);
+      await db.applications.put({ ...row, url: 'https://acme.com/jobs/3', urlNormalized: 'x' });
+      expect((await db.applications.get('h1'))?.urlNormalized).toBe('https://acme.com/jobs/3');
+      await db.applications.where('id').equals('h1').modify({ title: 'Designer' });
+      expect((await db.applications.get('h1'))?.companyTitleKey).toBe('acme\u001fdesigner');
+    });
+
+    it('leaves derived fields alone when unrelated fields change', async () => {
+      await db.applications.add(row);
+      await db.applications.update('h1', { status: 'screening' });
+      expect((await db.applications.get('h1'))?.urlNormalized).toBe('https://acme.com/jobs/1');
     });
   });
 

@@ -43,8 +43,14 @@ describe('normalizeUrl', () => {
     ['http://acme.com/jobs/1', 'https://acme.com/jobs/1'],
     ['http://acme.com:80/jobs/1', 'https://acme.com/jobs/1'],
     ['https://acme.com:443/jobs/1', 'https://acme.com/jobs/1'],
-    ['http://acme.com:443/jobs/1', 'https://acme.com/jobs/1'],
+    // An explicit port makes http and https different origins, so the scheme stays.
+    ['http://acme.com:443/jobs/1', 'http://acme.com:443/jobs/1'],
+    ['http://acme.com:8080/jobs/1', 'http://acme.com:8080/jobs/1'],
     ['https://acme.com:8443/jobs/1', 'https://acme.com:8443/jobs/1'],
+    // Hash routing keeps the fragment; ordinary anchors are dropped.
+    ['https://careers.acme.com/#/jobs/123', 'https://careers.acme.com/#/jobs/123'],
+    ['https://careers.acme.com/?utm_source=x#!/job/5', 'https://careers.acme.com/#!/job/5'],
+    ['https://careers.acme.com/jobs/1#description', 'https://careers.acme.com/jobs/1'],
     // Parameter order doesn't matter; repeated and empty values are kept.
     ['https://acme.com/j?b=2&a=1', 'https://acme.com/j?a=1&b=2'],
     ['https://acme.com/j?a=2&a=1', 'https://acme.com/j?a=1&a=2'],
@@ -67,6 +73,19 @@ describe('normalizeUrl', () => {
     ];
     expect(new Set(variants.map(normalizeUrl)).size).toBe(1);
   });
+
+  it('keeps hash-routed jobs on the same page apart', () => {
+    expect(normalizeUrl('https://careers.acme.com/#/jobs/123')).not.toBe(
+      normalizeUrl('https://careers.acme.com/#/jobs/456'),
+    );
+  });
+
+  it.each([[undefined], [null], [42], [{}]])(
+    'returns an empty string for non-string %j',
+    (input) => {
+      expect(normalizeUrl(input)).toBe('');
+    },
+  );
 
   it('keeps different job IDs apart', () => {
     expect(normalizeUrl('https://www.indeed.com/viewjob?jk=1')).not.toBe(
