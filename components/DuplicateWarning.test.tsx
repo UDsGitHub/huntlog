@@ -13,7 +13,7 @@ type User = ReturnType<typeof userEvent.setup>;
 const WARNING = 'You may have logged this already';
 
 async function fillAndSave(user: User, fields: { url: string; company: string; title?: string }) {
-  await user.click(await screen.findByRole('button', { name: '+ Add application' }));
+  await user.click(await screen.findByRole('button', { name: 'Add application' }));
   await user.type(screen.getByLabelText('Job posting URL'), fields.url);
   await user.type(screen.getByLabelText('Company'), fields.company);
   if (fields.title) await user.type(screen.getByLabelText(/Job title/), fields.title);
@@ -103,7 +103,7 @@ describe('Duplicate warning', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Acme' })).toHaveFocus();
     expect(await db.applications.count()).toBe(1);
     await user.click(screen.getByRole('button', { name: '← Back to applications' }));
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.getByLabelText('Company')).toHaveValue('');
   });
 
@@ -142,7 +142,7 @@ describe('Duplicate warning', () => {
     await existing();
     const user = userEvent.setup();
     render(<App />);
-    await user.click(await screen.findByRole('button', { name: '+ Add application' }));
+    await user.click(await screen.findByRole('button', { name: 'Add application' }));
     await user.type(screen.getByLabelText('Company'), 'Acme');
     await user.type(screen.getByLabelText(/Job title/), 'Senior Engineer');
     await user.click(screen.getByRole('button', { name: 'Save' }));

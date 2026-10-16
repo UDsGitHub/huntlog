@@ -178,7 +178,7 @@ describe('List controls', () => {
     await user.type(await screen.findByLabelText('Search'), 'acme');
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
     await user.clear(screen.getByLabelText('Search'));
     expect(screen.getByRole('button', { name: /^Gamma/ })).not.toHaveFocus();

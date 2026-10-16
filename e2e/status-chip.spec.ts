@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
 async function addJob(page: Page, company: string, status?: string) {
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/jobs/1`);
   await page.getByLabel('Company').fill(company);
   if (status) await page.getByLabel('Status').selectOption(status);

@@ -7,7 +7,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   await page.goto(panelUrl(session.extensionId));
 
   // Add with every field.
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page
     .getByLabel('Job posting URL')
     .fill('https://boards.greenhouse.io/acme/jobs/1?gh_jid=1');
@@ -44,7 +44,7 @@ test('a full application record, end to end, with the duplicate warning', async 
 
   // Add the same posting again via a tracking link: warned, and View existing opens the original.
   await page.getByRole('button', { name: '← Back to applications' }).click();
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page
     .getByLabel('Job posting URL')
     .fill('http://boards.greenhouse.io/acme/jobs/1/?utm_source=linkedin&gh_src=x&gh_jid=1');
@@ -65,7 +65,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   await expect(page.getByText(/No applications yet/)).toBeVisible();
 
   // A deleted application no longer counts as a duplicate.
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page
     .getByLabel('Job posting URL')
     .fill('https://boards.greenhouse.io/acme/jobs/1?gh_jid=1');
@@ -79,7 +79,7 @@ test('the duplicate warning fits a 320px panel', async ({ session }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
   for (const company of [`Long${'Q'.repeat(150)}`, 'Second']) {
-    await page.getByRole('button', { name: '+ Add application' }).click();
+    await page.getByRole('button', { name: 'Add application' }).click();
     await page.getByLabel('Job posting URL').fill(`https://acme.com/${'a'.repeat(200)}`);
     await page.getByLabel('Company').fill(company);
     await page.getByLabel(/Job title/).fill(`Title ${'W'.repeat(150)}`);

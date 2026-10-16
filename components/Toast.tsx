@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { inert } from './inert';
+import { XIcon } from './icons';
+import { useToastSlot } from './toastLayer';
 
 export const TOAST_DURATION_MS = 5000;
+/** How long a toast takes to slide out. Reduced motion skips it. */
+export const TOAST_EXIT_MS = 150;
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
 
 /** Why a toast closed: it timed out, the user dismissed it, or the user took its action. */
 export type DismissReason = 'timeout' | 'dismiss' | 'action';
@@ -43,7 +57,8 @@ export function useToast() {
 /**
  * Bottom-of-panel toast in an always-mounted polite live region. It disappears after 5 seconds,
  * and the timer stops while the pointer or keyboard focus is on it (WCAG 2.2.1), restarting in
- * full when they leave.
+ * full when they leave. It slides in, and slides out before it goes (spec §3). While a sheet is
+ * open, it shows inside that sheet, which keeps it visible and clickable over the modal.
  */
 export function Toast({
   toast,
@@ -54,49 +69,94 @@ export function Toast({
   onDismiss: (reason: DismissReason) => void;
   duration?: number;
 }) {
-  return (
+  const slot = useToastSlot();
+  // The toast that just went, kept on screen (inert) while it slides out.
+  const [leaving, setLeaving] = useState<ToastData | null>(null);
+  const shown = useRef<ToastData | null>(null);
+  useLayoutEffect(() => {
+    const previous = shown.current;
+    shown.current = toast;
+    if (toast || !previous || prefersReducedMotion()) {
+      setLeaving(null);
+      return;
+    }
+    setLeaving(previous);
+    const timer = setTimeout(() => setLeaving(null), TOAST_EXIT_MS);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const region = (
     <div
       aria-live="polite"
-      // Clear of a sticky bottom bar when one is showing; it publishes its height (useStickyBar).
-      style={{ bottom: 'calc(var(--sticky-bar-height, 0px) + 1rem)' }}
-      className="pointer-events-none fixed inset-x-4 flex justify-center"
+      // Clear of a sticky bottom bar or the floating button when one is showing; each publishes
+      // the room it takes. Inside a sheet, the slot already sits above its footer.
+      style={
+        slot
+          ? undefined
+          : {
+              bottom: 'calc(var(--sticky-bar-height, 0px) + var(--fab-clearance, 0px) + 1rem)',
+            }
+      }
+      className={
+        slot
+          ? 'flex w-full justify-center'
+          : 'pointer-events-none fixed inset-x-4 flex justify-center'
+      }
     >
       {/* Keyed per toast, so pause state never carries over to the next one. */}
-      {toast && (
+      {toast ? (
         <ToastCard key={toast.id} toast={toast} onDismiss={onDismiss} duration={duration} />
+      ) : (
+        leaving && (
+          <ToastCard
+            key={leaving.id}
+            toast={leaving}
+            onDismiss={onDismiss}
+            duration={duration}
+            leaving
+          />
+        )
       )}
     </div>
   );
+  return slot ? createPortal(region, slot) : region;
 }
 
 function ToastCard({
   toast,
   onDismiss,
   duration,
+  leaving = false,
 }: {
   toast: ToastData;
   onDismiss: (reason: DismissReason) => void;
   duration: number;
+  /** Sliding out: shown, but no longer usable or timed. */
+  leaving?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const paused = hovered || focused;
 
   useEffect(() => {
-    if (paused) return;
+    if (paused || leaving) return;
     const timer = setTimeout(() => onDismiss('timeout'), duration);
     return () => clearTimeout(timer);
-  }, [paused, duration, onDismiss]);
+  }, [paused, leaving, duration, onDismiss]);
 
   return (
     <div
+      {...inert(leaving)}
+      // Sliding out: still painted, but gone for assistive tech.
+      aria-hidden={leaving || undefined}
+      data-state={leaving ? 'closing' : 'open'}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
-      className="pointer-events-auto flex w-full max-w-sm min-w-0 items-center gap-3 rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg"
+      className={`toast flex w-full max-w-sm min-w-0 items-center gap-3 rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg ${leaving ? 'pointer-events-none' : 'pointer-events-auto'}`}
     >
       <span className="min-w-0 flex-1 break-words">{toast.message}</span>
       {toast.action && (
@@ -115,9 +175,9 @@ function ToastCard({
         type="button"
         onClick={() => onDismiss('dismiss')}
         aria-label="Dismiss"
-        className="btn btn-ghost btn-sm text-muted-foreground"
+        className="btn btn-ghost btn-icon size-7 text-muted-foreground"
       >
-        ×
+        <XIcon />
       </button>
     </div>
   );

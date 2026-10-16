@@ -24,7 +24,7 @@ test('upload a resume, link it to an application, open it from the application',
   await expect(resumes.getByRole('list', { name: 'Resumes' })).toContainText('Backend v3');
 
   await page.getByRole('tab', { name: 'Applications' }).click();
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('combobox', { name: /^Resume/ }).selectOption({ label: 'Backend v3' });
@@ -52,7 +52,7 @@ test('a resume an application uses is archived, not deleted, and still opens', a
 }) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   // Upload straight from the form.
@@ -86,7 +86,7 @@ test('the form with an inline upload fits a 320px panel', async ({ session }) =>
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByRole('button', { name: 'Upload new…' }).click();
   await expect(page.getByRole('group', { name: 'Upload a new resume' })).toBeVisible();
   await expectNoHorizontalScroll(page);

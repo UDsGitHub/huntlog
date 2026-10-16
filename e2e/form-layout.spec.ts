@@ -16,7 +16,7 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
 
   for (const label of ['Job posting URL', 'Company', /Job title/, 'Date applied']) {
     await expect(page.getByLabel(label)).toBeVisible();
@@ -52,7 +52,7 @@ test('More details opens on a hidden error and the toast clears the sticky bar',
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel('Minimum').fill('lots');
   await page.getByRole('button', { name: 'More details' }).click();
@@ -68,7 +68,7 @@ test('a focused field is never hidden behind the sticky bar', async ({ session }
   const page = await session.context.newPage();
   const save = page.getByRole('button', { name: 'Save' });
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('button', { name: 'More details' }).click();
@@ -91,7 +91,7 @@ test('a focused field is never hidden behind the sticky bar', async ({ session }
 test('remembered source and work mode survive a panel reload', async ({ session }) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('button', { name: 'More details' }).click();
@@ -109,7 +109,7 @@ test('remembered source and work mode survive a panel reload', async ({ session 
     .toEqual({ source: 'Referral', workMode: 'remote' });
 
   await page.reload();
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await expect(page.getByText('Remote · Referral')).toBeVisible();
   await page.getByRole('button', { name: 'More details' }).click();
   await expect(page.getByLabel(/Source/)).toHaveValue('Referral');
@@ -118,7 +118,7 @@ test('remembered source and work mode survive a panel reload', async ({ session 
 test('a job logged as Saved has no date applied', async ({ session }) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByLabel('Status').selectOption('saved');

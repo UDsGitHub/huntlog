@@ -4,6 +4,8 @@ import { ApplicationForm, readFailedMessage } from '@/components/ApplicationForm
 import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
+import { Fab } from '@/components/Fab';
+import { PlusIcon } from '@/components/icons';
 import { StatsPanel } from '@/components/StatsPanel';
 import { useTheme } from '@/components/useTheme';
 import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
@@ -324,17 +326,19 @@ export default function App() {
             )}
           </section>
         ) : (
-          <section aria-labelledby="applications-heading" className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <h2 id="applications-heading" className="section-heading">
-                Applications
-              </h2>
+          // Bottom padding keeps the last row clear of the floating + Add.
+          <section aria-labelledby="applications-heading" className="flex flex-col gap-2 pb-16">
+            <h2 id="applications-heading" className="section-heading">
+              Applications
+            </h2>
+            {/* Only while Applications shows: it floats over the whole panel. */}
+            {tab === 'applications' && (
               <AddButton
                 focus={focusTarget?.kind === 'add'}
                 onFocused={clearFocusTarget}
                 onClick={openAdd}
               />
-            </div>
+            )}
             <ErrorBoundary
               fallback={
                 <p role="alert" className="text-sm text-muted-foreground">
@@ -343,6 +347,7 @@ export default function App() {
               }
             >
               <ApplicationList
+                onAdd={openAdd}
                 query={listQuery}
                 onQueryChange={setListQuery}
                 onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
@@ -405,9 +410,9 @@ function AddButton({
     onFocused();
   }, [focus, onFocused]);
   return (
-    <button ref={button} type="button" onClick={onClick} className="btn btn-primary">
-      + Add application
-    </button>
+    <Fab ref={button} label="Add application" icon={<PlusIcon />} onClick={onClick}>
+      Add
+    </Fab>
   );
 }
 

@@ -11,7 +11,7 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
   await expect(page.getByRole('tabpanel', { name: 'Resumes' })).toContainText('No resumes yet.');
   // With real CSS, the hidden panel must not render (its flex classes mustn't beat [hidden]).
   await expect(page.getByText(/No applications yet/)).toBeHidden();
-  await expect(page.getByRole('button', { name: '+ Add application' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Add application' })).toBeHidden();
   await expectNoHorizontalScroll(page);
 
   // Tab from the tab bar reaches the Resumes panel, skipping the hidden Applications panel.
@@ -32,6 +32,6 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
   await expect(page.getByText(/No applications yet/)).toBeVisible();
 
   // Hidden while a form is open, so the sticky Save bar owns the panel.
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await expect(page.getByRole('tablist')).toHaveCount(0);
 });

@@ -36,7 +36,7 @@ const optionLabels = () =>
 /** Opens Add. Resumes load asynchronously: tests that need one wait for its option. */
 async function openAdd(user: User, waitForOption?: string) {
   render(<App />);
-  await user.click(await screen.findByRole('button', { name: '+ Add application' }));
+  await user.click(await screen.findByRole('button', { name: 'Add application' }));
   if (waitForOption) await waitFor(() => expect(optionLabels()).toContain(waitForOption));
 }
 

@@ -15,7 +15,7 @@ const dateHidden = () => screen.getByLabelText(/Date applied/).closest('[hidden]
 async function openAdd(user: User) {
   render(<App />);
   await screen.findByText(/No applications yet/);
-  await user.click(screen.getByRole('button', { name: '+ Add application' }));
+  await user.click(screen.getByRole('button', { name: 'Add application' }));
 }
 
 describe('Status in the form', () => {

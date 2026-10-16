@@ -10,7 +10,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await page.goto(panelUrl(session.extensionId));
 
   async function add(company: string, appliedAt?: string) {
-    await page.getByRole('button', { name: '+ Add application' }).click();
+    await page.getByRole('button', { name: 'Add application' }).click();
     await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/jobs/1`);
     await page.getByLabel('Company').fill(company);
     if (appliedAt) await page.getByLabel('Date applied').fill(appliedAt);

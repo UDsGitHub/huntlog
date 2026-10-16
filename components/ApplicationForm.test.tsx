@@ -18,7 +18,7 @@ afterEach(() => {
 async function openAddForm(user: ReturnType<typeof userEvent.setup>) {
   render(<App />);
   await screen.findByText(/No applications yet/);
-  await user.click(screen.getByRole('button', { name: '+ Add application' }));
+  await user.click(screen.getByRole('button', { name: 'Add application' }));
   return screen.getByRole('form', { name: 'Add application' });
 }
 
@@ -26,11 +26,14 @@ const field = (label: string | RegExp) => screen.getByLabelText(label);
 
 describe('Add view', () => {
   it('starts on the list with an empty state that explains capture', async () => {
+    const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByText(/No applications yet/)).toHaveTextContent(
-      'right-click any job posting',
-    );
+    expect(await screen.findByText('No applications yet.')).toBeInTheDocument();
+    expect(screen.getByText(/right-click any job posting/)).toBeInTheDocument();
     expect(screen.queryByRole('form')).toBeNull();
+    // A full-size button as well as the floating one (spec §4.2).
+    await user.click(screen.getByRole('button', { name: 'Add your first application' }));
+    expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
   });
 
   it('opens a blank form with defaults and focuses the URL field', async () => {
@@ -68,7 +71,7 @@ describe('Add view', () => {
     expect(list).toHaveTextContent('Senior Engineer');
     expect(list).toHaveTextContent('Berlin · Hybrid');
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
     expect(screen.getByRole('status')).toHaveTextContent('Saved Acme.');
 
@@ -226,7 +229,7 @@ describe('Add view', () => {
     await screen.findByRole('list', { name: 'Applications' });
     const first = screen.getByRole('status').textContent;
 
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.type(field('Job posting URL'), 'https://example.com/2');
     await user.type(field('Company'), 'Acme{Enter}');
     await waitFor(() => expect(screen.getByRole('status').textContent).not.toBe(first));
@@ -252,7 +255,7 @@ describe('Add view', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('form')).toBeNull();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
     expect(await db.applications.count()).toBe(0);
   });
@@ -262,7 +265,7 @@ describe('Add view', () => {
     await openAddForm(user);
     await user.type(field('Company'), 'Half typed');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(field('Company')).toHaveValue('');
   });
 });
@@ -290,7 +293,7 @@ describe('Application list', () => {
     vi.spyOn(applications, 'listApplications').mockRejectedValue(new Error('DB blocked'));
     render(<App />);
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load your applications");
-    expect(screen.getByRole('button', { name: '+ Add application' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add application' })).toBeInTheDocument();
   });
 
   it('renders a stored non-web URL as text, not a link', async () => {
