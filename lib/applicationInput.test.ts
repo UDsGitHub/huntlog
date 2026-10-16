@@ -7,6 +7,7 @@ import {
   validateApplication,
   type ApplicationInput,
 } from './applicationInput';
+import { numberSeparators } from './locale';
 
 const base: ApplicationInput = { url: 'https://acme.com/jobs/1', company: 'Acme' };
 // Local noon, so "today" is Oct 15 whatever time zone the tests run in.
@@ -92,13 +93,21 @@ describe("parseSalary in the user's locale", () => {
     ['fr-FR', '85 000', 85000],
     ['fr-FR', '85\u202f000', 85000],
     ['fr-FR', '12,5', 12.5],
-    ['de-CH', '85’000', 85000],
     ['en-IN', '8,50,000', 850000],
     ['en-IN', '12,34,567', 1234567],
     ['en-IN', '850000', 850000],
   ])('%s: %j → %d', (locale, input, expected) => {
     expect(parseSalary(input, locale)).toBe(expected);
   });
+
+  // The grouping character comes from the runtime's ICU data, which varies (de-CH uses ’ or ').
+  it.each([['de-CH'], ['it-CH'], ['pl-PL'], ['sv-SE']])(
+    '%s: accepts the grouping character Intl reports',
+    (locale) => {
+      const { group } = numberSeparators(locale);
+      expect(parseSalary(`85${group}000`, locale)).toBe(85000);
+    },
+  );
 
   // A separator followed by exactly 3 digits is never read as decimals: ambiguous input is
   // rejected rather than silently stored as 85.
