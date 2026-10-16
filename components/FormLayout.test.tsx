@@ -176,7 +176,12 @@ describe('Remembered defaults', () => {
   it('reach a form opened before they finished loading', async () => {
     let release!: () => void;
     const stored = { [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } };
-    vi.spyOn(fakeBrowser.storage.local, 'get').mockImplementationOnce((async () => {
+    // Delay only the first defaults read: other reads (e.g. settings) may come first.
+    const get = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local);
+    let delayed = false;
+    vi.spyOn(fakeBrowser.storage.local, 'get').mockImplementation((async (keys: unknown) => {
+      if (delayed || keys !== FORM_DEFAULTS_KEY) return get(keys as string);
+      delayed = true;
       await new Promise<void>((resolve) => (release = resolve));
       return stored;
     }) as never);

@@ -8,7 +8,7 @@ import {
   msUntilNextDay,
   todayLocal,
 } from '@/lib/dates';
-import { localeWeekStart } from '@/lib/locale';
+import { effectiveWeekStart } from '@/lib/settings';
 import {
   addDays,
   computeStats,
@@ -20,6 +20,7 @@ import {
   type Rate,
 } from '@/lib/stats';
 import { ActivityChart, OutcomesBar } from './StatsCharts';
+import { useSettings } from './useSettings';
 
 const field =
   'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
@@ -77,12 +78,19 @@ export function StatsPanel() {
   const [kind, setKind] = useState<RangeKind>('this-week');
   const [custom, setCustom] = useState<Partial<DateRange>>({});
   const today = useToday();
-  // M6 adds a Settings override.
-  const weekStartsOn = useMemo(() => localeWeekStart(), []);
+  const settings = useSettings();
+  // Settings → First day of the week, else the locale's (spec §4.7). Undefined while loading.
+  const loaded = settings !== undefined;
+  const chosen = settings?.weekStartsOn;
+  // Memoized on the choice alone: other settings changing don't redo the locale lookup.
+  const weekStartsOn = useMemo(
+    () => (loaded ? effectiveWeekStart({ weekStartsOn: chosen }) : undefined),
+    [loaded, chosen],
+  );
   // The tab stays mounted while hidden, and every write elsewhere reloads `apps`: only recount
   // when something the numbers depend on changed.
   const result = useMemo(() => {
-    if (!apps) return undefined;
+    if (!apps || weekStartsOn === undefined) return undefined;
     // Noon on today's date: a "now" that stays on that day.
     const now = new Date(`${today}T12:00:00`);
     const range = resolveRange(kind, { now, weekStartsOn, apps, custom });
