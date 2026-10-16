@@ -11,7 +11,14 @@ export default defineConfig({
     name: 'Job Log',
     // sidePanel API landed in 114, setPanelBehavior in 116.
     minimum_chrome_version: '116',
-    permissions: ['sidePanel', 'storage', 'contextMenus', 'activeTab', 'scripting'],
+    permissions: [
+      'sidePanel',
+      'storage',
+      'unlimitedStorage',
+      'contextMenus',
+      'activeTab',
+      'scripting',
+    ],
     action: {
       default_title: 'Open Job Log',
     },

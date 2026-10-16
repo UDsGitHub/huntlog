@@ -28,6 +28,10 @@ export interface Application {
   companyTitleKey?: string;
   company: string;
   title?: string;
+  /** The resume sent (spec §4.6); optional, encouraged. */
+  resumeId?: string;
+  /** The resume's display name when it was linked, shown if the resume itself is gone. */
+  resumeNameSnapshot?: string;
   status: Status;
   statusHistory: StatusHistoryEntry[]; // append-only
   appliedAt?: string; // YYYY-MM-DD, local date
@@ -42,4 +46,32 @@ export interface Application {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+}
+
+/**
+ * An uploaded resume (spec §4.6, §5): the metadata. The file's bytes live in their own table
+ * (`ResumeFile`, same id), so listing resumes never loads files; the bytes are removed once a
+ * deleted resume's Undo window has passed, and the record stays for future sync.
+ */
+export interface Resume {
+  id: string;
+  name: string; // display name, e.g. "Backend v3"
+  fileName: string; // original file name
+  mimeType: string;
+  size: number; // bytes actually stored
+  note?: string;
+  /** Hidden from the resume picker, still viewable; kept because applications use it. */
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+/**
+ * A resume's file: raw bytes rather than a Blob, since bytes store and round-trip everywhere
+ * (fake-indexeddb loses Blobs); a Blob is built when the file is opened.
+ */
+export interface ResumeFile {
+  id: string; // the resume's id
+  data: ArrayBuffer;
 }

@@ -376,3 +376,27 @@ export async function updateHistoryDate(
   if (!result) throw new NotFoundError(id);
   return result;
 }
+
+/**
+ * How long a soft-deleted application still counts as using its resume: its Undo toast can bring
+ * it back meanwhile. After that it can't come back, so it no longer keeps a resume alive.
+ */
+export const RECENTLY_DELETED_MS = 60 * 1000;
+
+/**
+ * Whether any application uses this resume (spec §4.6): a live one, or one deleted so recently
+ * that Undo could still restore it.
+ */
+export async function isResumeInUse(
+  resumeId: string,
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const cutoff = now.getTime() - RECENTLY_DELETED_MS;
+  const users = await database.applications
+    .where('resumeId')
+    .equals(resumeId)
+    .filter((app) => !app.deletedAt || Date.parse(app.deletedAt) > cutoff)
+    .count();
+  return users > 0;
+}

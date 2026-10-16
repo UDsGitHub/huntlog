@@ -110,7 +110,11 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 - The file is stored as a Blob in IndexedDB.
 - Each application references a resume by ID through a dropdown. The form also includes "Upload new…" so a resume can be added mid-flow.
 - **View:** PDFs open in a new extension tab via a blob URL. Other formats download.
-- **Delete:** if any applications use the resume, it is **archived** instead: hidden from the dropdown, but still viewable from those applications. Hard delete is allowed only when nothing references it.
+- **Accepted files:** the extension picks the format (PDF, DOCX, DOC, TXT or RTF) and the file's first bytes must match it (e.g. a PDF starts with `%PDF`). The type the browser reports is ignored, since it varies by system (a `.docx` can arrive as `application/zip`). The 10 MB limit applies to the bytes actually read.
+- **Delete:** if any applications use the resume (including one deleted within the last minute, which its Undo can still bring back), it is **archived** instead: hidden from the dropdown, but still viewable from those applications. Otherwise it's deleted with an Undo toast for about 5 seconds; after that its file is removed to reclaim storage, and only a small record remains (soft delete, for future sync). If the panel closes first, the next launch removes the files of resumes deleted more than a minute ago.
+- **Archived resumes** are listed in a collapsed "Archived" section of the Resumes tab, with **Unarchive**.
+- **Same name twice** is allowed (e.g. "Backend v3" as PDF and DOCX). Where names repeat, the dropdown also shows each one's format and upload date.
+- **Rename** changes the name everywhere: applications show the resume's current name, and use `resumeNameSnapshot` only when the resume itself is gone.
 - Each application also stores a snapshot of the resume's display name, so the name still shows even if the file is gone, for example after a partial import.
 
 
@@ -182,7 +186,8 @@ interface Resume {
   fileName: string;            // original file name
   mimeType: string;
   size: number;
-  blob: Blob;                  // stored in IndexedDB
+  // The file's bytes live in a separate ResumeFile { id, data: ArrayBuffer } record, so listing
+  // resumes never loads files; it's removed once a deleted resume's Undo window passes.
   note?: string;
   archived: boolean;
   createdAt: string; updatedAt: string; deletedAt?: string;
@@ -204,7 +209,7 @@ interface Settings {
 
 ## 6. Storage, export & import
 
-- **IndexedDB via Dexie** holds Applications and Resumes. Indexes cover `urlNormalized`, `status`, `appliedAt`, `updatedAt`, and `companyTitleKey`. `companyTitleKey` is a derived field (normalized company and title) rather than a `[company+title]` compound index, because a compound index can't match case- and whitespace-insensitively, and Dexie leaves rows without a title out of it.
+- **IndexedDB via Dexie** holds Applications and Resumes. Application indexes cover `urlNormalized`, `status`, `appliedAt`, `updatedAt`, `companyTitleKey` and `resumeId` (to tell whether a resume is used); resumes are indexed by `createdAt` and `updatedAt`. A resume's file is stored in its own table (`resumeFiles`), as raw bytes (an `ArrayBuffer`) with its type on the resume, not a `Blob`: bytes store and round-trip everywhere (the test database loses `Blob`s), and a `Blob` is built only when the file is opened. `companyTitleKey` is a derived field (normalized company and title) rather than a `[company+title]` compound index, because a compound index can't match case- and whitespace-insensitively, and Dexie leaves rows without a title out of it.
 - `chrome.storage.local` holds Settings, and `chrome.storage.session` holds the transient capture draft.
 - The `unlimitedStorage` permission is requested because resume files add up.
 - **Migrations:** versioned Dexie schema (`schemaVersion`).

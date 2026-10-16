@@ -73,20 +73,87 @@ describe('JobLogDB', () => {
   });
 
   // Baseline for future migrations: if this changes, add a new Dexie version instead of editing v2.
-  it('has the v2 schema', async () => {
+  // Baseline for future migrations: if this changes, add a new Dexie version instead of editing v3.
+  it('has the v3 schema', async () => {
     const db = new JobLogDB(name);
     await db.open();
-    expect(db.verno).toBe(2);
-    const table = db.applications.schema;
-    expect(table.primKey.name).toBe('id');
-    expect(table.indexes.map((i) => i.name).sort()).toEqual([
+    expect(db.verno).toBe(3);
+    expect(db.applications.schema.primKey.name).toBe('id');
+    expect(db.applications.schema.indexes.map((i) => i.name).sort()).toEqual([
       'appliedAt',
       'companyTitleKey',
+      'resumeId',
       'status',
       'updatedAt',
       'urlNormalized',
     ]);
+    expect(db.resumes.schema.primKey.name).toBe('id');
+    expect(db.resumes.schema.indexes.map((i) => i.name).sort()).toEqual(['createdAt', 'updatedAt']);
+    expect(db.resumeFiles.schema.primKey.name).toBe('id');
+    expect(db.resumeFiles.schema.indexes).toEqual([]);
     db.close();
+  });
+
+  describe('v2 → v3 migration', () => {
+    /** The v2 schema exactly as shipped in v0.2.0–v0.3.1. Never edit it. */
+    function openV2() {
+      const v2 = new Dexie(name);
+      v2.version(2).stores({
+        applications: 'id, status, appliedAt, updatedAt, urlNormalized, companyTitleKey',
+      });
+      return v2;
+    }
+
+    it('adds the resume tables and resumeId index, leaving every row unchanged', async () => {
+      const v2 = openV2();
+      const rows = [
+        {
+          id: 'a1',
+          url: 'https://acme.com/1',
+          urlNormalized: 'https://acme.com/1',
+          companyTitleKey: 'acme\u001fengineer',
+          company: 'Acme',
+          title: 'Engineer',
+          status: 'interviewing',
+          statusHistory: [
+            { status: 'applied', at: AT },
+            { status: 'interviewing', at: AT },
+          ],
+          appliedAt: '2026-10-15',
+          location: 'Berlin',
+          salaryMin: 85000,
+          salaryCurrency: 'EUR',
+          salaryPeriod: 'year',
+          notes: 'Line one\nLine two',
+          createdAt: AT,
+          updatedAt: AT,
+        },
+        {
+          id: 'a2',
+          url: 'https://beta.com/1',
+          urlNormalized: 'https://beta.com/1',
+          company: 'Beta',
+          status: 'saved',
+          statusHistory: [{ status: 'saved', at: AT }],
+          createdAt: AT,
+          updatedAt: AT,
+          deletedAt: AT,
+        },
+      ];
+      await v2.table('applications').bulkAdd(rows);
+      v2.close();
+
+      const db = new JobLogDB(name);
+      await db.open();
+      expect(db.verno).toBe(3);
+      for (const row of rows) expect(await db.applications.get(row.id)).toEqual(row);
+      expect(await db.resumes.count()).toBe(0);
+      expect(await db.resumeFiles.count()).toBe(0);
+      expect(await db.applications.where('resumeId').equals('r1').count()).toBe(0);
+      await db.applications.update('a1', { resumeId: 'r1' });
+      expect(await db.applications.where('resumeId').equals('r1').primaryKeys()).toEqual(['a1']);
+      db.close();
+    });
   });
 
   describe('v1 → v2 migration', () => {
@@ -101,7 +168,7 @@ describe('JobLogDB', () => {
 
     it('upgrades a v1 database and keeps every original field unchanged', async () => {
       const db = await migrate();
-      expect(db.verno).toBe(2);
+      expect(db.verno).toBe(3);
       for (const original of v1Rows) {
         expect(await db.applications.get(original.id)).toMatchObject(original);
       }
@@ -146,7 +213,7 @@ describe('JobLogDB', () => {
       v1.close();
       const db = new JobLogDB(name);
       await db.open();
-      expect(db.verno).toBe(2);
+      expect(db.verno).toBe(3);
       expect(await db.applications.count()).toBe(0);
       db.close();
     });
