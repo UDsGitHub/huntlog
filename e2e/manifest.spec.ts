@@ -3,7 +3,7 @@ import path from 'node:path';
 import { EXTENSION_PATH, expect, test } from './fixtures';
 
 // Guards DoD #4: the production manifest matches spec §8 for this milestone, with no creep.
-test('production manifest has only the M1 permissions', () => {
+test('production manifest has only the M4 permissions', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8'));
   expect(manifest.manifest_version).toBe(3);
   expect(manifest.minimum_chrome_version).toBe('116');
@@ -13,6 +13,7 @@ test('production manifest has only the M1 permissions', () => {
     'scripting',
     'sidePanel',
     'storage',
+    'unlimitedStorage',
   ]);
   expect(manifest.host_permissions).toBeUndefined();
   expect(manifest.optional_permissions).toBeUndefined();

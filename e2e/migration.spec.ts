@@ -5,7 +5,9 @@ import { expect, test } from './fixtures';
 // old database before the side panel ever loads.
 const AT = '2026-10-15T12:00:00.000Z';
 
-test('a v1 database from v0.1.0 upgrades to v2 and keeps its rows', async ({ session }) => {
+test('a v1 database from v0.1.0 upgrades to the latest schema and keeps its rows', async ({
+  session,
+}) => {
   await session.serviceWorker.evaluate(async (at) => {
     await new Promise<void>((resolve, reject) => {
       // Dexie stores schema version N as IndexedDB version N * 10.
@@ -39,31 +41,37 @@ test('a v1 database from v0.1.0 upgrades to v2 and keeps its rows', async ({ ses
 
   const stored = await panel.evaluate(
     () =>
-      new Promise<{ version: number; indexes: string[]; row: Record<string, unknown> }>(
-        (resolve, reject) => {
-          const request = indexedDB.open('job-log');
-          request.onsuccess = () => {
-            const tx = request.result.transaction('applications');
-            const store = tx.objectStore('applications');
-            const get = store.get('legacy-1');
-            get.onsuccess = () => {
-              resolve({
-                version: request.result.version,
-                indexes: [...store.indexNames].sort(),
-                row: get.result,
-              });
-              request.result.close();
-            };
-            get.onerror = () => reject(get.error);
+      new Promise<{
+        version: number;
+        stores: string[];
+        indexes: string[];
+        row: Record<string, unknown>;
+      }>((resolve, reject) => {
+        const request = indexedDB.open('job-log');
+        request.onsuccess = () => {
+          const tx = request.result.transaction('applications');
+          const store = tx.objectStore('applications');
+          const get = store.get('legacy-1');
+          get.onsuccess = () => {
+            resolve({
+              version: request.result.version,
+              stores: [...request.result.objectStoreNames].sort(),
+              indexes: [...store.indexNames].sort(),
+              row: get.result,
+            });
+            request.result.close();
           };
-          request.onerror = () => reject(request.error);
-        },
-      ),
+          get.onerror = () => reject(get.error);
+        };
+        request.onerror = () => reject(request.error);
+      }),
   );
-  expect(stored.version).toBe(20);
+  expect(stored.version).toBe(30);
+  expect(stored.stores).toEqual(['applications', 'resumes']);
   expect(stored.indexes).toEqual([
     'appliedAt',
     'companyTitleKey',
+    'resumeId',
     'status',
     'updatedAt',
     'urlNormalized',
