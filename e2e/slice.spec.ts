@@ -4,6 +4,7 @@ import { expect, launchExtension, test } from './fixtures';
 const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
 
 async function addJob(page: Page, url: string, company: string) {
+  await page.getByRole('button', { name: '+ Add application' }).click();
   await page.getByLabel('Job posting URL').fill(url);
   await page.getByLabel('Company').fill(company);
   await page.getByRole('button', { name: 'Save' }).click();
@@ -38,6 +39,8 @@ test('works with the keyboard alone', async ({ session }) => {
   await page.goto(panelUrl(session.extensionId));
 
   await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: '+ Add application' })).toBeFocused();
+  await page.keyboard.press('Enter');
   await expect(page.getByLabel('Job posting URL')).toBeFocused();
   await page.keyboard.type('example.com/jobs/7');
   await page.keyboard.press('Tab');
@@ -45,7 +48,7 @@ test('works with the keyboard alone', async ({ session }) => {
   await page.keyboard.press('Enter');
 
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Keyboard Co');
-  await expect(page.getByLabel('Job posting URL')).toBeFocused();
+  await expect(page.getByRole('button', { name: '+ Add application' })).toBeFocused();
 });
 
 test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
@@ -53,13 +56,30 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
 
-  await page.getByRole('button', { name: 'Save' }).click(); // validation errors visible too
-  await addJob(page, `https://example.com/${'a'.repeat(300)}`, `Company${'X'.repeat(120)}`);
-  await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();
+  const noHorizontalScroll = async () => {
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  };
 
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  // The full form with every validation error showing.
+  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByLabel('Minimum').fill('lots');
+  await page.getByLabel('Maximum').fill('also lots');
+  await page.getByLabel('Date applied').fill('');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Enter the date you applied.')).toBeVisible();
+  await noHorizontalScroll();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+
+  // A row with very long values.
+  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByLabel('Job posting URL').fill(`https://example.com/${'a'.repeat(300)}`);
+  await page.getByLabel('Company').fill(`Company${'X'.repeat(120)}`);
+  await page.getByLabel(/Location/).fill(`Somewhere${'Y'.repeat(150)}`);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();
+  await noHorizontalScroll();
 });
