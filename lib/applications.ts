@@ -7,7 +7,7 @@ import {
 } from './applicationInput';
 import { db as defaultDb, type JobLogDB } from './db';
 import { companyTitleKey, derivedFields } from './dedupe';
-import { applyStatusChange, appliedAtAction } from './status';
+import { applyStatusChange, appliedAtAction, editHistoryDate } from './status';
 import type { Application, Status } from './types';
 
 export class ValidationError extends Error {
@@ -349,4 +349,30 @@ export async function undoStatusChange(
     await database.applications.put({ ...before, updatedAt: now.toISOString() });
     return true;
   });
+}
+
+/**
+ * Changes the date of one status history entry (spec §4.3). The entry is identified by its
+ * index and its current timestamp, so an entry that changed meanwhile (another window, an
+ * Undo) isn't edited by mistake. Returns the updated application, or the reason it can't.
+ */
+export async function updateHistoryDate(
+  id: string,
+  entry: { index: number; at: string },
+  date: string,
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<{ application: Application } | { error: string }> {
+  const result = await database.transaction('rw', database.applications, async () => {
+    const current = await getApplication(id, database);
+    if (!current) return undefined;
+    if (current.statusHistory?.[entry.index]?.at !== entry.at) {
+      return { error: 'This entry changed meanwhile. Check the date and try again.' };
+    }
+    const edited = editHistoryDate(current, entry.index, date, now);
+    if ('application' in edited) await database.applications.put(edited.application);
+    return edited;
+  });
+  if (!result) throw new NotFoundError(id);
+  return result;
 }

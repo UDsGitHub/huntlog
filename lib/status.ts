@@ -1,4 +1,4 @@
-import { todayLocal } from './dates';
+import { isValidLocalDate, todayLocal } from './dates';
 import type { Application, Status } from './types';
 
 /** The fixed status pipeline (spec §5), in display order. Not configurable. */
@@ -99,4 +99,61 @@ export function firstEnteredAt(app: Pick<Application, 'statusHistory'>, status: 
     if (first === undefined || Date.parse(entry.at) < Date.parse(first)) first = entry.at;
   }
   return first;
+}
+
+/** The local calendar date (YYYY-MM-DD) of an ISO timestamp. */
+export function localDateOf(iso: string): string {
+  return todayLocal(new Date(iso));
+}
+
+export type HistoryDateResult = { application: Application } | { error: string };
+
+/**
+ * Moves one history entry to another local date, keeping its local time of day, so entries on
+ * the same day keep their order (spec §4.3: "each entry's date can be edited", e.g. to backfill
+ * an interview). Stored order is untouched; the timeline sorts by date when shown.
+ *
+ * A date before the application was created is fine (that's backfilling); a future one isn't.
+ * If this is the first Applied entry and Date applied still equals its old date, Date applied
+ * follows, so the row and the timeline don't disagree.
+ */
+export function editHistoryDate(
+  app: Application,
+  index: number,
+  date: string,
+  now: Date = new Date(),
+): HistoryDateResult {
+  const entry = app.statusHistory?.[index];
+  if (!entry) return { error: 'That history entry no longer exists.' };
+  if (!isValidLocalDate(date)) return { error: 'Enter a valid date.' };
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const original = new Date(entry.at);
+  // A time that doesn't exist on that day (a DST gap) moves forward within the same day, so
+  // the chosen date is kept (lib/timeline.dst.test.ts).
+  const moved = new Date(
+    y,
+    m - 1,
+    d,
+    original.getHours(),
+    original.getMinutes(),
+    original.getSeconds(),
+    original.getMilliseconds(),
+  );
+  if (date > todayLocal(now)) return { error: "This date can't be in the future." };
+
+  const at = moved.toISOString();
+  const firstApplied = firstEnteredAt(app, 'applied');
+  const followsAppliedAt =
+    entry.status === 'applied' &&
+    entry.at === firstApplied &&
+    app.appliedAt === localDateOf(entry.at);
+  const statusHistory = app.statusHistory.map((e, i) => (i === index ? { ...e, at } : e));
+  return {
+    application: {
+      ...app,
+      statusHistory,
+      ...(followsAppliedAt && { appliedAt: date }),
+      updatedAt: now.toISOString(),
+    },
+  };
 }
