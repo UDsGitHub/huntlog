@@ -7,7 +7,10 @@ async function addJob(page: Page, fields: { url: string; company: string; notes?
   await page.getByRole('button', { name: '+ Add application' }).click();
   await page.getByLabel('Job posting URL').fill(fields.url);
   await page.getByLabel('Company').fill(fields.company);
-  if (fields.notes) await page.getByLabel(/Notes/).fill(fields.notes);
+  if (fields.notes) {
+    await page.getByRole('button', { name: 'More details' }).click();
+    await page.getByLabel(/Notes/).fill(fields.notes);
+  }
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText(fields.company);
 }
@@ -24,6 +27,7 @@ test('view, edit, delete with Undo, then delete for good across a restart', asyn
   await expect(page.getByRole('heading', { level: 2, name: 'Acme' })).toBeFocused();
 
   await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill('Lisbon');
   await page.getByLabel(/Work mode/).selectOption('remote');
   await page.getByRole('button', { name: 'Save' }).click();
