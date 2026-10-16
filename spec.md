@@ -68,11 +68,20 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 2. The form opens blank, with **Date applied** defaulting to today and **Status** defaulting to Applied.
 3. The user fills in the fields and saves.
 
+**Form layout** (Add and Edit), designed so the common case fits a 320px panel without scrolling:
+
+- **Top section:** Job posting URL, Company, Job title, Status, Date applied, and Resume (optional, from M4).
+- **More details**, a disclosure that is collapsed by default: Location, Work mode, Salary, Source, Notes. It opens on its own when a field inside has a validation error or was auto-filled by a capture, and in Edit when any field inside has a value.
+- **Save and Cancel** stay visible at the bottom of the panel (a sticky bar), however long the form is.
+- **Currency** lists the locale's default plus USD, EUR and GBP first, then every other code.
+- **Remembered defaults:** a new manual Add starts with the source and work mode from the last application saved, stored in `chrome.storage.local`. They never apply to a capture, which only fills what it captured, or to Edit.
+
 
 
 ### 4.3 Update status
 
 - Every row in the Applications list shows a **status chip**. Tapping it opens a compact picker with all statuses. One tap changes the status, appends a history entry with the timestamp, and shows an **Undo** toast for about 5 seconds.
+- **Leaving Saved without a Date applied:** moving to Applied sets Date applied to today with no extra step. Moving to Screening, Interviewing, Offer, Accepted, Rejected or Ghosted means an application happened, so the picker asks "When did you apply?" (default today) with **Set date** and **Skip**; Skip leaves it empty. Moving to Withdrawn doesn't ask. This is the one case where a status change takes a second interaction; it exists because Date applied drives the Applied count and the response and interview rates (§4.7).
 - The detail/edit view shows the full status timeline, and each entry's date can be edited (for example, to backfill an interview date).
 
 
@@ -188,7 +197,7 @@ interface Settings {
 
 **Required fields:** `url` and `company`, both trimmed, and whitespace-only counts as empty. `url` must be `http:` or `https:`, and a URL typed without a scheme gets `https://`. `appliedAt` is the user's local calendar date, not the UTC date. A `resumeId` is strongly encouraged: the form shows a gentle prompt when it is empty, but it does not block saving.
 
-**Status rules:** any status can move to any other status (users make mistakes and processes vary). Choosing Applied when `appliedAt` is empty sets it to today.
+**Status rules:** any status can move to any other status (users make mistakes and processes vary). When `appliedAt` is empty, choosing Applied sets it to today, and choosing any other status except Saved and Withdrawn asks for it (§4.3). A stored `appliedAt` is never overwritten by a status change, and undoing a status change clears an `appliedAt` that change set.
 
 ## 6. Storage, export & import
 
@@ -279,7 +288,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 10. Quality bar & acceptance criteria
 
-- **Speed:** adding a prefilled application takes 3 interactions or fewer after the right-click (review, pick resume, save).
+- **Speed:** adding a prefilled application takes 3 interactions or fewer after the right-click (review, pick resume, save). Save is reachable without scrolling at 320px.
 - **Performance:** the side panel loads in under 300 ms with 1,000 applications, and the list is virtualized past about 200 rows.
 - **Accessibility:** fully usable by keyboard, chips and picker have ARIA roles, contrast meets WCAG AA in both themes, and focus returns to the list after the form closes.
 - **Data safety:** a status change can be undone, an application delete can be undone (soft delete), and every destructive bulk action asks for confirmation.
