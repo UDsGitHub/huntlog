@@ -1,12 +1,24 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { listApplications, safeHref } from '@/lib/applications';
+import type { WorkMode } from '@/lib/types';
+
+const WORK_MODE_LABELS: Record<WorkMode, string> = {
+  remote: 'Remote',
+  hybrid: 'Hybrid',
+  onsite: 'On-site',
+};
 
 export function ApplicationList() {
   const applications = useLiveQuery(() => listApplications(), []);
 
   if (!applications) return null;
   if (applications.length === 0) {
-    return <p className="text-sm text-slate-600">No applications yet. Add your first one above.</p>;
+    return (
+      <p className="text-sm text-slate-600">
+        No applications yet. Tap + Add application, or right-click any job posting and choose Add
+        job to Job Log.
+      </p>
+    );
   }
 
   return (
@@ -15,6 +27,13 @@ export function ApplicationList() {
         <li key={app.id} className="flex min-w-0 flex-col gap-0.5 py-2">
           <span className="text-sm font-medium break-words">{app.company}</span>
           {app.title && <span className="text-sm break-words text-slate-700">{app.title}</span>}
+          {(app.location || app.workMode) && (
+            <span className="text-xs break-words text-slate-600">
+              {[app.location, app.workMode && WORK_MODE_LABELS[app.workMode]]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
           {safeHref(app.url) ? (
             <a
               href={safeHref(app.url)}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { draftKey, isFresh, parseDraft, type CaptureDraft } from '@/lib/captureDraft';
 
 export interface CapturePrefill {
@@ -11,8 +11,17 @@ export interface CapturePrefill {
  * Consumes this window's capture draft from `storage.session` (spec §4.1). The panel can open
  * before the background script writes the draft, so it reads on mount and also on change.
  */
-export function useCaptureDraft(): CapturePrefill | null {
+export function useCaptureDraft(
+  onCapture?: (prefill: CapturePrefill) => void,
+): CapturePrefill | null {
   const [prefill, setPrefill] = useState<CapturePrefill | null>(null);
+  // Refs survive effect re-runs (StrictMode, hot reload): the nonce must never repeat, or the
+  // keyed form wouldn't remount for the next capture.
+  const nonce = useRef(0);
+  const onCaptureRef = useRef(onCapture);
+  useEffect(() => {
+    onCaptureRef.current = onCapture;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -32,9 +41,10 @@ export function useCaptureDraft(): CapturePrefill | null {
       }
       const draft = parseDraft(raw);
       if (!draft || !isFresh(draft) || cancelled) return;
-      // Derive from the previous state: a re-run of this effect (StrictMode, hot reload) must not
-      // restart the count, or a repeated key would skip the form remount.
-      setPrefill((previous) => ({ draft, nonce: (previous?.nonce ?? 0) + 1 }));
+      nonce.current += 1;
+      const next = { draft, nonce: nonce.current };
+      setPrefill(next);
+      onCaptureRef.current?.(next);
     }
 
     const onChanged = (changes: Record<string, { newValue?: unknown }>) => {
