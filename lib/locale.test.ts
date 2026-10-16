@@ -1,4 +1,4 @@
-import { defaultCurrency, FALLBACK_CURRENCY, knownCurrencies } from './locale';
+import { defaultCurrency, FALLBACK_CURRENCY, knownCurrencies, orderedCurrencies } from './locale';
 
 describe('defaultCurrency', () => {
   it.each([
@@ -24,5 +24,20 @@ describe('defaultCurrency', () => {
 describe('knownCurrencies', () => {
   it('includes the common ISO 4217 codes', () => {
     expect(knownCurrencies()).toEqual(expect.arrayContaining(['USD', 'EUR', 'GBP', 'JPY', 'NGN']));
+  });
+});
+
+describe('orderedCurrencies', () => {
+  it('puts the locale default and USD, EUR, GBP first, without repeats', () => {
+    expect(orderedCurrencies('ja').common).toEqual(['JPY', 'USD', 'EUR', 'GBP']);
+    expect(orderedCurrencies('en-US').common).toEqual(['USD', 'EUR', 'GBP']);
+    expect(orderedCurrencies('de-DE').common).toEqual(['EUR', 'USD', 'GBP']);
+  });
+
+  it('lists every other known code once, alphabetically', () => {
+    const { common, others } = orderedCurrencies('ja');
+    expect(others).toEqual([...others].sort());
+    expect(others.some((code) => common.includes(code))).toBe(false);
+    expect(new Set([...common, ...others])).toEqual(new Set(knownCurrencies()));
   });
 });

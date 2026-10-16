@@ -121,3 +121,19 @@ export function numberSeparators(locale?: string): {
     return { group: ',', decimal: '.', indianGrouping: false };
   }
 }
+
+/** Shown first in the currency picker, after the locale's own (spec §4.2). */
+export const COMMON_CURRENCIES = ['USD', 'EUR', 'GBP'];
+
+/**
+ * Currencies for the picker: the locale's default plus USD, EUR and GBP first (no repeats), then
+ * every other known code alphabetically.
+ */
+export function orderedCurrencies(locale?: string): { common: string[]; others: string[] } {
+  const all = knownCurrencies();
+  const common = [...new Set([defaultCurrency(locale), ...COMMON_CURRENCIES])].filter((code) =>
+    isKnownCurrency(code),
+  );
+  const others = all.filter((code) => !common.includes(code)).sort();
+  return { common, others };
+}
