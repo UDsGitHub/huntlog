@@ -40,7 +40,7 @@ A Chrome extension that helps job seekers log every application they send, remem
 
 | Surface                     | Purpose                                                                                             |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. A tab bar at the top; hidden while the Add/Edit form is open. |
+| **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. A tab bar with icons at the top. |
 | **Context menu**            | "Add job to Job Log" on any page (reads the page), and "Add linked job to Job Log" on links (captures only the link URL). |
 | **Keyboard shortcut**       | `Alt+Shift+J` (user-configurable) works the same as the page context-menu item.                     |
 | **Toolbar icon**            | Opens the side panel (`openPanelOnActionClick`).                                                    |
@@ -48,7 +48,15 @@ A Chrome extension that helps job seekers log every application they send, remem
 
 The side panel is roughly 320–400 px wide, so every screen is designed mobile-first for that width.
 
-**Tab bar:** at the top of the panel, with Applications, Stats and Resumes (Settings joins with M6). It's at the top because the form's sticky Save bar sits at the bottom, and it's hidden while the Add/Edit form is open. Each tab keeps its state while another is shown; a capture always switches to Applications, where its form opens. Arrow keys, Home and End move between tabs.
+**Tab bar:** at the top of the panel, with Applications, Stats, Resumes and Settings, each with an icon and a label. Switching tabs slides the next section into view like a mobile tab switcher (instant when the user prefers reduced motion). Each tab keeps its state, including its scroll position, while another is shown; a capture always switches to Applications, where its form opens. Arrow keys, Home and End move between tabs.
+
+**Look and shared patterns** (decided in the M6 UI review):
+- The look follows shadcn/ui: zinc neutrals with a near-black primary (near-white in dark), subtle borders and rounded cards. It's built by hand; no UI library is installed, to keep the panel small.
+- **Sheets:** focused tasks (Add/Edit, changing a status, filters, uploads, renames and confirmations) open in a bottom sheet that slides up over the current screen. Escape or the sheet's back/close button closes it.
+  - **Sheets without typing** (status, filters, menus) also close on a click outside them.
+  - **Sheets that hold typing** (Add/Edit, upload, rename, typed confirmations) don't close on an outside click, and leaving one with unsaved changes asks before discarding them. A capture is the exception (§4.1).
+- **Floating button:** the Applications and Resumes tabs have a floating action button at the bottom right (**+ Add**, **+ Upload**). Toasts sit above it.
+- **Toasts** slide in and out. While a sheet is open, a toast shows inside it, at its bottom above its content, so it stays visible and usable; a sheet makes the rest of the panel inert.
 
 ## 4. Core flows
 
@@ -58,7 +66,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 1. On a job posting, the user right-clicks and chooses **"Add job to Job Log"**, or presses the shortcut.
 2. That gesture grants `activeTab`. The background service worker first calls `chrome.sidePanel.open` for the tab's window, synchronously inside the gesture handler (before any `await`), then runs a one-off extractor in the tab with `chrome.scripting.executeScript`.
-3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the Add form. While an existing application is being edited, the capture waits instead (a toast says so) and opens once the edit is saved or cancelled, so unsaved edits are never discarded.
+3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the Add form without asking, since the capture itself is the user's explicit request. While an existing application is being edited, the capture waits instead (a toast says so) and opens once the edit closes: saved, or left with Back or Escape (after confirming any discard). If the user cancels the discard prompt, Edit stays open and the capture keeps waiting, so unsaved edits are never discarded.
 4. The side panel shows the Add form prefilled with the draft. Prefilled fields get a subtle "auto-filled, please check" hint.
 5. The user reviews the fields, picks a resume, and saves. If a duplicate is detected, a warning appears (§4.5).
 
@@ -66,15 +74,19 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 ### 4.2 Add application: manual
 
-1. In the side panel, the user taps **"+ Add application"**.
-2. The form opens blank, with **Date applied** defaulting to today and **Status** defaulting to Applied.
+1. In the side panel, the user taps the floating **+ Add** button (an empty list also shows a full-size "Add your first application" button).
+2. The form opens blank in a sheet, with **Date applied** defaulting to today and **Status** defaulting to Applied.
 3. The user fills in the fields and saves.
 
-**Form layout** (Add and Edit), designed so the common case fits a 320px panel without scrolling:
+**Form layout** (Add and Edit), designed so the common case fits a 320px panel without scrolling. The form is a near-full-height sheet with a back button and the title in its header:
 
-- **Top section:** Job posting URL, Company, Job title, Status, Date applied, and Resume (optional, from M4).
-- **More details**, a disclosure that is collapsed by default: Location, Work mode, Salary, Source, Notes. It opens on its own when a field inside has a validation error or was auto-filled by a capture, and in Edit when any field inside has a value.
-- **Save and Cancel** stay visible at the bottom of the panel (a sticky bar), however long the form is.
+- **Top section:** Company, Job title, Job posting URL, then Status and Date applied side by side on one row (Status takes the row when Date applied is hidden for Saved), then Resume (optional). Required fields are marked with an asterisk, explained by a "* Required" note; Date applied's asterisk follows the status.
+- **Resume** is a searchable dropdown (a combobox: type to filter, each option shows its name, plus format and upload date where names repeat), with "No resume" first. A **+** icon button beside it opens the inline upload.
+- **More details**, an accordion row that is collapsed by default and animates open and closed: Location, Work mode, Salary, Source, Notes. Its row hints at what's inside ("Location, salary, notes…"). It opens on its own when a field inside has a validation error or was auto-filled by a capture, and in Edit when any field inside has a value.
+- **Salary** shows a dash between the min and max fields.
+- **Source** is a row of chips: LinkedIn, Indeed, Company site, Referral, Recruiter, and **Other…**, which reveals a text field for any other source.
+- **Notes** starts three lines tall and grows with its text, up to about twelve lines, then scrolls.
+- **Save** is a full-width button that stays visible at the bottom of the sheet (a sticky bar), however long the form is. Leaving is the header's back button (or Escape); with unsaved changes it first asks to discard them. Clicking outside the sheet doesn't close it.
 - **Currency** lists the locale's default plus USD, EUR and GBP first, then every other code.
 - **Remembered defaults:** a new manual Add starts with the source and work mode of the last *new* application (edits don't count), stored in `chrome.storage.local`. After a manual Add they're remembered exactly, blanks included. After a capture, only the values it has replace the old ones, since a capture's blanks mean "not captured". They never prefill a capture, which only fills what it captured, or Edit.
 
@@ -82,19 +94,28 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 ### 4.3 Update status
 
-- Every row in the Applications list shows a **status chip**. Tapping it opens a compact picker with all statuses. One tap changes the status, appends a history entry with the timestamp, and shows an **Undo** toast for about 5 seconds. Undo restores the application as it was before the tap, removing the entry it added, so a mis-tap never counts in stats; it only works if nothing has changed the application since.
-- **Leaving Saved without a Date applied:** moving to Applied sets Date applied to today with no extra step. Moving to Screening, Interviewing, Offer, Accepted, Rejected or Ghosted means an application happened, so the picker asks "When did you apply?" (default today) with **Set date** and **Skip**; Skip leaves it empty. Moving to Withdrawn doesn't ask. This is the one case where a status change takes a second interaction; it exists because Date applied drives the Applied count and the response and interview rates (§4.7).
-- The detail/edit view shows the full status timeline, and each entry's date can be edited (for example, to backfill an interview date).
+- Every row in the Applications list shows a **status chip**. Tapping it opens a sheet listing all statuses, with the current one checked. One tap changes the status, appends a history entry with the timestamp, and shows an **Undo** toast for about 5 seconds. Undo restores the application as it was before the tap, removing the entry it added, so a mis-tap never counts in stats; it only works if nothing has changed the application since.
+- **Leaving Saved without a Date applied:** moving to Applied sets Date applied to today with no extra step. Moving to Screening, Interviewing, Offer, Accepted, Rejected or Ghosted means an application happened, so the sheet asks "When did you apply?" (default today) with **Set date** and **Skip**; Skip leaves it empty. Moving to Withdrawn doesn't ask. This is the one case where a status change takes a second interaction; it exists because Date applied drives the Applied count and the response and interview rates (§4.7).
+- The detail view shows the full status timeline as a vertical stepper, and each entry's date can be edited (for example, to backfill an interview date). Stats count each stage on the day it was first reached (§4.7), so without this, a status logged late or entered when starting mid-search would land on the wrong day or week. Dates are read-only until the entry's pencil button opens a date field with explicit Save and Cancel (Enter saves); nothing is saved just by picking a date.
+
+**Detail view:** a full page that slides in from the right. Its header has a back button, the company, an Edit (pencil) button, and a ⋯ menu holding Delete. The job posting opens from a full-width button that names its site (for example `boards.greenhouse.io ↗`).
 
 
 
 ### 4.4 Browse & find
 
-- The list is sorted by last activity, newest first, and can also be sorted by date applied or company.
-- **Status filter:** All / Active (Saved, Applied, Screening, Interviewing, Offer) / Closed (Accepted, Rejected, Withdrawn, Ghosted) / any single status.
-- **Search:** matches company, title, location, and notes, ignoring case and accents; every word typed must appear (in any of those fields). Characters such as `C++` or `.NET` match literally.
-- Search, filter and sort are kept while the user opens an application and comes back. While the list is on screen, a row whose status changes keeps its place and stays visible, even if it no longer matches the status filter, so it never jumps or vanishes from under the pointer. Order and membership refresh when the search, filter or sort changes or the list is shown again; new applications appear at the top, newest first.
-- **Row content:** company, title, status chip, date applied, resume name, and a link icon that opens the posting. Dates are shown in the user's locale format (e.g. "Oct 1, 2026"), here and in the detail view.
+- **Search** sits above the list, with a filter button beside it. It matches company, title, location, and notes, ignoring case and accents; every word typed must appear (in any of those fields). Characters such as `C++` or `.NET` match literally.
+- **The filter button** opens a sheet with sort, a date range and status filters. Changes apply as they're made; the sheet has Reset and Done. The button shows a count of active filters: one for a date range other than Any time, plus one for a status filter (whatever chips are on). Sort is never counted. Whenever search or filters hide rows, the list shows "Showing N of M" with a way to clear them.
+  - **Sort:** last activity (default, newest first), date applied, or company.
+  - **Date applied:** Any time (default), This week, This month, Last 30 days, or Custom, with the same boundaries as the Stats ranges (§4.7). A job without a Date applied is hidden while a date range is set.
+  - **Status:** a wrapping list of chips, one per status, any number of which can be on. **Active** (Saved, Applied, Screening, Interviewing, Offer) and **Closed** (Accepted, Rejected, Withdrawn, Ghosted) chips turn on their whole group. With no status chip on, every status shows.
+- Search, filters and sort are kept while the user opens an application and comes back. While the list is on screen, a row whose status changes keeps its place and stays visible, even if it no longer matches the status filter, so it never jumps or vanishes from under the pointer. Order and membership refresh when the search, filters or sort change or the list is shown again; new applications appear at the top, newest first.
+- **Row layout:**
+  - **Header line:** the company and the status chip. A long company name is cut off with an ellipsis, and hovering shows it in full.
+  - **Below,** on the left: location and work mode, then the job title, then "Applied Oct 1, 2026" ("Added …", from when it was logged, for a job without a Date applied). Lines with nothing to show are left out.
+  - **On the right of those lines:** a link icon that opens the posting.
+  - **The whole card** opens the application, apart from the chip and the link icon, which keep their own actions.
+- **Dates** are shown in the user's locale format (e.g. "Oct 1, 2026"), here and in the detail view. The resume isn't on the row; the detail view shows it.
 
 
 
@@ -106,13 +127,15 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 
 ### 4.6 Resume library
 
-- The **Resumes** tab lets the user upload a resume (PDF, DOCX, DOC, TXT, or RTF, up to 10 MB), give it a display name such as "Backend v3", and add an optional note.
+- The **Resumes** tab lets the user upload a resume (PDF, DOCX, DOC, TXT, or RTF, up to 10 MB), give it a display name such as "Backend v3", and add an optional note. Its floating **+ Upload** button opens the upload in a sheet.
+- **Uploader** (the same one in the sheet and in the application form): a dashed drop zone ("Choose a file or drag it here"), clickable as a whole, with a visible **Choose file…** button. Once a file is picked, it shows the file's name, format and size, with **Change**. Dropping more than one file is refused. A file dropped anywhere else in the panel is ignored rather than opened.
+- **List:** a search box above the list matches display names and original file names. Tapping a row opens or downloads the resume. Each row shows a file icon, the name, and its format, size and upload date, and has a ⋯ menu with Rename, Archive or Unarchive, and Delete. Rename edits the name and note in a sheet.
 - The file is stored as a Blob in IndexedDB.
-- Each application references a resume by ID through a dropdown. Next to it, an "Upload new…" button opens a compact upload in the form, so a resume can be added mid-flow; it's saved and selected. (A button rather than a dropdown option, so arrowing through the options never opens an upload.)
+- Each application references a resume by ID through a searchable dropdown (§4.2). Next to it, a **+** ("Upload new resume") button opens a compact upload in the form, so a resume can be added mid-flow; it's saved and selected. (A button rather than a dropdown option, so arrowing through the options never opens an upload.)
 - **View:** PDFs open in a new extension tab via a blob URL. Other formats download.
 - **Accepted files:** the extension picks the format (PDF, DOCX, DOC, TXT or RTF) and the file's first bytes must match it (e.g. a PDF starts with `%PDF`). The type the browser reports is ignored, since it varies by system (a `.docx` can arrive as `application/zip`). The 10 MB limit applies to the bytes actually read.
 - **Delete:** if any applications use the resume (including one deleted within the last minute, which its Undo can still bring back), it is **archived** instead: hidden from the dropdown, but still viewable from those applications. Otherwise it's deleted with an Undo toast for about 5 seconds; after that its file is removed to reclaim storage, and only a small record remains (soft delete, for future sync). If the panel closes first, a later launch removes the files of resumes deleted more than a day ago (not sooner: another window may still show that delete's Undo).
-- **Archived resumes** are listed in a collapsed "Archived" section of the Resumes tab, with **Unarchive**.
+- **Archived resumes** are listed in a collapsed "Archived (N)" accordion at the bottom of the Resumes tab, with **Unarchive**.
 - **Same name twice** is allowed (e.g. "Backend v3" as PDF and DOCX). Where names repeat, the dropdown also shows each one's format and upload date.
 - **Rename** changes the name everywhere: applications show the resume's current name, and use `resumeNameSnapshot` only when the resume itself is gone.
 - Each application also stores a snapshot of the resume's display name, so the name still shows even if the file is gone, for example after a partial import.
@@ -123,7 +146,7 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 
 This is a side-panel tab.
 
-- **Range picker:** This week (default), Last 7 days, This month, Last 30 days, This year, All time, Custom.
+- **Range picker:** a scrolling row of chips: This week (default), Last 7 days, This month, Last 30 days, This year, All time, Custom (whose From and To open in a sheet).
   - This week, This month and This year are whole calendar periods, so the chart shows the days still ahead. Last 7 and Last 30 days end today. All time runs from the first date logged (a Date applied or a status entry) to today. Custom is a From and To date, both included, from 1970 up to today.
   - Every count uses local calendar dates: a status entry counts on the local day of its timestamp.
 - **Headline cards:**
@@ -136,25 +159,30 @@ This is a side-panel tab.
   - A job without a Date applied (the user pressed Skip) isn't counted in Applied or the rates, but its interviews and offers still count.
 - **Outcomes breakdown:** a stacked bar of how applications in the range currently stand, with Rejected as one segment. It is labeled neutrally ("Closed – not selected") and never shown as a headline number.
 - **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, up to 53 weeks per week (weeks start on the user's first day of the week), up to 5 years per month, and longer ones per year, so a long Custom or All time range still has bars wide enough to see.
-- **Weekly goal (optional):** the user sets N per week in Settings. A progress ring shows this week's count against N. Weeks start on the locale's first day of the week, which can be overridden in Settings.
+- **Weekly goal (optional):** the user sets N per week in Settings (1 to 200). A progress ring at the top of the Stats tab shows this week's Applied count against N ("3 of 10"), whatever range is picked. Past the goal, the ring stays full and the count keeps going ("12 of 10"). Weeks start on the locale's first day of the week, which can be overridden in Settings. Where the ring finally sits is an open question for the design review (§12).
 - **Tone:** copy stays factual and encouraging. Rejections are never highlighted in red.
 
 
 
 ### 4.8 Settings
 
-- Weekly goal (off, or a number).
-- First day of the week.
-- Theme: System (default), Light, or Dark.
-- Export / Import (§6).
-- "Delete all data", with typed confirmation.
-- A link to the privacy policy.
+A Settings tab of grouped cards. Changes save as they're made and apply in every open window.
+
+- **Weekly goal:** off, or a number from 1 to 200.
+- **Display:**
+  - **Theme:** System (default), Light, or Dark, as a three-way segmented control.
+  - **First day of the week:** the locale's default (named, e.g. "Locale default (Monday)"), Sunday, Monday, or Saturday.
+- **Your data:**
+  - Export / Import (§6).
+  - **Delete all data:** permanently deletes every application and resume (with its file), and the remembered form defaults. Settings stay. The user must type `DELETE` before the button works.
+  - **Reset settings:** puts the weekly goal, first day of the week and theme back to their defaults, after a confirmation. It has an "Also delete all my data" checkbox, off by default. Ticking it adds the same typed `DELETE` confirmation and changes the button to "Reset and delete everything". Unticking clears what was typed.
+- **About:** a link to the privacy policy (a page bundled with the extension), a link to the third-party notices (font and icon licenses), and the version.
 
 
 
 ## 5. Data model
 
-All records use UUIDv4 IDs and `createdAt` / `updatedAt` timestamps (ISO 8601 UTC), and deletes are soft (`deletedAt`). This keeps the data ready for sync later. Deleting an application takes effect immediately and shows an Undo toast for about 5 seconds; Undo clears `deletedAt` and moves `updatedAt` forward, so with last-write-wins sync the restore is the newest change.
+All records use UUIDv4 IDs and `createdAt` / `updatedAt` timestamps (ISO 8601 UTC), and deletes are soft (`deletedAt`). This keeps the data ready for sync later. The one exception is **Delete all data** (§4.8), which permanently removes every application and resume (settings stay): it is a privacy promise, and no sync exists to need tombstones. Deleting an application takes effect immediately and shows an Undo toast for about 5 seconds; Undo clears `deletedAt` and moves `updatedAt` forward, so with last-write-wins sync the restore is the newest change.
 
 ```ts
 type Status =
@@ -198,8 +226,8 @@ interface Resume {
 }
 
 interface Settings {
-  weeklyGoal?: number;
-  weekStartsOn: 0 | 1 | 6;     // default from locale
+  weeklyGoal?: number;         // 1–200; absent = off
+  weekStartsOn?: 0 | 1 | 6;    // absent = follow the locale (so a later language change is followed)
   theme: 'system' | 'light' | 'dark';
   schemaVersion: number;
 }
@@ -277,7 +305,9 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 - **WXT** (Manifest V3 framework): dev server with hot reload, cross-entry bundling, and `wxt zip` for store uploads.
 - **React 18 + TypeScript (strict).**
 - **Dexie** for IndexedDB, with `dexie-react-hooks` for live queries.
-- **Tailwind CSS**, with a dark theme via the `class` strategy and support for `prefers-color-scheme`.
+- **Tailwind CSS v4**, with design tokens as CSS variables on `:root` (shadcn's names: `--background`, `--foreground`, `--muted`, `--primary`, `--border`, `--ring`, `--destructive`, …). The dark set applies under `[data-theme=dark]`, and under `prefers-color-scheme: dark` unless `[data-theme=light]` is set. `light-dark()` isn't used because it needs Chrome 123. To avoid a flash of the wrong theme, the stored theme is mirrored to `localStorage`, and each extension page sets it before its first paint from a small separate script file loaded in `<head>`, since MV3's CSP forbids inline scripts. Every page refreshes the mirror whenever the setting changes, including a Reset or a change from another window.
+- **Look:** shadcn/ui's visual style, built by hand. No shadcn, Radix, `class-variance-authority`, `tailwind-merge`, `clsx` or `lucide-react` is installed, to keep the bundle small. A widget that's hard to make accessible by hand may justify adding a single Radix primitive, not the kit.
+- **Font:** Geist, one variable `woff2` (Latin subset), bundled locally. **Icons:** Lucide SVGs (ISC license) copied into one local file. Their licenses (Geist: SIL OFL 1.1; Lucide: ISC) ship in a bundled third-party notices page, linked from Settings → About.
 - **Charts:** hand-written SVG and CSS, no chart library. Decided in M5 after measuring: one Recharts 3 bar chart adds about 320 KB minified (97 KB gzipped), more than the whole side panel (about 200 KB), for two simple charts.
 - **Testing:** Vitest + React Testing Library for unit and component tests, `fake-indexeddb` for database tests, and Playwright with a persistent context loading the unpacked extension for end-to-end tests.
 - **Lint/format:** ESLint + Prettier.
@@ -302,7 +332,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 - **Speed:** adding a prefilled application takes 3 interactions or fewer after the right-click (review, pick resume, save). Save is reachable without scrolling at 320px.
 - **Performance:** the side panel loads in under 300 ms with 1,000 applications, and the list is virtualized past about 200 rows.
-- **Accessibility:** fully usable by keyboard, chips and picker have ARIA roles, contrast meets WCAG AA in both themes, and focus returns to the list after the form closes.
+- **Accessibility:** fully usable by keyboard, chips, sheets and the resume dropdown have ARIA roles, contrast meets WCAG AA in both themes, and focus returns to the list after the form closes.
 - **Data safety:** a status change can be undone, an application delete can be undone (soft delete), and every destructive bulk action asks for confirmation.
 - **Round trip:** exporting JSON, then importing with Replace on a fresh profile, yields identical data, including resume files that open correctly.
 - **Tests:** unit tests cover `extract.ts` (JSON-LD, meta, ATS URL patterns, and garbage pages), `normalizeUrl.ts`, and `stats.ts` (range boundaries, week start, "first entered" semantics).
@@ -322,7 +352,8 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 12. Open questions
 
-- **Product name and icon:** "Job Log" is a working title, and store name availability needs checking.
+- **Product name and icon:** "Job Log" is a working title, and store name availability needs checking. A shortlist of about 8 names, each with an availability check, goes to the post-M6 design review; the icon follows the chosen name.
+- **Weekly goal ring placement:** at the top of Stats for now; the design review compares it with a large Applied number with the ring beside it.
 - **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
 - **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
 
