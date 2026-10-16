@@ -75,6 +75,25 @@ test('a captured page prefills the form, and saving lists it with its title', as
   await expect(panel.getByText(HINT)).toHaveCount(0);
 });
 
+test('a capture leaves More details collapsed when it filled nothing in there', async ({
+  session,
+}) => {
+  const { panel, windowId } = await openPanel(session);
+  for (const draft of [
+    pageDraft(),
+    createDraft('link', { url: JOB_URL }),
+    createDraft('command', { url: JOB_URL }),
+  ]) {
+    await writeDraft(session, windowId, draft);
+    await expect(panel.getByRole('heading', { name: 'Add application' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'More details' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await panel.getByRole('button', { name: 'Cancel' }).click();
+  }
+});
+
 test('a draft written before the panel opens is picked up on load', async ({ session }) => {
   const probe = await session.context.newPage();
   await probe.goto(panelUrl(session.extensionId));

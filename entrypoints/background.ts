@@ -4,7 +4,7 @@ import {
   draftKey,
   sanitizeUrl,
   type CaptureDraft,
-  type CaptureSource,
+  type CaptureGesture,
 } from '@/lib/captureDraft';
 import { extractPage } from '@/lib/extract';
 
@@ -28,7 +28,7 @@ let captureSeq = 0;
  * user gesture is still active. The panel may therefore mount before the draft is written, so it
  * both reads the draft on mount and listens for `storage.session` changes.
  */
-export async function handleCapture(source: CaptureSource, tab?: Tab, linkUrl?: string) {
+export async function handleCapture(gesture: CaptureGesture, tab?: Tab, linkUrl?: string) {
   const windowId = tab?.windowId;
   if (windowId === undefined || windowId < 0) {
     console.warn('Capture ignored: no window for this tab');
@@ -39,7 +39,7 @@ export async function handleCapture(source: CaptureSource, tab?: Tab, linkUrl?: 
   latestCapture.set(windowId, seq);
 
   const draft =
-    source === 'link' ? createDraft('link', { url: linkUrl }) : await readPage(source, tab!);
+    gesture === 'link' ? createDraft('link', { url: linkUrl }) : await readPage(gesture, tab!);
   if (latestCapture.get(windowId) !== seq) {
     await opened;
     return;
@@ -64,7 +64,7 @@ function openPanel(windowId: number): Promise<void> {
 }
 
 /** Runs the extractor in the tab. Restricted pages (chrome://, the Web Store) reject; fall back. */
-async function readPage(source: CaptureSource, tab: Tab): Promise<CaptureDraft> {
+async function readPage(gesture: CaptureGesture, tab: Tab): Promise<CaptureDraft> {
   if (tab.id !== undefined && tab.id >= 0) {
     try {
       const results = await browser.scripting.executeScript({
@@ -74,13 +74,13 @@ async function readPage(source: CaptureSource, tab: Tab): Promise<CaptureDraft> 
       const page: unknown = results?.[0]?.result;
       if (page && typeof page === 'object') {
         const { url, title } = page as Record<string, unknown>;
-        return createDraft(source, { url: sanitizeUrl(url) ?? tab.url, title });
+        return createDraft(gesture, { url: sanitizeUrl(url) ?? tab.url, title });
       }
     } catch (error) {
       console.warn("Couldn't read the page; opening a blank form", error);
     }
   }
-  return createDraft(source, { url: tab.url, readFailed: true });
+  return createDraft(gesture, { url: tab.url, readFailed: true });
 }
 
 function createMenus() {

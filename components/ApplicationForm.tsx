@@ -129,12 +129,13 @@ export function ApplicationForm({
           notes: '',
         },
   );
-  // More details opens on its own in Edit when a field inside has a value, and after a capture
-  // that filled one (M8 captures more than URL and title). Errors inside open it too (save()).
+  // More details opens on its own in Edit when a field inside has a value. Errors inside open
+  // it too (save()).
   const [detailsOpen, setDetailsOpen] = useState(() => {
     if (application) return DETAIL_VALUE_FIELDS.some((field) => application[field] !== undefined);
-    const captured = draft as Record<string, unknown> | undefined;
-    return DETAIL_VALUE_FIELDS.some((field) => captured?.[field] !== undefined);
+    // Captures fill only URL and title, both above More details. M8's extractor adds location,
+    // work mode and salary: then open it for those, so their "Auto-filled" hints are seen.
+    return false;
   });
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});
