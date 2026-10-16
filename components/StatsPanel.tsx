@@ -19,6 +19,7 @@ import {
   type RangeKind,
   type Rate,
 } from '@/lib/stats';
+import { ActivityChart, OutcomesBar } from './StatsCharts';
 
 const field =
   'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
@@ -178,6 +179,12 @@ export function StatsPanel() {
               <p className="text-sm text-slate-600">
                 Nothing applied in this range yet. The rates fill in as you apply.
               </p>
+            )}
+            {stats.applied > 0 && (
+              <>
+                <OutcomesBar outcomes={stats.outcomes} />
+                <ActivityChart activity={stats.activity} total={stats.applied} />
+              </>
             )}
           </>
         )

@@ -59,11 +59,11 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - `entrypoints/resume-viewer/`: PDFs open via a blob URL, and other formats download.
 - **Tests:** archive-instead-of-delete when a resume is referenced, the snapshot showing when the file is missing, and an e2e test that uploads a resume, links it, and opens it.
 
-## M5 — Stats
+## M5 — Stats ✅ (v0.5.0)
 **Slice:** Open the Stats tab → see this week's Applied / Interviews / Offers / response rate → switch the range to This month.
 
 - `lib/stats.ts` as pure functions (§4.7): counts based on the first time an application entered each status, response and interview rates, the outcomes breakdown (rejections labeled neutrally), and per-day or per-week activity buckets.
-- A range picker including Custom, headline cards, the outcomes bar, and the activity chart. Decide between Recharts and custom SVG by bundle size, and close that open question in spec §12.
+- A range picker including Custom, headline cards, the outcomes bar, and the activity chart. Charts are hand-written SVG and CSS: Recharts measured about 320 KB minified for one bar chart, more than the whole panel (spec §9).
 - **Tests:** range boundaries, week start, the "first entered" rule, and an empty dataset.
 
 ## M6 — Settings & weekly goal

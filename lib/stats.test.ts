@@ -390,6 +390,38 @@ describe('activity', () => {
     expect(sunday[1]).toEqual({ from: '2026-10-04', to: '2026-10-10', count: 2 });
   });
 
+  it('per month beyond 53 weeks, per year beyond 5 years', () => {
+    const twoYears = activity(
+      [app('2024-10-01'), app('2024-10-31'), app('2026-10-16')],
+      { from: '2024-10-01', to: '2026-10-16' },
+      1,
+    );
+    expect(twoYears.unit).toBe('month');
+    expect(twoYears.buckets).toHaveLength(25);
+    expect(twoYears.buckets[0]).toEqual({ from: '2024-10-01', to: '2024-10-31', count: 2 });
+    expect(twoYears.buckets.at(-1)).toEqual({ from: '2026-10-01', to: '2026-10-16', count: 1 });
+    // Mid-month start: the first month is clamped to the range.
+    expect(activity([], { from: '2025-02-15', to: '2026-03-01' }, 1).buckets[0]).toEqual({
+      from: '2025-02-15',
+      to: '2025-02-28',
+      count: 0,
+    });
+    expect(activity([], { from: '2025-10-17', to: '2026-10-16' }, 1).unit).toBe('week');
+
+    const decades = activity(
+      [app('1970-01-01'), app('2026-10-16')],
+      { from: '1970-01-01', to: '2026-10-16' },
+      1,
+    );
+    expect(decades.unit).toBe('year');
+    expect(decades.buckets).toHaveLength(57);
+    expect(decades.buckets[0]).toEqual({ from: '1970-01-01', to: '1970-12-31', count: 1 });
+    expect(decades.buckets.at(-1)).toEqual({ from: '2026-01-01', to: '2026-10-16', count: 1 });
+    // 60 months is still monthly; 61 is yearly.
+    expect(activity([], { from: '2021-11-01', to: '2026-10-16' }, 1).unit).toBe('month');
+    expect(activity([], { from: '2021-10-31', to: '2026-10-16' }, 1).unit).toBe('year');
+  });
+
   it('a year has a bucket per week that touches it', () => {
     const buckets = activity([], { from: '2026-01-01', to: '2026-12-31' }, 1).buckets;
     // Thu Jan 1 is in the week of Mon Dec 29; Thu Dec 31 in the week of Mon Dec 28.

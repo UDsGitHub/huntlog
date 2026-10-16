@@ -51,16 +51,24 @@ export function checkPastLocalDate(
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
+/** Date styles shown in the app: "Oct 1, 2026", and "Oct 1" or "Oct 2026" for chart axes. */
+type DateStyle = 'medium' | 'day-month' | 'month-year';
+const STYLE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
+  medium: { dateStyle: 'medium' },
+  'day-month': { month: 'short', day: 'numeric' },
+  'month-year': { month: 'short', year: 'numeric' },
+};
+
 /**
- * One medium-style date formatter per locale, reused (a list formats a date on every row). It
+ * One date formatter per locale and style, reused (a list formats a date on every row). It
  * formats in UTC, and callers pass the calendar date as UTC midnight: the cached formatter then
  * never depends on the time zone in force when it was made (the user may travel).
  */
-function dateFormatter(locale?: string): Intl.DateTimeFormat {
-  const key = locale ?? '';
+function dateFormatter(locale?: string, style: DateStyle = 'medium'): Intl.DateTimeFormat {
+  const key = `${locale ?? ''}|${style}`;
   let formatter = formatters.get(key);
   if (!formatter) {
-    formatter = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' });
+    formatter = new Intl.DateTimeFormat(locale, { ...STYLE_OPTIONS[style], timeZone: 'UTC' });
     formatters.set(key, formatter);
   }
   return formatter;
@@ -77,6 +85,19 @@ const asUtcDay = (date: Date) =>
 export function formatLocalDate(value: string, locale?: string): string {
   const date = parseLocalDate(value);
   return date ? dateFormatter(locale).format(asUtcDay(date)) : value;
+}
+
+/**
+ * A stored local date in a shorter style, for chart labels: "Oct 1" (`day-month`) or "Oct 2026"
+ * (`month-year`). Like formatLocalDate, it never shifts a day and shows invalid values as stored.
+ */
+export function formatShortLocalDate(
+  value: string,
+  style: Exclude<DateStyle, 'medium'>,
+  locale?: string,
+): string {
+  const date = parseLocalDate(value);
+  return date ? dateFormatter(locale, style).format(asUtcDay(date)) : value;
 }
 
 /** An ISO timestamp's local calendar date, formatted like formatLocalDate. */
