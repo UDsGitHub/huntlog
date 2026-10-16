@@ -27,14 +27,18 @@ export function safeHref(url: string): string | undefined {
   }
 }
 
+/**
+ * Adds an application without the duplicate check. Goes through saveApplication, so every add
+ * follows the same rules (validation, resume link and its name snapshot).
+ */
 export async function addApplication(
   input: ApplicationInput,
   database: JobLogDB = defaultDb,
   now: Date = new Date(),
 ): Promise<Application> {
-  const { values, errors } = validateApplication(input, now);
-  if (!values) throw new ValidationError(errors);
-  return insertValidated(values, database, now);
+  const result = await saveApplication(input, { allowDuplicate: true }, database, now);
+  if (!('saved' in result)) throw new Error('unreachable: duplicates were allowed');
+  return result.saved;
 }
 
 async function insertValidated(
@@ -193,7 +197,9 @@ export async function saveApplication(
       if (id !== undefined && !current) return { kind: 'notFound' };
       const { values, errors } = validateApplication(input, now, undefined, { current });
       if (!values) return { kind: 'invalid', errors };
-      const link = await resumeLink(values.resumeId, current, database);
+      // In an edit, leaving resumeId out means "unchanged" (as for status); '' clears it.
+      const chosen = input.resumeId === undefined ? current?.resumeId : values.resumeId;
+      const link = await resumeLink(chosen, current, database);
       if ('error' in link) return { kind: 'invalid', errors: { resumeId: link.error } };
 
       const derived = derivedFields(values);

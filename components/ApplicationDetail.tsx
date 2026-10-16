@@ -172,7 +172,15 @@ function ResumeLink({ resumeId, snapshot }: { resumeId: string; snapshot?: strin
       <span className="min-w-0 break-words">{resume.name}</span>
       <button
         type="button"
-        onClick={() => void openResume(resume).then((opened) => setFailed(!opened))}
+        onClick={() =>
+          void openResume(resume).then(
+            (opened) => setFailed(!opened),
+            (error: unknown) => {
+              console.error('openResume failed', error);
+              setFailed(true);
+            },
+          )
+        }
         className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
       >
         {opensInViewer(resume) ? 'Open' : 'Download'}

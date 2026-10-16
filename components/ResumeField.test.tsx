@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
@@ -60,7 +60,11 @@ describe('Resume field', () => {
     await setResumeArchived(archived.id, true, db);
     const user = userEvent.setup();
     await openAdd(user, 'Old');
-    expect(optionLabels()).toEqual(['No resume', 'New', 'Old', 'Upload new…']);
+    expect(optionLabels()).toEqual(['No resume', 'New', 'Old']);
+    expect(screen.getByRole('button', { name: 'Upload new…' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(resumeSelect().closest('[hidden]')).toBeNull();
   });
 
@@ -104,8 +108,9 @@ describe('Resume field', () => {
   it('uploads a new resume from the form and selects it', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    await user.selectOptions(resumeSelect(), 'Upload new…');
+    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    expect(within(group).getByLabelText('Resume file')).toHaveFocus();
     await user.upload(within(group).getByLabelText('Resume file'), realFile('Data v2.pdf'));
     expect(within(group).getByLabelText('Name')).toHaveValue('Data v2');
     await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
@@ -116,6 +121,8 @@ describe('Resume field', () => {
     const [resume] = await db.resumes.toArray();
     expect(resumeSelect()).toHaveValue(resume!.id);
     expect(optionLabels()).toContain('Data v2');
+    // Focus returns to the select, now showing the new resume.
+    expect(resumeSelect()).toHaveFocus();
   });
 
   it('keeps the current choice when the inline upload is cancelled', async () => {
@@ -123,11 +130,11 @@ describe('Resume field', () => {
     const user = userEvent.setup();
     await openAdd(user, 'Backend v3');
     await user.selectOptions(resumeSelect(), resume.id);
-    await user.selectOptions(resumeSelect(), 'Upload new…');
-    expect(resumeSelect()).toHaveValue(resume.id);
+    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
     await user.click(screen.getByRole('button', { name: 'Cancel upload' }));
     expect(screen.queryByRole('group', { name: 'Upload a new resume' })).toBeNull();
     expect(resumeSelect()).toHaveValue(resume.id);
+    expect(screen.getByRole('button', { name: 'Upload new…' })).toHaveFocus();
     expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
   });
 
@@ -164,5 +171,54 @@ describe('Resume field', () => {
     const detail = await screen.findByRole('region', { name: 'Acme' });
     expect(await within(detail).findByText('Backend v3 (file not available)')).toBeInTheDocument();
     expect(within(detail).queryByRole('button', { name: /Open resume/ })).toBeNull();
+  });
+
+  it('Enter in the inline upload uploads; it does not save the application', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
+    await user.type(screen.getByLabelText('Company'), 'Acme');
+    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('cv.pdf'));
+    await user.type(within(group).getByLabelText('Name'), '{Enter}');
+    await waitFor(async () => expect(await db.resumes.count()).toBe(1));
+    expect(await db.applications.count()).toBe(0);
+    expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
+  });
+
+  it('follows the picked file with the suggested name in the inline upload too', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('old.pdf'));
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('Backend v3.pdf'));
+    expect(within(group).getByLabelText('Name')).toHaveValue('Backend v3');
+  });
+
+  it('links inline upload errors to their fields and focuses the first', async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    await openAdd(user);
+    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('cv.pdf', DOCX_HEAD));
+    await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
+    const fileInput = within(group).getByLabelText('Resume file');
+    await waitFor(() => expect(fileInput).toHaveAccessibleDescription(/doesn't look like a PDF/));
+    expect(fileInput).toHaveFocus();
+  });
+
+  it('shows a picked resume archived in another window as archived, not as No resume', async () => {
+    const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' }, db);
+    const user = userEvent.setup();
+    await openAdd(user, 'Backend v3');
+    await user.selectOptions(resumeSelect(), resume.id);
+    await act(async () => {
+      await setResumeArchived(resume.id, true, db);
+    });
+    await waitFor(() => expect(optionLabels()).toContain('Backend v3 (archived)'));
+    expect(resumeSelect()).toHaveValue(resume.id);
+    expect(resumeSelect()).not.toHaveAccessibleDescription(/Tip/);
   });
 });

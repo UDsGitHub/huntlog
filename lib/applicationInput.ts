@@ -45,7 +45,10 @@ export interface ApplicationInput {
   notes?: string;
   /** One of the 9 statuses. Omitted: Applied for a new application, unchanged for an edit. */
   status?: string;
-  /** The resume sent (spec §4.6). Empty or omitted: none. Checked against storage on save. */
+  /**
+   * The resume sent (spec §4.6), checked against storage on save. Empty: none. Omitted: none for
+   * a new application, unchanged for an edit.
+   */
   resumeId?: string;
   /**
    * YYYY-MM-DD local date. Omitted: today, unless the status doesn't need one. An empty string

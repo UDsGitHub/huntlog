@@ -56,7 +56,7 @@ test('a resume an application uses is archived, not deleted, and still opens', a
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   // Upload straight from the form.
-  await page.getByRole('combobox', { name: /^Resume/ }).selectOption({ label: 'Upload new…' });
+  await page.getByRole('button', { name: 'Upload new…' }).click();
   const upload = page.getByRole('group', { name: 'Upload a new resume' });
   await upload
     .getByLabel('Resume file')
@@ -87,7 +87,7 @@ test('the form with an inline upload fits a 320px panel', async ({ session }) =>
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: '+ Add application' }).click();
-  await page.getByRole('combobox', { name: /^Resume/ }).selectOption({ label: 'Upload new…' });
+  await page.getByRole('button', { name: 'Upload new…' }).click();
   await expect(page.getByRole('group', { name: 'Upload a new resume' })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

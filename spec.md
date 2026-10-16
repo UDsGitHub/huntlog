@@ -108,7 +108,7 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 
 - The **Resumes** tab lets the user upload a resume (PDF, DOCX, DOC, TXT, or RTF, up to 10 MB), give it a display name such as "Backend v3", and add an optional note.
 - The file is stored as a Blob in IndexedDB.
-- Each application references a resume by ID through a dropdown. The form also includes "Upload new…" so a resume can be added mid-flow.
+- Each application references a resume by ID through a dropdown. Next to it, an "Upload new…" button opens a compact upload in the form, so a resume can be added mid-flow; it's saved and selected. (A button rather than a dropdown option, so arrowing through the options never opens an upload.)
 - **View:** PDFs open in a new extension tab via a blob URL. Other formats download.
 - **Accepted files:** the extension picks the format (PDF, DOCX, DOC, TXT or RTF) and the file's first bytes must match it (e.g. a PDF starts with `%PDF`). The type the browser reports is ignored, since it varies by system (a `.docx` can arrive as `application/zip`). The 10 MB limit applies to the bytes actually read.
 - **Delete:** if any applications use the resume (including one deleted within the last minute, which its Undo can still bring back), it is **archived** instead: hidden from the dropdown, but still viewable from those applications. Otherwise it's deleted with an Undo toast for about 5 seconds; after that its file is removed to reclaim storage, and only a small record remains (soft delete, for future sync). If the panel closes first, a later launch removes the files of resumes deleted more than a day ago (not sooner: another window may still show that delete's Undo).

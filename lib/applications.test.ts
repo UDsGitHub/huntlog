@@ -648,6 +648,30 @@ describe('linking a resume (spec §4.6)', () => {
     expect(await db.applications.count()).toBe(0);
   });
 
+  it('addApplication links a resume with its snapshot too', async () => {
+    const resume = await addResume(pdf('cv.pdf'), { name: 'Backend v3' }, db);
+    const app = await addApplication(
+      { url: 'https://a.com/1', company: 'Acme', resumeId: resume.id },
+      db,
+    );
+    expect(app).toMatchObject({ resumeId: resume.id, resumeNameSnapshot: 'Backend v3' });
+    await setResumeArchived(resume.id, true, db);
+    await expect(
+      addApplication({ url: 'https://b.com/1', company: 'Beta', resumeId: resume.id }, db),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('keeps the link when an edit leaves resumeId out', async () => {
+    const resume = await addResume(pdf('cv.pdf'), { name: 'Backend v3' }, db);
+    const app = await saved({ url: 'https://a.com/1', company: 'Acme', resumeId: resume.id });
+    const edited = await updateApplication(
+      app.id,
+      { url: app.url, company: 'Acme Corp', appliedAt: app.appliedAt },
+      db,
+    );
+    expect(edited).toMatchObject({ resumeId: resume.id, resumeNameSnapshot: 'Backend v3' });
+  });
+
   it('makes a linked resume archive instead of delete', async () => {
     const resume = await addResume(pdf('cv.pdf'), {}, db);
     await saved({ url: 'https://a.com/1', company: 'Acme', resumeId: resume.id });
