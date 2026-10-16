@@ -4,6 +4,7 @@ import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
 import { formatSalary } from '@/lib/format';
 import { StatusChip, type StatusPick } from './StatusChip';
+import { StatusTimeline } from './StatusTimeline';
 import type { Application } from '@/lib/types';
 
 interface Props {
@@ -110,6 +111,8 @@ export function ApplicationDetail({
         {app.source && <Row label="Source">{app.source}</Row>}
         <Row label="Added">{new Date(app.createdAt).toLocaleDateString()}</Row>
       </dl>
+
+      <StatusTimeline application={app} />
 
       {app.notes && (
         <div className="flex flex-col gap-1">

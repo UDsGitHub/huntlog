@@ -81,7 +81,11 @@ describe('Status in the form', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     const detail = await screen.findByRole('region', { name: 'Acme' });
-    await waitFor(() => expect(within(detail).getByText('Interviewing')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        within(detail).getByRole('button', { name: /^Status: Interviewing/ }),
+      ).toBeInTheDocument(),
+    );
     const stored = await db.applications.get(app.id);
     expect(stored?.statusHistory.map((e) => e.status)).toEqual(['applied', 'interviewing']);
   });
