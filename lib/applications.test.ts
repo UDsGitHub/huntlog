@@ -1,4 +1,15 @@
-import { addApplication, listApplications, safeHref, ValidationError } from './applications';
+import {
+  addApplication,
+  findDuplicates,
+  getApplication,
+  listApplications,
+  NotFoundError,
+  restoreApplication,
+  safeHref,
+  softDeleteApplication,
+  updateApplication,
+  ValidationError,
+} from './applications';
 import { JobLogDB } from './db';
 import type { Application } from './types';
 
@@ -162,5 +173,166 @@ describe('listApplications', () => {
     const gone = await addApplication({ url: 'https://b.com', company: 'Gone' }, db);
     await db.applications.update(gone.id, { deletedAt: new Date().toISOString() });
     expect((await listApplications(db)).map((a) => a.id)).toEqual([kept.id]);
+  });
+});
+
+describe('updateApplication', () => {
+  const created = new Date('2026-10-01T10:00:00.000Z');
+  const edited = new Date('2026-10-05T10:00:00.000Z');
+
+  it('replaces editable fields and keeps status, history, id and createdAt', async () => {
+    const app = await addApplication(
+      { url: 'https://a.com/1', company: 'Acme', title: 'Engineer', appliedAt: '2026-10-01' },
+      db,
+      created,
+    );
+    const updated = await updateApplication(
+      app.id,
+      {
+        url: 'https://b.com/2?utm_source=x',
+        company: 'Beta',
+        title: 'Designer',
+        location: 'Remote, EU',
+        workMode: 'remote',
+        salaryMin: '70000',
+        salaryCurrency: 'EUR',
+        salaryPeriod: 'year',
+        appliedAt: '2026-09-30',
+      },
+      db,
+      edited,
+    );
+    expect(updated).toMatchObject({
+      id: app.id,
+      url: 'https://b.com/2?utm_source=x',
+      urlNormalized: 'https://b.com/2',
+      company: 'Beta',
+      title: 'Designer',
+      companyTitleKey: 'beta\u001fdesigner',
+      location: 'Remote, EU',
+      workMode: 'remote',
+      salaryMin: 70000,
+      salaryCurrency: 'EUR',
+      appliedAt: '2026-09-30',
+      status: app.status,
+      statusHistory: app.statusHistory,
+      createdAt: app.createdAt,
+      updatedAt: edited.toISOString(),
+    });
+    expect(await db.applications.get(app.id)).toEqual(updated);
+  });
+
+  it('removes optional fields the user cleared', async () => {
+    const app = await addApplication(
+      {
+        url: 'https://a.com/1',
+        company: 'Acme',
+        title: 'Engineer',
+        location: 'Berlin',
+        salaryMin: '1',
+        notes: 'note',
+      },
+      db,
+    );
+    const updated = await updateApplication(app.id, { url: app.url, company: 'Acme' }, db);
+    for (const field of [
+      'title',
+      'location',
+      'salaryMin',
+      'salaryCurrency',
+      'salaryPeriod',
+      'notes',
+    ]) {
+      expect(updated).not.toHaveProperty(field);
+    }
+    expect(updated.companyTitleKey).toBeUndefined();
+  });
+
+  it('validates before writing', async () => {
+    const app = await addApplication({ url: 'https://a.com/1', company: 'Acme' }, db);
+    await expect(
+      updateApplication(app.id, { url: '', company: 'Acme' }, db),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(await db.applications.get(app.id)).toEqual(app);
+  });
+
+  it.each([['missing'], ['soft-deleted']])('fails for a %s row', async (kind) => {
+    const app = await addApplication({ url: 'https://a.com/1', company: 'Acme' }, db);
+    if (kind === 'soft-deleted') await softDeleteApplication(app.id, db);
+    const id = kind === 'missing' ? 'nope' : app.id;
+    await expect(
+      updateApplication(id, { url: 'https://a.com', company: 'X' }, db),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(await db.applications.count()).toBe(1);
+  });
+});
+
+describe('soft delete and restore', () => {
+  it('hides a deleted row and brings it back with a newer updatedAt', async () => {
+    const app = await addApplication(
+      { url: 'https://a.com/1', company: 'Acme' },
+      db,
+      new Date('2026-10-01T00:00:00Z'),
+    );
+    const deleted = await softDeleteApplication(app.id, db, new Date('2026-10-02T00:00:00Z'));
+    expect(deleted).toMatchObject({
+      deletedAt: '2026-10-02T00:00:00.000Z',
+      updatedAt: '2026-10-02T00:00:00.000Z',
+    });
+    expect(await getApplication(app.id, db)).toBeUndefined();
+
+    const restored = await restoreApplication(app.id, db, new Date('2026-10-03T00:00:00Z'));
+    expect(restored).not.toHaveProperty('deletedAt');
+    expect(restored.updatedAt).toBe('2026-10-03T00:00:00.000Z');
+    expect({ ...restored, updatedAt: app.updatedAt }).toEqual(app);
+    expect(await getApplication(app.id, db)).toEqual(restored);
+  });
+
+  it('keeps the row in storage, so nothing is lost', async () => {
+    const app = await addApplication({ url: 'https://a.com/1', company: 'Acme' }, db);
+    await softDeleteApplication(app.id, db);
+    expect(await db.applications.count()).toBe(1);
+  });
+
+  it.each([
+    ['delete a missing row', (id: string) => softDeleteApplication(`${id}-x`, db)],
+    [
+      'delete twice',
+      async (id: string) => {
+        await softDeleteApplication(id, db);
+        return softDeleteApplication(id, db);
+      },
+    ],
+    ['restore a live row', (id: string) => restoreApplication(id, db)],
+    ['restore a missing row', (id: string) => restoreApplication(`${id}-x`, db)],
+  ])('refuses to %s', async (_label, action) => {
+    const app = await addApplication({ url: 'https://a.com/1', company: 'Acme' }, db);
+    await expect(action(app.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+// Spec §5: every query filters out soft-deleted rows. Each read in this module is listed here.
+describe('soft-deleted rows stay out of every read', () => {
+  const reads: [string, (app: Application) => Promise<unknown>][] = [
+    ['listApplications', async () => (await listApplications(db)).length],
+    ['getApplication', (app) => getApplication(app.id, db)],
+    [
+      'findDuplicates',
+      async (app) =>
+        (await findDuplicates({ url: app.url, company: app.company, title: app.title }, {}, db))
+          .length,
+    ],
+  ];
+
+  it.each(reads)('%s', async (_name, read) => {
+    const app = await addApplication(
+      { url: 'https://a.com/1', company: 'Acme', title: 'Engineer' },
+      db,
+    );
+    const visible = await read(app);
+    await softDeleteApplication(app.id, db);
+    const hidden = await read(app);
+    expect(visible).toBeTruthy();
+    expect(hidden === undefined || hidden === 0).toBe(true);
   });
 });

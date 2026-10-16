@@ -87,3 +87,95 @@ export async function findDuplicates(
     a.updatedAt === b.updatedAt ? 0 : a.updatedAt < b.updatedAt ? 1 : -1,
   );
 }
+
+export class NotFoundError extends Error {
+  constructor(id: string) {
+    super(`No application ${id}`);
+    this.name = 'NotFoundError';
+  }
+}
+
+/** Optional fields an edit can clear; anything not in the new values is removed. */
+const OPTIONAL_FIELDS = [
+  'title',
+  'location',
+  'workMode',
+  'salaryMin',
+  'salaryMax',
+  'salaryCurrency',
+  'salaryPeriod',
+  'source',
+  'notes',
+] as const;
+
+/** A live (not soft-deleted) application, or undefined. */
+export async function getApplication(
+  id: string,
+  database: JobLogDB = defaultDb,
+): Promise<Application | undefined> {
+  const app = await database.applications.get(id);
+  return app && !app.deletedAt ? app : undefined;
+}
+
+/**
+ * Replaces the user-editable fields. Status, history, `createdAt` and `id` are kept; derived
+ * fields are recomputed by the db hooks. Fails for missing or soft-deleted rows.
+ */
+export async function updateApplication(
+  id: string,
+  input: ApplicationInput,
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<Application> {
+  const { values, errors } = validateApplication(input, now);
+  if (!values) throw new ValidationError(errors);
+  // Dexie wraps errors thrown inside a transaction, so "not found" comes out as undefined.
+  const updated = await database.transaction('rw', database.applications, async () => {
+    if (!(await getApplication(id, database))) return undefined;
+    // Dexie's update() deletes a key whose new value is undefined, so cleared fields go away.
+    const cleared = Object.fromEntries(OPTIONAL_FIELDS.map((field) => [field, undefined]));
+    await database.applications.update(id, {
+      ...cleared,
+      ...values,
+      updatedAt: now.toISOString(),
+    });
+    return database.applications.get(id);
+  });
+  if (!updated) throw new NotFoundError(id);
+  return updated;
+}
+
+/** Soft delete (spec §5): sets `deletedAt`, so every read hides it and it can be restored. */
+export async function softDeleteApplication(
+  id: string,
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<Application> {
+  const deleted = await database.transaction('rw', database.applications, async () => {
+    if (!(await getApplication(id, database))) return undefined;
+    const at = now.toISOString();
+    await database.applications.update(id, { deletedAt: at, updatedAt: at });
+    return database.applications.get(id);
+  });
+  if (!deleted) throw new NotFoundError(id);
+  return deleted;
+}
+
+/**
+ * Undoes a soft delete. `updatedAt` moves forward rather than back: with future sync
+ * (last write wins on `updatedAt`), the restore has to be the newest write.
+ */
+export async function restoreApplication(
+  id: string,
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<Application> {
+  const restored = await database.transaction('rw', database.applications, async () => {
+    const app = await database.applications.get(id);
+    if (!app?.deletedAt) return undefined;
+    await database.applications.update(id, { deletedAt: undefined, updatedAt: now.toISOString() });
+    return database.applications.get(id);
+  });
+  if (!restored) throw new NotFoundError(id);
+  return restored;
+}
