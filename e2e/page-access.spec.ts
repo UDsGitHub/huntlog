@@ -37,9 +37,7 @@ function runExtractor(serviceWorker: Worker) {
   })()`);
 }
 
-test('without a user gesture the extension has no page access', async ({
-  session,
-}) => {
+test('without a user gesture the extension has no page access', async ({ session }) => {
   const page = await session.context.newPage();
   await openTab(page, JOB_URL);
   expect(await runExtractor(session.serviceWorker)).toEqual({
