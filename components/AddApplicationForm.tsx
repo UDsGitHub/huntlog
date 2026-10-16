@@ -8,6 +8,7 @@ export function AddApplicationForm() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const saving = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
   const urlRef = useRef<HTMLInputElement>(null);
   const companyRef = useRef<HTMLInputElement>(null);
 
@@ -21,17 +22,26 @@ export function AddApplicationForm() {
       (result.errors.url ? urlRef : companyRef).current?.focus();
       return;
     }
+    const submitted = { url, company };
     saving.current = true;
+    setIsSaving(true);
     try {
       await addApplication(result.values);
-      setUrl('');
-      setCompany('');
-      urlRef.current?.focus();
+      // Only clear what is unchanged: the user may already be typing the next job.
+      setUrl((current) => (current === submitted.url ? '' : current));
+      setCompany((current) => (current === submitted.company ? '' : current));
+      if (
+        urlRef.current?.value === submitted.url &&
+        companyRef.current?.value === submitted.company
+      ) {
+        urlRef.current.focus();
+      }
     } catch (error) {
       console.error('addApplication failed', error);
       setSaveError("Couldn't save. Please try again.");
     } finally {
       saving.current = false;
+      setIsSaving(false);
     }
   }
 
@@ -99,9 +109,10 @@ export function AddApplicationForm() {
       )}
       <button
         type="submit"
+        aria-disabled={isSaving || undefined}
         className="self-start rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
       >
-        Save
+        {isSaving ? 'Saving…' : 'Save'}
       </button>
     </form>
   );

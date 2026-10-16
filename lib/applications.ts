@@ -20,7 +20,8 @@ export class ValidationError extends Error {
 export function normalizeInputUrl(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  const withScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  // A colon followed by a digit is a port (`host:8443/…`), not a scheme.
+  const withScheme = /^[a-z][a-z\d+.-]*:(?!\d)/i.test(trimmed) ? trimmed : `https://${trimmed}`;
   let parsed: URL;
   try {
     parsed = new URL(withScheme);
@@ -30,6 +31,16 @@ export function normalizeInputUrl(raw: string): string | null {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
   if (!parsed.hostname) return null;
   return parsed.href;
+}
+
+/** Href that is safe to render, or undefined. Rows can arrive from paths other than the add form. */
+export function safeHref(url: string): string | undefined {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:' ? url : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function validateNewApplication(input: NewApplicationInput): {

@@ -1,11 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as applications from '@/lib/applications';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
   await db.delete();
   await db.open();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 function fields() {
@@ -79,5 +84,58 @@ describe('Add application form', () => {
 
     await screen.findByRole('list', { name: 'Applications' });
     expect(await db.applications.count()).toBe(1);
+  });
+
+  it('keeps what the user typed while a slow save was in flight', async () => {
+    let finish!: () => void;
+    const real = applications.addApplication;
+    vi.spyOn(applications, 'addApplication').mockImplementation(async (input) => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      return real(input);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const { url, company, save } = fields();
+
+    await user.type(url, 'https://example.com/1');
+    await user.type(company, 'Acme');
+    await user.click(save);
+    expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    await user.clear(url);
+    await user.type(url, 'https://example.com/next');
+    await act(async () => finish());
+
+    await screen.findByRole('list', { name: 'Applications' });
+    expect(url).toHaveValue('https://example.com/next');
+    expect(company).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Save' })).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('shows a message instead of a blank panel when the list query fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(applications, 'listApplications').mockRejectedValue(new Error('DB blocked'));
+    render(<App />);
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load your applications");
+    expect(screen.getByLabelText('Job posting URL')).toBeInTheDocument();
+  });
+
+  it('renders a stored non-web URL as text, not a link', async () => {
+    await db.applications.add({
+      id: 'x',
+      url: 'javascript:alert(1)',
+      company: 'Imported',
+      status: 'applied',
+      statusHistory: [],
+      createdAt: '2026-10-15T00:00:00.000Z',
+      updatedAt: '2026-10-15T00:00:00.000Z',
+    });
+    render(<App />);
+    const list = await screen.findByRole('list', { name: 'Applications' });
+    expect(list).toHaveTextContent('javascript:alert(1)');
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });

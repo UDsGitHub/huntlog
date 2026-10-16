@@ -14,6 +14,7 @@ test('a saved job is listed and survives a browser restart', async ({ userDataDi
   const first = await launchExtension(userDataDir);
   const page = await first.context.newPage();
   await page.goto(panelUrl(first.extensionId));
+  await expect(page.getByRole('heading', { level: 1, name: 'Job Log' })).toBeVisible();
   await expect(page.getByText(/No applications yet/)).toBeVisible();
 
   await addJob(page, 'https://boards.greenhouse.io/acme/jobs/123', 'Acme');
