@@ -1,17 +1,21 @@
-import { isValidLocalDate, parseLocalDate, todayLocal } from './dates';
+import {
+  checkPastLocalDate,
+  isValidLocalDate,
+  MIN_YEAR,
+  parseLocalDate,
+  todayLocal,
+} from './dates';
 import type { WeekStart } from './locale';
-import { firstEnteredAt, localDateOf, STATUSES } from './status';
+import { localDateOf, STATUSES } from './status';
 import type { Application, Status } from './types';
 
 /**
- * Stats (spec §4.7), pure: applications, a range and the week start in, numbers out. Every date
- * is a local calendar date (YYYY-MM-DD), which compares correctly as a string.
+ * Stats (spec §4.7), pure: applications, a range and the week start in, numbers out; "today"
+ * comes in as `now`. Every date is a local calendar date (YYYY-MM-DD), which compares correctly
+ * as a string.
  */
 
-export type RangeKind =
-  'this-week' | 'last-7-days' | 'this-month' | 'last-30-days' | 'this-year' | 'all-time' | 'custom';
-
-export const RANGE_KINDS: readonly RangeKind[] = [
+export const RANGE_KINDS = [
   'this-week',
   'last-7-days',
   'this-month',
@@ -19,7 +23,9 @@ export const RANGE_KINDS: readonly RangeKind[] = [
   'this-year',
   'all-time',
   'custom',
-];
+] as const;
+
+export type RangeKind = (typeof RANGE_KINDS)[number];
 
 export const RANGE_LABELS: Record<RangeKind, string> = {
   'this-week': 'This week',
@@ -31,40 +37,55 @@ export const RANGE_LABELS: Record<RangeKind, string> = {
   custom: 'Custom',
 };
 
-/** Both days included. */
+/** Both days included. Build one with `resolveRange`, which only returns valid dates. */
 export interface DateRange {
   from: string;
   to: string;
 }
 
-/** The date `days` after (or before) a YYYY-MM-DD date. Calendar days, so DST can't shift it. */
-export function addDays(date: string, days: number): string {
+function parse(date: string): Date {
   const d = parseLocalDate(date);
   if (!d) throw new RangeError(`Not a date: ${date}`);
+  return d;
+}
+
+/** The date `days` after (or before) a YYYY-MM-DD date. Calendar days, so DST can't shift it. */
+export function addDays(date: string, days: number): string {
+  const d = parse(date);
   return todayLocal(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
 }
 
 /** The first day of the week containing `date`. */
 export function startOfWeek(date: string, weekStartsOn: WeekStart): string {
-  const day = parseLocalDate(date)!.getDay();
-  return addDays(date, -((day - weekStartsOn + 7) % 7));
+  return addDays(date, -((parse(date).getDay() - weekStartsOn + 7) % 7));
 }
 
 /** Days from `from` to `to`, both included (1 for the same day). */
 export function daysBetween(from: string, to: string): number {
-  const a = parseLocalDate(from)!;
-  const b = parseLocalDate(to)!;
   // Date.UTC: whole days, whatever DST does in between.
   const utc = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.round((utc(b) - utc(a)) / 86_400_000) + 1;
+  return Math.round((utc(parse(to)) - utc(parse(from))) / 86_400_000) + 1;
 }
 
-/** The earliest date anything happened: a Date applied or a status entry. */
+/** A stored date stats can use: a real date, not before MIN_YEAR (old or imported data). */
+const usable = (date: string | undefined): date is string =>
+  date !== undefined && isValidLocalDate(date) && Number(date.slice(0, 4)) >= MIN_YEAR;
+
+/** The local dates of an application's status entries, skipping unreadable timestamps. */
+function entryDates(app: Application, statuses?: readonly Status[]): string[] {
+  return (app.statusHistory ?? [])
+    .filter((entry) => !statuses || statuses.includes(entry.status))
+    .map((entry) => localDateOf(entry.at))
+    .filter(usable);
+}
+
+/** The earliest date anything happened on a live application: a Date applied or a status entry. */
 function earliestDate(apps: readonly Application[]): string | undefined {
   let earliest: string | undefined;
   for (const app of apps) {
-    const dates = (app.statusHistory ?? []).map((entry) => localDateOf(entry.at));
-    if (app.appliedAt && isValidLocalDate(app.appliedAt)) dates.push(app.appliedAt);
+    if (app.deletedAt) continue;
+    const dates = entryDates(app);
+    if (usable(app.appliedAt)) dates.push(app.appliedAt);
     for (const date of dates) if (earliest === undefined || date < earliest) earliest = date;
   }
   return earliest;
@@ -73,17 +94,18 @@ function earliestDate(apps: readonly Application[]): string | undefined {
 /**
  * The dates a range covers. This week, month and year are whole calendar periods (the chart
  * shows the days still ahead); Last 7 and Last 30 days end today. All time runs from the first
- * thing logged to today. Custom is the dates given, in order; undefined if either is invalid.
+ * thing logged to today. Custom is the dates given, in order; undefined unless both are valid
+ * dates from MIN_YEAR to today.
  */
 export function resolveRange(
   kind: RangeKind,
   {
-    now = new Date(),
+    now,
     weekStartsOn,
     apps = [],
     custom,
   }: {
-    now?: Date;
+    now: Date;
     weekStartsOn: WeekStart;
     apps?: readonly Application[];
     custom?: Partial<DateRange>;
@@ -113,15 +135,17 @@ export function resolveRange(
     }
     case 'custom': {
       const { from, to } = custom ?? {};
-      if (!from || !to || !isValidLocalDate(from) || !isValidLocalDate(to)) return undefined;
+      // Bounded like every date the user enters, which also keeps the chart a sensible size.
+      if (!from || !to || checkPastLocalDate(from, now) || checkPastLocalDate(to, now)) {
+        return undefined;
+      }
       return from <= to ? { from, to } : { from: to, to: from };
     }
   }
 }
 
-// Validated first: an invalid stored date (old or imported data) must not compare into a range.
 const inRange = (date: string | undefined, range: DateRange) =>
-  date !== undefined && isValidLocalDate(date) && date >= range.from && date <= range.to;
+  usable(date) && date >= range.from && date <= range.to;
 
 /** Statuses that mean the employer answered (spec §4.7 response rate). */
 export const RESPONSE_STATUSES: readonly Status[] = [
@@ -132,8 +156,13 @@ export const RESPONSE_STATUSES: readonly Status[] = [
   'rejected',
 ];
 
-/** Interviewing, or a later stage that can only come after interviews. */
-const INTERVIEW_STATUSES: readonly Status[] = ['interviewing', 'offer', 'accepted'];
+/**
+ * A stage and the later statuses that can only come after it. Interviews and the interview
+ * rate both use the interview stage, so a job moved straight to Offer counts in both or
+ * neither; likewise Offers and Accepted.
+ */
+const INTERVIEW_STAGE: readonly Status[] = ['interviewing', 'offer', 'accepted'];
+const OFFER_STAGE: readonly Status[] = ['offer', 'accepted'];
 
 /** Whether the application has ever been in any of `statuses` (its history, or now). */
 function everIn(app: Application, statuses: readonly Status[]): boolean {
@@ -143,10 +172,17 @@ function everIn(app: Application, statuses: readonly Status[]): boolean {
   );
 }
 
-/** Whether the application first entered `status` within the range. */
-function firstEnteredIn(app: Application, status: Status, range: DateRange): boolean {
-  const at = firstEnteredAt(app, status);
-  return at !== undefined && inRange(localDateOf(at), range);
+/**
+ * Whether the application first reached a stage within the range: the earliest entry into any
+ * of its statuses, by date rather than stored order (dates can be backfilled).
+ */
+function reachedIn(app: Application, stage: readonly Status[], range: DateRange): boolean {
+  const dates = entryDates(app, stage);
+  if (dates.length === 0) return false;
+  return inRange(
+    dates.reduce((a, b) => (b < a ? b : a)),
+    range,
+  );
 }
 
 export interface Rate {
@@ -179,13 +215,13 @@ export interface Stats {
   range: DateRange;
   /** Applications whose Date applied falls in the range. */
   applied: number;
-  /** Applications that first entered Interviewing in the range. */
+  /** Applications that first reached the interview stage in the range. */
   interviews: number;
-  /** Applications that first entered Offer in the range. */
+  /** Applications that first reached the offer stage in the range. */
   offers: number;
   /** Of those applied in the range, the ones that got past Applied (ever, not only in range). */
   responseRate: Rate;
-  /** Of those applied in the range, the ones that reached Interviewing or later. */
+  /** Of those applied in the range, the ones that reached the interview stage (ever). */
   interviewRate: Rate;
   /** Where the applications applied in the range stand now, in pipeline order; no zero rows. */
   outcomes: { status: Status; count: number }[];
@@ -197,24 +233,26 @@ export const MAX_DAILY_DAYS = 31;
 
 /** Applications per day or per week across the range, by Date applied. */
 export function activity(
-  applied: readonly Application[],
+  apps: readonly Application[],
   range: DateRange,
   weekStartsOn: WeekStart,
 ): Activity {
   const unit = daysBetween(range.from, range.to) <= MAX_DAILY_DAYS ? 'day' : 'week';
+  const step = unit === 'day' ? 1 : 7;
+  const first = unit === 'day' ? range.from : startOfWeek(range.from, weekStartsOn);
   const buckets: ActivityBucket[] = [];
-  let start = unit === 'day' ? range.from : startOfWeek(range.from, weekStartsOn);
-  while (start <= range.to) {
-    const next = addDays(start, unit === 'day' ? 1 : 7);
-    const from = start < range.from ? range.from : start;
-    const last = addDays(next, -1);
-    buckets.push({ from, to: last > range.to ? range.to : last, count: 0 });
-    start = next;
+  for (let start = first; start <= range.to; start = addDays(start, step)) {
+    const last = addDays(start, step - 1);
+    buckets.push({
+      from: start < range.from ? range.from : start,
+      to: last > range.to ? range.to : last,
+      count: 0,
+    });
   }
-  for (const app of applied) {
-    // Buckets are in order and contiguous: the last one starting on or before the date.
-    const bucket = buckets.findLast((b) => b.from <= app.appliedAt!);
-    if (bucket) bucket.count++;
+  for (const app of apps) {
+    if (!inRange(app.appliedAt, range)) continue;
+    // Buckets are contiguous and all `step` days long from `first`, so index directly.
+    buckets[Math.floor((daysBetween(first, app.appliedAt!) - 1) / step)]!.count++;
   }
   return { unit, buckets };
 }
@@ -225,27 +263,29 @@ export function computeStats(
   weekStartsOn: WeekStart,
 ): Stats {
   const live = apps.filter((app) => !app.deletedAt);
-  // Without a Date applied (Skip), a job isn't counted as applied (spec §4.7).
-  const applied = live.filter((app) => inRange(app.appliedAt, range));
+  let [applied, responded, interviewed, interviews, offers] = [0, 0, 0, 0, 0];
   const counts = new Map<Status, number>();
-  for (const app of applied) counts.set(app.status, (counts.get(app.status) ?? 0) + 1);
+  for (const app of live) {
+    if (reachedIn(app, INTERVIEW_STAGE, range)) interviews++;
+    if (reachedIn(app, OFFER_STAGE, range)) offers++;
+    // Without a Date applied (Skip), a job isn't counted as applied (spec §4.7).
+    if (!inRange(app.appliedAt, range)) continue;
+    applied++;
+    if (everIn(app, RESPONSE_STATUSES)) responded++;
+    if (everIn(app, INTERVIEW_STAGE)) interviewed++;
+    counts.set(app.status, (counts.get(app.status) ?? 0) + 1);
+  }
   return {
     range,
-    applied: applied.length,
-    interviews: live.filter((app) => firstEnteredIn(app, 'interviewing', range)).length,
-    offers: live.filter((app) => firstEnteredIn(app, 'offer', range)).length,
-    responseRate: rate(
-      applied.filter((app) => everIn(app, RESPONSE_STATUSES)).length,
-      applied.length,
-    ),
-    interviewRate: rate(
-      applied.filter((app) => everIn(app, INTERVIEW_STATUSES)).length,
-      applied.length,
-    ),
+    applied,
+    interviews,
+    offers,
+    responseRate: rate(responded, applied),
+    interviewRate: rate(interviewed, applied),
     outcomes: STATUSES.filter((status) => counts.has(status)).map((status) => ({
       status,
       count: counts.get(status)!,
     })),
-    activity: activity(applied, range, weekStartsOn),
+    activity: activity(live, range, weekStartsOn),
   };
 }

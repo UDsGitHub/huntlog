@@ -45,6 +45,12 @@ function app(
 const now = new Date(2026, 9, 16, 15);
 
 describe('date helpers', () => {
+  it("rejects a date that isn't one", () => {
+    expect(() => addDays('2026-02-30', 1)).toThrow(RangeError);
+    expect(() => startOfWeek('2026-10-1', 1)).toThrow(RangeError);
+    expect(() => daysBetween('2026-10-01', 'soon')).toThrow(RangeError);
+  });
+
   it('adds days across month and year ends', () => {
     expect(addDays('2026-01-31', 1)).toBe('2026-02-01');
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
@@ -116,6 +122,16 @@ describe('resolveRange', () => {
     });
   });
 
+  it('all time ignores deleted applications and unreadable dates', () => {
+    const apps = [
+      app('2026-03-04'),
+      app('2019-05-01', [], { deletedAt: at('2026-03-05') }),
+      app('2026-03-04', [], { appliedAt: '0202-03-04' }),
+    ];
+    apps[2]!.statusHistory = [{ status: 'applied', at: 'not a time' }];
+    expect(resolveRange('all-time', { now, weekStartsOn: 1, apps })?.from).toBe('2026-03-04');
+  });
+
   it('all time with no data is just today', () => {
     expect(resolveRange('all-time', { now, weekStartsOn: 1 })).toEqual({
       from: '2026-10-16',
@@ -135,6 +151,17 @@ describe('resolveRange', () => {
       resolveRange('custom', { ...opts, custom: { from: '2026-02-30', to: '2026-03-01' } }),
     ).toBeUndefined();
     expect(resolveRange('custom', { ...opts, custom: { from: '2026-09-01' } })).toBeUndefined();
+    // Future or far-past dates would make a nonsense chart (and a huge one).
+    for (const bad of [
+      { from: '2026-10-01', to: '2026-10-17' },
+      { from: '0100-01-01', to: '2026-10-01' },
+      { from: '1969-12-31', to: '2026-10-01' },
+    ]) {
+      expect(resolveRange('custom', { ...opts, custom: bad })).toBeUndefined();
+    }
+    expect(
+      resolveRange('custom', { ...opts, custom: { from: '1970-01-01', to: '2026-10-16' } }),
+    ).toEqual({ from: '1970-01-01', to: '2026-10-16' });
   });
 });
 
@@ -208,6 +235,34 @@ describe('computeStats', () => {
         { status: 'interviewing', at: at('2026-09-15') },
       );
       expect(computeStats([backfilled], october, 1).interviews).toBe(0);
+    });
+
+    it('a job moved straight to Offer had interviews; straight to Accepted, an offer', () => {
+      const apps = [
+        app('2026-10-01', [['offer', '2026-10-08']]),
+        app('2026-10-02', [['accepted', '2026-10-09']]),
+      ];
+      const stats = computeStats(apps, october, 1);
+      expect(stats.interviews).toBe(2);
+      expect(stats.offers).toBe(2);
+      expect(stats.interviewRate.count).toBe(stats.interviews);
+    });
+
+    it('a stage counts once, on the first day any of its statuses was entered', () => {
+      // Interviewing in September, the offer in October: the interview stage began in September.
+      const apps = [
+        app('2026-09-01', [
+          ['interviewing', '2026-09-20'],
+          ['offer', '2026-10-08'],
+        ]),
+      ];
+      expect(computeStats(apps, october, 1)).toMatchObject({ interviews: 0, offers: 1 });
+    });
+
+    it('skips an unreadable timestamp rather than losing the entry after it', () => {
+      const imported = app('2026-09-01', [['interviewing', '2026-10-05']]);
+      imported.statusHistory.splice(1, 0, { status: 'interviewing', at: 'garbage' });
+      expect(computeStats([imported], october, 1).interviews).toBe(1);
     });
 
     it('counts offers by the day they first came', () => {
@@ -350,7 +405,8 @@ describe('across a DST change', () => {
     process.env.TZ = 'America/New_York';
   });
   afterAll(() => {
-    process.env.TZ = originalTz;
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
   });
 
   it('days stay whole calendar days', () => {
