@@ -39,7 +39,7 @@ describe('Duplicate warning', () => {
     });
 
     const warning = await screen.findByRole('group', { name: 'You may have logged this already' });
-    expect(warning).toHaveTextContent('Acme · Senior Engineer, applied 2026-10-01');
+    expect(warning).toHaveTextContent('Acme · Senior Engineer, applied Oct 1, 2026');
     expect(warning).toHaveTextContent('Same job posting URL');
     expect(warning).toHaveFocus();
     expect(await db.applications.count()).toBe(1);

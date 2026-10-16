@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { listApplications, safeHref } from '@/lib/applications';
+import { formatLocalDate } from '@/lib/dates';
 import { DEFAULT_QUERY, queryApplications, rankOf, type ListQuery } from '@/lib/listQuery';
 import type { Application } from '@/lib/types';
 import { ListControls } from './ListControls';
@@ -132,25 +133,44 @@ export function ApplicationList({
                 </button>
                 <StatusChip application={app} onPick={(pick) => onStatusPick(app, pick)} />
               </div>
-              {safeHref(app.url) ? (
-                <a
-                  href={safeHref(app.url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs break-all text-indigo-700 underline"
-                >
-                  {app.url}
-                </a>
-              ) : (
-                <span className="text-xs break-all text-slate-600">{app.url}</span>
-              )}
-              {app.appliedAt && (
-                <span className="text-xs text-slate-600">Applied {app.appliedAt}</span>
-              )}
+              {/* A small icon link, not the full URL, which would wrap over lines at 320px. */}
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                {app.appliedAt && <span>Applied {formatLocalDate(app.appliedAt)}</span>}
+                {safeHref(app.url) && (
+                  <a
+                    href={safeHref(app.url)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open job posting for ${app.company}`}
+                    title="Open job posting"
+                    className="inline-flex rounded p-0.5 text-indigo-700 hover:bg-slate-100 focus:outline-2 focus:outline-indigo-600"
+                  >
+                    <ExternalLinkIcon />
+                  </a>
+                )}
+              </div>
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 2.5h4.5V7M13.5 2.5 7 9M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" />
+    </svg>
   );
 }

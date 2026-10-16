@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
+import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
 import { formatSalary } from '@/lib/format';
 import { StatusChip, type StatusPick } from './StatusChip';
 import { StatusTimeline } from './StatusTimeline';
@@ -104,12 +105,12 @@ export function ApplicationDetail({
         <Row label="Status">
           <StatusChip application={app} align="start" onPick={(pick) => onStatusPick(app, pick)} />
         </Row>
-        {app.appliedAt && <Row label="Date applied">{app.appliedAt}</Row>}
+        {app.appliedAt && <Row label="Date applied">{formatLocalDate(app.appliedAt)}</Row>}
         {app.location && <Row label="Location">{app.location}</Row>}
         {app.workMode && <Row label="Work mode">{WORK_MODE_LABELS[app.workMode]}</Row>}
         {salary && <Row label="Salary">{salary}</Row>}
         {app.source && <Row label="Source">{app.source}</Row>}
-        <Row label="Added">{new Date(app.createdAt).toLocaleDateString()}</Row>
+        <Row label="Added">{formatTimestampDate(app.createdAt)}</Row>
       </dl>
 
       <StatusTimeline application={app} />

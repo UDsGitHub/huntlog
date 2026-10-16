@@ -1,5 +1,6 @@
 import { useId, useLayoutEffect, useRef } from 'react';
 import type { DuplicateMatch } from '@/lib/applications';
+import { formatLocalDate } from '@/lib/dates';
 
 interface Props {
   matches: DuplicateMatch[];
@@ -44,7 +45,7 @@ export function DuplicateWarning({ matches, editing, onViewExisting, onSaveAnywa
       <p className="break-words">
         {match.company}
         {match.title && ` · ${match.title}`}
-        {match.appliedAt && `, applied ${match.appliedAt}`}
+        {match.appliedAt && `, applied ${formatLocalDate(match.appliedAt)}`}
         <span className="block text-xs text-amber-900">
           {reason === 'url' ? 'Same job posting URL' : 'Same company and title'}
           {more > 0 && ` · and ${more} more ${more === 1 ? 'match' : 'matches'}`}
