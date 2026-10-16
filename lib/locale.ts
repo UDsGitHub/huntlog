@@ -153,3 +153,27 @@ export function orderedCurrencies(
   }
   return lists;
 }
+
+/** The first day of the week: 0 Sunday, 1 Monday, 6 Saturday (spec §5 Settings). */
+export type WeekStart = 0 | 1 | 6;
+
+/**
+ * The locale's first day of the week (spec §4.7), from `Intl.Locale` week info. Days other than
+ * Sunday, Monday or Saturday (rare) and runtimes without week info fall back to Monday.
+ */
+export function localeWeekStart(locale?: string): WeekStart {
+  try {
+    const tag = locale ?? globalThis.navigator?.language ?? 'en-US';
+    const intl = new Intl.Locale(tag) as Intl.Locale & {
+      getWeekInfo?: () => { firstDay: number };
+      weekInfo?: { firstDay: number };
+    };
+    // Intl numbers days 1 (Monday) to 7 (Sunday).
+    const firstDay = (intl.getWeekInfo?.() ?? intl.weekInfo)?.firstDay;
+    if (firstDay === 7) return 0;
+    if (firstDay === 6) return 6;
+    return 1;
+  } catch {
+    return 1;
+  }
+}

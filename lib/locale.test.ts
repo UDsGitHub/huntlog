@@ -1,4 +1,10 @@
-import { defaultCurrency, FALLBACK_CURRENCY, knownCurrencies, orderedCurrencies } from './locale';
+import {
+  defaultCurrency,
+  FALLBACK_CURRENCY,
+  knownCurrencies,
+  localeWeekStart,
+  orderedCurrencies,
+} from './locale';
 
 describe('defaultCurrency', () => {
   it.each([
@@ -45,4 +51,21 @@ describe('orderedCurrencies', () => {
 it('keeps a stored currency the runtime does not know', () => {
   expect(orderedCurrencies('en-US', 'XYZ').common).toEqual(['USD', 'EUR', 'GBP', 'XYZ']);
   expect(orderedCurrencies('en-US', 'EUR').common).toEqual(['USD', 'EUR', 'GBP']);
+});
+
+describe('localeWeekStart', () => {
+  it.each([
+    ['en-US', 0],
+    ['en-CA', 0],
+    ['de-DE', 1],
+    ['en-GB', 1],
+    ['fr-FR', 1],
+    ['ar-EG', 6],
+  ] as const)('%s starts the week on day %i', (locale, expected) => {
+    expect(localeWeekStart(locale)).toBe(expected);
+  });
+
+  it.each([['not a locale!!'], ['']])('falls back to Monday for %j', (locale) => {
+    expect(localeWeekStart(locale)).toBe(1);
+  });
 });
