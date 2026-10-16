@@ -131,7 +131,10 @@ describe('capture prefill', () => {
     });
     render(<App />);
 
-    expect(await screen.findByRole('status')).toHaveTextContent("Couldn't read this page");
+    // The live region is mounted (empty) before the capture lands, so wait for its text.
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent("Couldn't read this page"),
+    );
     expect(fields().url).toHaveValue('');
     expect(screen.queryByText(HINT)).toBeNull();
   });
@@ -155,8 +158,10 @@ describe('capture prefill', () => {
     });
     render(<App />);
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      "Couldn't read this page, so only its address was filled in.",
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "Couldn't read this page, so only its address was filled in.",
+      ),
     );
     expect(screen.queryByText(/fill in the details below/)).toBeNull();
     expect(fields().url).toHaveValue('https://chromewebstore.google.com/detail/x');
