@@ -1,11 +1,12 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { derivedFields } from './dedupe';
-import type { Application } from './types';
+import type { Application, Resume } from './types';
 
 export const DB_NAME = 'job-log';
 
 export class JobLogDB extends Dexie {
   applications!: EntityTable<Application, 'id'>;
+  resumes!: EntityTable<Resume, 'id'>;
 
   constructor(name: string = DB_NAME) {
     super(name);
@@ -29,6 +30,13 @@ export class JobLogDB extends Dexie {
             if (companyTitleKey) app.companyTitleKey = companyTitleKey;
           }),
       );
+    // v3 (M4): the resume library. Adds a table and an index; no existing data changes.
+    // `archived` isn't indexed: IndexedDB can't index booleans. `resumeId` on applications answers
+    // "is this resume used?" without scanning every row.
+    this.version(3).stores({
+      applications: 'id, status, appliedAt, updatedAt, urlNormalized, companyTitleKey, resumeId',
+      resumes: 'id, updatedAt',
+    });
 
     // Derived fields are enforced here, not by convention: every add, put, update or modify that
     // touches url, company or title recomputes them, whatever code path made the write.
