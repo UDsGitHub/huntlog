@@ -31,7 +31,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   await expect(detail).toContainText('Senior Engineer');
   await expect(detail).toContainText('Berlin');
   await expect(detail).toContainText('Hybrid');
-  await expect(detail).toContainText('2026-10-01');
+  await expect(detail).toContainText('Oct 1, 2026');
   await expect(detail).toContainText('€85,000–€95,000 per year');
   await expect(detail).toContainText('Referral');
   await expect(detail).toContainText('Follow up with Dana.');
@@ -51,7 +51,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   await page.getByLabel('Company').fill('Acme Inc');
   await page.getByRole('button', { name: 'Save' }).click();
   const warning = page.getByRole('group', { name: 'You may have logged this already' });
-  await expect(warning).toContainText('Acme · Senior Engineer, applied 2026-10-01');
+  await expect(warning).toContainText('Acme · Senior Engineer, applied Oct 1, 2026');
   await expect(warning).toContainText('Same job posting URL');
   await warning.getByRole('button', { name: 'View existing' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Acme' })).toBeFocused();

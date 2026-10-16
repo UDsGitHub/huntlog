@@ -19,7 +19,10 @@ test('a saved job is listed and survives a browser restart', async ({ userDataDi
   await addJob(page, 'https://boards.greenhouse.io/acme/jobs/123', 'Acme');
   const list = page.getByRole('list', { name: 'Applications' });
   await expect(list).toContainText('Acme');
-  await expect(list).toContainText('https://boards.greenhouse.io/acme/jobs/123');
+  await expect(list.getByRole('link', { name: 'Open job posting for Acme' })).toHaveAttribute(
+    'href',
+    'https://boards.greenhouse.io/acme/jobs/123',
+  );
   await first.context.close();
 
   const second = await launchExtension(userDataDir);

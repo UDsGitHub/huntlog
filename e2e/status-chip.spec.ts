@@ -44,7 +44,7 @@ test('moving a Saved job to Interviewing asks for the date applied', async ({ se
   await expect(chip(page, 'Acme')).toHaveText('Interviewing');
 
   await page.getByRole('button', { name: /^Acme/ }).click();
-  await expect(page.getByRole('region', { name: 'Acme' })).toContainText('2026-10-02');
+  await expect(page.getByRole('region', { name: 'Acme' })).toContainText('Oct 2, 2026');
 });
 
 test('the chip works with the keyboard alone', async ({ session }) => {
