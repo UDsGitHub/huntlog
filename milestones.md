@@ -72,7 +72,15 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - A Settings tab using `chrome.storage.local`: weekly goal, first day of the week (feeds into `stats.ts`), and theme (System / Light / Dark).
 - "Delete all data" with typed confirmation.
 - A placeholder link to the privacy policy.
-- **Tests:** settings persist, and the goal and week start feed into the stats.
+- **UI polish pass** (requested by the owner after M4):
+  - Design tokens on `:root` for colors, spacing, radii and type, defined for both themes, so dark mode and later design changes happen in one place.
+  - Shared button, field, heading and section styles, replacing the class strings now repeated per component.
+  - A clearer resume uploader: a dashed drop zone ("Choose a file or drag it here") with a visible **Choose file…** button, the whole box clickable, drag and drop, and after picking the file's name, format and size with a **Change** button. Still one component for the Resumes tab and the inline upload.
+  - A screen-by-screen clarity review (list, Add, Detail, Edit, Resumes, Stats, Settings) at 320px in both themes, working through a running list of UI issues collected until then.
+- **Tests:** settings persist, and the goal and week start feed into the stats. The uploader works by click, keyboard and drop.
+
+### After M6: owner design review
+Before M7 starts, the owner reviews the whole app and makes design decisions. Claude prepares a short list of open UI questions and screenshots of each screen at 320px in both themes, then applies the decisions (in M6 follow-up PRs) before starting M7.
 
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
