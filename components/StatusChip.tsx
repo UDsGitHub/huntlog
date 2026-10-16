@@ -28,15 +28,15 @@ interface Props {
  * (spec §4.7); offers and acceptances get the only accent.
  */
 const CHIP_COLORS: Record<Status, string> = {
-  saved: 'bg-slate-100 text-slate-800',
-  applied: 'bg-indigo-50 text-indigo-800',
-  screening: 'bg-indigo-50 text-indigo-800',
-  interviewing: 'bg-indigo-100 text-indigo-900',
-  offer: 'bg-emerald-50 text-emerald-800',
-  accepted: 'bg-emerald-100 text-emerald-900',
-  rejected: 'bg-slate-100 text-slate-700',
-  withdrawn: 'bg-slate-100 text-slate-700',
-  ghosted: 'bg-slate-100 text-slate-700',
+  saved: 'bg-status-neutral text-status-neutral-foreground',
+  applied: 'bg-status-progress text-status-progress-foreground',
+  screening: 'bg-status-progress text-status-progress-foreground',
+  interviewing: 'bg-status-progress-strong text-status-progress-strong-foreground',
+  offer: 'bg-status-success text-status-success-foreground',
+  accepted: 'bg-status-success-strong text-status-success-strong-foreground',
+  rejected: 'bg-status-neutral text-status-neutral-foreground',
+  withdrawn: 'bg-status-neutral text-status-neutral-foreground',
+  ghosted: 'bg-status-neutral text-status-neutral-foreground',
 };
 
 /**
@@ -129,7 +129,7 @@ export function StatusChip({ application, onPick, align = 'end' }: Props) {
           choose(status);
         }
       }}
-      className="flex cursor-pointer items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-slate-100 focus:bg-slate-100 focus:outline-2 focus:outline-indigo-600"
+      className="flex cursor-pointer items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-accent focus:bg-accent focus-ring"
     >
       {STATUS_LABELS[status]}
       {status === application.status && <span aria-hidden="true">✓</span>}
@@ -155,7 +155,7 @@ export function StatusChip({ application, onPick, align = 'end' }: Props) {
             openMenu();
           }
         }}
-        className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600 ${CHIP_COLORS[application.status]}`}
+        className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap focus-ring ${CHIP_COLORS[application.status]}`}
       >
         {STATUS_LABELS[application.status]}
       </button>
@@ -165,12 +165,12 @@ export function StatusChip({ application, onPick, align = 'end' }: Props) {
           role="menu"
           aria-label={`Change status for ${application.company}`}
           onKeyDown={onMenuKeyDown}
-          className="z-10 flex w-44 flex-col gap-1 rounded border border-slate-200 bg-white p-1 shadow-lg"
+          className="z-10 flex w-44 flex-col gap-1 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
         >
           <div role="group" aria-label="Active">
             {ACTIVE_STATUSES.map(item)}
           </div>
-          <div role="separator" className="mx-2 border-t border-slate-200" />
+          <div role="separator" className="mx-2 border-t border-border" />
           <div role="group" aria-label="Closed">
             {CLOSED_STATUSES.map(item)}
           </div>
@@ -238,12 +238,12 @@ function AppliedAtPrompt({
           onCancel({ focusChip: false });
         }
       }}
-      className="z-10 flex w-56 flex-col gap-2 rounded border border-slate-200 bg-white p-3 shadow-lg"
+      className="z-10 flex w-56 flex-col gap-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-lg"
     >
       <p id={`${id}-question`} className="text-sm font-medium">
         When did you apply?
       </p>
-      <p className="text-xs text-slate-600">Moving to {STATUS_LABELS[status]}.</p>
+      <p className="text-xs text-muted-foreground">Moving to {STATUS_LABELS[status]}.</p>
       <label htmlFor={`${id}-date`} className="text-xs font-medium">
         Date applied
       </label>
@@ -265,26 +265,18 @@ function AppliedAtPrompt({
             setDateAndFinish();
           }
         }}
-        className="w-full min-w-0 rounded border border-slate-300 px-2 py-1 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700"
+        className="field py-1"
       />
       {error && (
-        <p id={`${id}-error`} className="text-xs text-red-700">
+        <p id={`${id}-error`} className="field-error">
           {error}
         </p>
       )}
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={setDateAndFinish}
-          className="rounded bg-indigo-600 px-2.5 py-1 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-        >
+        <button type="button" onClick={setDateAndFinish} className="btn btn-primary py-1">
           Set date
         </button>
-        <button
-          type="button"
-          onClick={() => onDone(undefined)}
-          className="rounded border border-slate-300 px-2.5 py-1 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-        >
+        <button type="button" onClick={() => onDone(undefined)} className="btn btn-outline py-1">
           Skip
         </button>
       </div>

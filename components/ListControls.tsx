@@ -2,9 +2,6 @@ import { useId, type Ref } from 'react';
 import { isSortKey, isStatusFilter, type ListQuery, type SortKey } from '@/lib/listQuery';
 import { ACTIVE_STATUSES, CLOSED_STATUSES, STATUS_LABELS } from '@/lib/status';
 
-const control =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600';
-
 const SORT_LABELS: Record<SortKey, string> = {
   activity: 'Last activity',
   applied: 'Date applied',
@@ -36,7 +33,7 @@ export function ListControls({
           placeholder="Company, title, location or notes"
           value={query.search}
           onChange={(event) => onChange({ ...query, search: event.target.value })}
-          className={control}
+          className="field"
         />
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -51,7 +48,7 @@ export function ListControls({
               isStatusFilter(event.target.value) &&
               onChange({ ...query, filter: event.target.value })
             }
-            className={control}
+            className="field"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
@@ -82,7 +79,7 @@ export function ListControls({
             onChange={(event) =>
               isSortKey(event.target.value) && onChange({ ...query, sort: event.target.value })
             }
-            className={control}
+            className="field"
           >
             {Object.entries(SORT_LABELS).map(([value, label]) => (
               <option key={value} value={value}>

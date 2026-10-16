@@ -1,11 +1,155 @@
 @import 'tailwindcss';
+@import '../../assets/theme.css';
 
-html,
-body {
-  min-width: 320px;
+/* Tokens (assets/theme.css) as Tailwind colors: bg-background, text-muted-foreground, … */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-border: var(--warning-border);
+  --color-chart-1: var(--chart-1);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-foreground: var(--status-neutral-foreground);
+  --color-status-progress: var(--status-progress);
+  --color-status-progress-foreground: var(--status-progress-foreground);
+  --color-status-progress-strong: var(--status-progress-strong);
+  --color-status-progress-strong-foreground: var(--status-progress-strong-foreground);
+  --color-status-success: var(--status-success);
+  --color-status-success-foreground: var(--status-success-foreground);
+  --color-status-success-strong: var(--status-success-strong);
+  --color-status-success-strong-foreground: var(--status-success-strong-foreground);
+  --color-status-saved: var(--status-saved);
+  --color-status-applied: var(--status-applied);
+  --color-status-screening: var(--status-screening);
+  --color-status-interviewing: var(--status-interviewing);
+  --color-status-offer: var(--status-offer);
+  --color-status-accepted: var(--status-accepted);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-withdrawn: var(--status-withdrawn);
+  --color-status-ghosted: var(--status-ghosted);
+
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  /* Lines take the token color unless a class says otherwise (shadcn's border-border). */
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    min-width: 320px;
+  }
+
+  /* Tailwind v4 dropped the pointer cursor on buttons; every control that acts gets it back. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='menuitemradio'],
+  [role='option'],
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 /* Keep focused or scrolled-to fields clear of the forms' sticky Save bar (WCAG 2.4.11). */
 html {
   scroll-padding-bottom: calc(var(--sticky-bar-height, 0px) + 1rem);
+}
+
+/*
+ * Shared styles (shadcn's button and input variants), so a look changes in one place. Combine a
+ * base with a variant: `btn btn-outline`, `btn btn-primary btn-sm`, `field`.
+ */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+@utility btn {
+  @apply focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors select-none disabled:opacity-50;
+}
+@utility btn-sm {
+  @apply rounded-md px-2.5 py-1 text-xs;
+}
+@utility btn-icon {
+  @apply size-9 p-0;
+}
+@utility btn-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+@utility btn-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+@utility btn-outline {
+  @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+}
+@utility btn-ghost {
+  @apply hover:bg-accent hover:text-accent-foreground;
+}
+@utility btn-destructive {
+  @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+}
+@utility btn-destructive-outline {
+  @apply border border-input bg-background text-destructive hover:bg-destructive/10;
+}
+
+/* Text inputs, selects and textareas. */
+@utility field {
+  @apply focus-ring w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground disabled:opacity-50 aria-invalid:border-destructive;
+  &:focus-visible {
+    outline-offset: 0;
+  }
+}
+@utility field-label {
+  @apply text-sm font-medium;
+}
+@utility field-hint {
+  @apply text-xs text-muted-foreground;
+}
+@utility field-error {
+  @apply text-xs text-destructive;
+}
+
+@utility card {
+  @apply rounded-lg border bg-card text-card-foreground;
+}
+@utility section-heading {
+  @apply text-base font-semibold tracking-tight;
+}
+@utility link {
+  @apply focus-ring rounded-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/80;
 }

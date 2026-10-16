@@ -1,4 +1,6 @@
+import '@/assets/theme.css';
 import { getResumeBlob } from '@/lib/resumes';
+import { followThemeSetting } from '@/lib/theme';
 
 /**
  * Shows a PDF resume in a full browser tab (spec §4.6): resume-viewer.html?id=… The file lives in
@@ -6,6 +8,7 @@ import { getResumeBlob } from '@/lib/resumes';
  * Chrome's PDF viewer. The page owns the blob URL, so it outlives the side panel.
  */
 const root = document.getElementById('root')!;
+followThemeSetting();
 
 function message(text: string) {
   const p = document.createElement('p');

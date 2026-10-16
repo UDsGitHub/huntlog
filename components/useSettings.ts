@@ -1,11 +1,23 @@
 import { useSyncExternalStore } from 'react';
-import { onSettingsChanged, readSettings, type Settings } from '@/lib/settings';
+import {
+  DEFAULT_SETTINGS,
+  onSettingsChanged,
+  readStoredSettings,
+  type Settings,
+} from '@/lib/settings';
 
 /**
  * One shared copy of the settings for the whole page: one storage read and one change listener,
  * however many components use them, so they all show the same settings in the same render.
  */
 let current: Settings | undefined;
+/** Defaults shown because reading failed, not settings anyone chose. */
+const fallbacks = new WeakSet<Settings>();
+
+/** True for the defaults shown after a failed read: display them, but don't persist them. */
+export function isFallbackSettings(settings: Settings): boolean {
+  return fallbacks.has(settings);
+}
 const subscribers = new Set<() => void>();
 /** While anyone is subscribed: stops listening. Each session's reads only update that session. */
 let session: { stop: () => void } | undefined;
@@ -24,10 +36,19 @@ function start() {
   });
   const started = { stop };
   session = started;
-  void readSettings().then((settings) => {
-    // A change that arrived during the read is newer than what the read returned.
-    if (session === started && !changed) publish(settings);
-  });
+  readStoredSettings().then(
+    (settings) => {
+      // A change that arrived during the read is newer than what the read returned.
+      if (session === started && !changed) publish(settings);
+    },
+    (error: unknown) => {
+      console.error('Reading settings failed', error);
+      // Show the defaults, marked as such, so nothing writes them back as if chosen.
+      const fallback = { ...DEFAULT_SETTINGS };
+      fallbacks.add(fallback);
+      if (session === started && !changed) publish(fallback);
+    },
+  );
 }
 
 function subscribe(notify: () => void): () => void {

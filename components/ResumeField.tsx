@@ -60,8 +60,8 @@ export function ResumeField({ id, value, onChange, linked, error, selectRef }: P
   const errorId = `${id}-error`;
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
-        Resume <span className="font-normal text-slate-600">(optional)</span>
+      <label htmlFor={id} className="field-label">
+        Resume <span className="font-normal text-muted-foreground">(optional)</span>
       </label>
       <div className="flex min-w-0 gap-2">
         <select
@@ -77,7 +77,7 @@ export function ResumeField({ id, value, onChange, linked, error, selectRef }: P
           aria-describedby={
             [!value && hintId, error && errorId].filter(Boolean).join(' ') || undefined
           }
-          className="w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700"
+          className="field"
         >
           <option value="">No resume</option>
           {chosenElsewhere && <option value={value}>{chosenElsewhere}</option>}
@@ -93,18 +93,18 @@ export function ResumeField({ id, value, onChange, linked, error, selectRef }: P
           type="button"
           aria-expanded={uploading}
           onClick={() => setUploading((open) => !open)}
-          className="shrink-0 rounded border border-slate-300 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+          className="btn btn-outline"
         >
           Upload new…
         </button>
       </div>
       {!value && (
-        <p id={hintId} className="text-xs text-slate-600">
+        <p id={hintId} className="text-xs text-muted-foreground">
           Tip: pick the resume you sent, so you can find it later.
         </p>
       )}
       {error && (
-        <p id={errorId} className="text-xs text-red-700">
+        <p id={errorId} className="field-error">
           {error}
         </p>
       )}

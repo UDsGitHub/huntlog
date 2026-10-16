@@ -88,7 +88,8 @@ export function effectiveWeekStart(
   return settings.weekStartsOn ?? localeWeekStart(locale);
 }
 
-async function readStored(): Promise<Settings> {
+/** Reads the settings, rejecting if storage fails (`readSettings` falls back to defaults instead). */
+export async function readStoredSettings(): Promise<Settings> {
   const stored = await browser.storage.local.get(ALL_KEYS);
   return parseSettings(
     Object.fromEntries(FIELDS.map((field) => [field, stored[SETTINGS_KEYS[field]]])),
@@ -98,7 +99,7 @@ async function readStored(): Promise<Settings> {
 /** Never throws: without storage, everything is at its default. */
 export async function readSettings(): Promise<Settings> {
   try {
-    return await readStored();
+    return await readStoredSettings();
   } catch (error) {
     console.error('Reading settings failed', error);
     return { ...DEFAULT_SETTINGS };
@@ -153,7 +154,7 @@ export function onSettingsChanged(listener: (settings: Settings) => void): () =>
     if (area !== 'local' || !ALL_KEYS.some((key) => key in changes)) return;
     const read = ++latest;
     // A failed read reports nothing, rather than defaults that were never chosen.
-    readStored().then(
+    readStoredSettings().then(
       (settings) => {
         if (active && read === latest) listener(settings);
       },

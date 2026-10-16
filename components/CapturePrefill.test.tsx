@@ -102,7 +102,9 @@ describe('capture prefill', () => {
 
     await waitFor(async () => expect(await stored()).toBeUndefined());
     expect(screen.queryByRole('form')).toBeNull();
-    expect(screen.getByText(/No applications yet/)).toBeInTheDocument();
+    // The list loads on its own schedule, not necessarily before the draft is cleared.
+    expect(await screen.findByText(/No applications yet/)).toBeInTheDocument();
+    expect(screen.queryByRole('form')).toBeNull();
   });
 
   it('does not prefill an unsafe URL even if one reaches storage', async () => {

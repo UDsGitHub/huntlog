@@ -5,6 +5,7 @@ import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
 import { StatsPanel } from '@/components/StatsPanel';
+import { useTheme } from '@/components/useTheme';
 import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
 import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
@@ -45,6 +46,7 @@ type View =
 type FocusTarget = { kind: 'add' } | { kind: 'row'; id: string; awaitRow?: boolean };
 
 export default function App() {
+  useTheme();
   // Each tab keeps its own state while the other is shown: switching back to Applications
   // returns to the same list or detail view.
   const [tab, setTab] = useState<TabId>('applications');
@@ -288,7 +290,7 @@ export default function App() {
           />
         ) : view.name === 'add' ? (
           <section aria-labelledby="add-heading" className="flex flex-col gap-3">
-            <h2 id="add-heading" className="text-base font-semibold">
+            <h2 id="add-heading" className="section-heading">
               Add application
             </h2>
             {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
@@ -324,7 +326,7 @@ export default function App() {
         ) : (
           <section aria-labelledby="applications-heading" className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
-              <h2 id="applications-heading" className="text-base font-semibold">
+              <h2 id="applications-heading" className="section-heading">
                 Applications
               </h2>
               <AddButton
@@ -335,7 +337,7 @@ export default function App() {
             </div>
             <ErrorBoundary
               fallback={
-                <p role="alert" className="text-sm text-slate-700">
+                <p role="alert" className="text-sm text-muted-foreground">
                   Couldn't load your applications. Close and reopen the side panel to try again.
                 </p>
               }
@@ -362,7 +364,7 @@ export default function App() {
       >
         <ErrorBoundary
           fallback={
-            <p role="alert" className="text-sm text-slate-700">
+            <p role="alert" className="text-sm text-muted-foreground">
               Couldn't load your stats. Close and reopen the side panel to try again.
             </p>
           }
@@ -378,7 +380,7 @@ export default function App() {
         aria-labelledby={tabId(TAB_PREFIX, 'resumes')}
         tabIndex={0}
         hidden={inForm || tab !== 'resumes'}
-        className="focus:outline-2 focus:outline-indigo-600"
+        className="focus-ring"
       >
         <ResumesPanel showToast={showToast} announce={announce} />
       </div>
@@ -403,12 +405,7 @@ function AddButton({
     onFocused();
   }, [focus, onFocused]);
   return (
-    <button
-      ref={button}
-      type="button"
-      onClick={onClick}
-      className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-    >
+    <button ref={button} type="button" onClick={onClick} className="btn btn-primary">
       + Add application
     </button>
   );
@@ -447,7 +444,7 @@ function EditView({
   if (application === undefined) return null;
   return (
     <section aria-labelledby="edit-heading" className="flex flex-col gap-3">
-      <h2 id="edit-heading" className="text-base font-semibold">
+      <h2 id="edit-heading" className="section-heading">
         Edit application
       </h2>
       {application ? (
@@ -460,12 +457,14 @@ function EditView({
         />
       ) : (
         <>
-          <p className="text-sm text-slate-700">This application isn't available any more.</p>
+          <p className="text-sm text-muted-foreground">
+            This application isn't available any more.
+          </p>
           <button
             ref={back}
             type="button"
             onClick={() => onDone(false)}
-            className="self-start rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+            className="self-start btn btn-outline"
           >
             ← Back
           </button>

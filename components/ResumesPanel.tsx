@@ -18,16 +18,12 @@ import {
 import type { Resume } from '@/lib/types';
 import { ResumeUpload } from './ResumeUpload';
 import type { ToastData } from './Toast';
+import { ChevronRightIcon } from './icons';
 
 interface Props {
   showToast: (toast: Omit<ToastData, 'id'>) => void;
   announce: (message: string) => void;
 }
-
-const input =
-  'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
-const button =
-  'rounded border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600';
 
 /** The Resumes tab (spec §4.6): upload, list, rename, archive, delete with Undo, open. */
 export function ResumesPanel({ showToast, announce }: Props) {
@@ -97,19 +93,19 @@ export function ResumesPanel({ showToast, announce }: Props) {
         id="resumes-heading"
         ref={heading}
         tabIndex={-1}
-        className="text-base font-semibold focus:outline-none"
+        className="section-heading focus:outline-none"
       >
         Resumes
       </h2>
       <ResumeUpload variant="panel" onUploaded={(resume) => announce(`Uploaded ${resume.name}.`)} />
 
       {active.length === 0 && archived.length === 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           No resumes yet. Upload the versions you send, so you always know which one went with each
           application.
         </p>
       ) : (
-        <ul aria-label="Resumes" className="flex flex-col divide-y divide-slate-200">
+        <ul aria-label="Resumes" className="flex flex-col divide-y divide-border">
           {active.map((resume) => (
             <ResumeRow key={resume.id} resume={resume} {...rowProps} />
           ))}
@@ -123,16 +119,18 @@ export function ResumesPanel({ showToast, announce }: Props) {
             aria-expanded={showArchived}
             aria-controls={archivedId}
             onClick={() => setShowArchived((open) => !open)}
-            className="flex items-center gap-1 self-start rounded text-sm font-medium text-indigo-700 hover:underline focus:outline-2 focus:outline-indigo-600"
+            className="btn btn-outline btn-sm self-start"
           >
-            <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
+            <ChevronRightIcon
+              className={`size-4 transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-90' : ''}`}
+            />
             Archived ({archived.length})
           </button>
           <ul
             id={archivedId}
             hidden={!showArchived}
             aria-label="Archived resumes"
-            className="flex flex-col divide-y divide-slate-200"
+            className="flex flex-col divide-y divide-border"
           >
             {archived.map((resume) => (
               <ResumeRow key={resume.id} resume={resume} {...rowProps} />
@@ -223,15 +221,15 @@ function ResumeRow({
             onChange={(event) => setName(event.target.value)}
             aria-invalid={errors.name ? true : undefined}
             aria-describedby={errors.name ? `${id}-name-error` : undefined}
-            className={input}
+            className="field"
           />
           {errors.name && (
-            <p id={`${id}-name-error`} className="text-xs text-red-700">
+            <p id={`${id}-name-error`} className="field-error">
               {errors.name}
             </p>
           )}
           <label htmlFor={`${id}-note`} className="text-xs font-medium">
-            Note <span className="font-normal text-slate-600">(optional)</span>
+            Note <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <input
             id={`${id}-note`}
@@ -239,18 +237,18 @@ function ResumeRow({
             onChange={(event) => setNote(event.target.value)}
             aria-invalid={errors.note ? true : undefined}
             aria-describedby={errors.note ? `${id}-note-error` : undefined}
-            className={input}
+            className="field"
           />
           {errors.note && (
-            <p id={`${id}-note-error`} className="text-xs text-red-700">
+            <p id={`${id}-note-error`} className="field-error">
               {errors.note}
             </p>
           )}
           <div className="flex gap-2">
-            <button type="submit" className={button}>
+            <button type="submit" className="btn btn-outline btn-sm">
               Save
             </button>
-            <button type="button" className={button} onClick={stopEditing}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={stopEditing}>
               Cancel
             </button>
           </div>
@@ -258,25 +256,36 @@ function ResumeRow({
       ) : (
         <>
           <span className="text-sm font-medium break-words">{resume.name}</span>
-          <span className="text-xs text-slate-600">{details}</span>
-          {resume.note && <span className="text-xs break-words text-slate-700">{resume.note}</span>}
+          <span className="text-xs text-muted-foreground">{details}</span>
+          {resume.note && (
+            <span className="text-xs break-words text-muted-foreground">{resume.note}</span>
+          )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={button} onClick={() => void open()}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void open()}>
               {opensInViewer(resume) ? 'Open' : 'Download'}
               <span className="sr-only"> {resume.name}</span>
             </button>
-            <button ref={renameButton} type="button" className={button} onClick={startEditing}>
+            <button
+              ref={renameButton}
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={startEditing}
+            >
               Rename<span className="sr-only"> {resume.name}</span>
             </button>
             <button
               type="button"
-              className={button}
+              className="btn btn-outline btn-sm"
               onClick={() => void onSetArchived(resume, !resume.archived)}
             >
               {resume.archived ? 'Unarchive' : 'Archive'}
               <span className="sr-only"> {resume.name}</span>
             </button>
-            <button type="button" className={button} onClick={() => void onDelete(resume)}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => void onDelete(resume)}
+            >
               Delete<span className="sr-only"> {resume.name}</span>
             </button>
           </div>
