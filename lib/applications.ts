@@ -1,4 +1,5 @@
 import {
+  checkAppliedAt,
   validateApplication,
   type ApplicationInput,
   type ApplicationValues,
@@ -6,7 +7,8 @@ import {
 } from './applicationInput';
 import { db as defaultDb, type JobLogDB } from './db';
 import { companyTitleKey, derivedFields } from './dedupe';
-import type { Application } from './types';
+import { applyStatusChange } from './status';
+import type { Application, Status } from './types';
 
 export class ValidationError extends Error {
   constructor(readonly fields: FieldErrors) {
@@ -46,8 +48,8 @@ async function insertValidated(
     ...values,
     // Also enforced by the db hooks; set here so the returned object matches what's stored.
     ...storedDerivedFields(values),
-    status: 'applied',
-    statusHistory: [{ status: 'applied', at }],
+    status: values.status ?? 'applied',
+    statusHistory: [{ status: values.status ?? 'applied', at }],
     createdAt: at,
     updatedAt: at,
   };
@@ -143,11 +145,9 @@ export async function updateApplication(
   return updateValidated(id, values, database, now);
 }
 
-/** Date applied is optional only for a Saved job (spec §5), judged by the stored status. */
+/** Whether Date applied is required depends on the new status, or the stored one (spec §5). */
 function validateForUpdate(current: Application, input: ApplicationInput, now: Date) {
-  return validateApplication(input, now, undefined, {
-    appliedAtRequired: current.status !== 'saved',
-  });
+  return validateApplication(input, now, undefined, { currentStatus: current.status });
 }
 
 async function updateValidated(
@@ -158,12 +158,25 @@ async function updateValidated(
 ): Promise<Application> {
   // Dexie wraps errors thrown inside a transaction, so "not found" comes out as undefined.
   const updated = await database.transaction('rw', database.applications, async () => {
-    if (!(await getApplication(id, database))) return undefined;
+    const current = await getApplication(id, database);
+    if (!current) return undefined;
     // Dexie's update() deletes a key whose new value is undefined, so cleared fields go away.
     const cleared = Object.fromEntries(OPTIONAL_FIELDS.map((field) => [field, undefined]));
+    // A status changed in the form is recorded like a chip change: one appended history entry.
+    // Its Date applied comes from the form field, so the change itself doesn't set one.
+    const statusChange =
+      values.status && values.status !== current.status
+        ? {
+            statusHistory: [
+              ...(current.statusHistory ?? []),
+              { status: values.status, at: now.toISOString() },
+            ],
+          }
+        : {};
     await database.applications.update(id, {
       ...cleared,
       ...values,
+      ...statusChange,
       updatedAt: now.toISOString(),
     });
     return database.applications.get(id);
@@ -256,4 +269,55 @@ export async function restoreApplication(
   });
   if (!restored) throw new NotFoundError(id);
   return restored;
+}
+
+export interface StatusChange {
+  before: Application;
+  after: Application;
+}
+
+/**
+ * Changes the status (spec §4.3): appends a history entry and applies the Date applied rule.
+ * `appliedAt` answers the "When did you apply?" prompt; omit it for Skip. Picking the current
+ * status changes nothing and returns `after === before`.
+ */
+export async function setStatus(
+  id: string,
+  next: Status,
+  { appliedAt }: { appliedAt?: string } = {},
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<StatusChange> {
+  if (appliedAt !== undefined) {
+    const error = checkAppliedAt(appliedAt, now);
+    if (error) throw new ValidationError({ appliedAt: error });
+  }
+  const change = await database.transaction('rw', database.applications, async () => {
+    const before = await getApplication(id, database);
+    if (!before) return undefined;
+    const after = applyStatusChange(before, next, { now, appliedAt });
+    if (after !== before) await database.applications.put(after);
+    return { before, after };
+  });
+  if (!change) throw new NotFoundError(id);
+  return change;
+}
+
+/**
+ * Undoes a status change by restoring the record as it was, including clearing a Date applied
+ * the change set. Only if nothing changed it since (`updatedAt` still matches); returns false
+ * otherwise. `updatedAt` moves forward, so with last-write-wins sync the undo is the newest.
+ */
+export async function undoStatusChange(
+  { before, after }: StatusChange,
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (after === before) return false;
+  return database.transaction('rw', database.applications, async () => {
+    const current = await database.applications.get(before.id);
+    if (!current || current.deletedAt || current.updatedAt !== after.updatedAt) return false;
+    await database.applications.put({ ...before, updatedAt: now.toISOString() });
+    return true;
+  });
 }

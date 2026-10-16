@@ -6,6 +6,8 @@ import {
   NotFoundError,
   restoreApplication,
   saveApplication,
+  setStatus,
+  undoStatusChange,
   safeHref,
   softDeleteApplication,
   updateApplication,
@@ -451,5 +453,123 @@ describe('saveApplication', () => {
     await expect(
       saveApplication({ url: 'https://a.com', company: 'A' }, { id: existing.id }, db),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('setStatus and undoStatusChange', () => {
+  const t0 = new Date('2026-10-01T10:00:00.000Z');
+  const t1 = new Date('2026-10-05T10:00:00.000Z');
+  const t2 = new Date('2026-10-06T10:00:00.000Z');
+
+  async function savedJob() {
+    const result = await saveApplication(
+      { url: 'https://acme.com/1', company: 'Acme', status: 'saved' },
+      {},
+      db,
+      t0,
+    );
+    if (!('saved' in result)) throw new Error('expected a save');
+    return result.saved;
+  }
+
+  it('records the change and returns before and after', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
+    const { before, after } = await setStatus(app.id, 'interviewing', {}, db, t1);
+    expect(before).toEqual(app);
+    expect(after.status).toBe('interviewing');
+    expect(after.statusHistory.map((e) => e.status)).toEqual(['applied', 'interviewing']);
+    expect(await db.applications.get(app.id)).toEqual(after);
+  });
+
+  it('does nothing for the current status', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
+    const change = await setStatus(app.id, 'applied', {}, db, t1);
+    expect(change.after).toBe(change.before);
+    expect(await db.applications.get(app.id)).toEqual(app);
+    expect(await undoStatusChange(change, db)).toBe(false);
+  });
+
+  it('uses the date given when asked, and rejects a bad one before writing', async () => {
+    const app = await savedJob();
+    await expect(
+      setStatus(app.id, 'interviewing', { appliedAt: '2999-01-01' }, db, t1),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect((await db.applications.get(app.id))?.status).toBe('saved');
+    const { after } = await setStatus(app.id, 'interviewing', { appliedAt: '2026-10-02' }, db, t1);
+    expect(after.appliedAt).toBe('2026-10-02');
+  });
+
+  it.each([['missing'], ['soft-deleted']])('fails for a %s row', async (kind) => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
+    if (kind === 'soft-deleted') await softDeleteApplication(app.id, db);
+    await expect(
+      setStatus(kind === 'missing' ? 'nope' : app.id, 'offer', {}, db),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('Undo restores the earlier record, clearing a date the change set', async () => {
+    const app = await savedJob();
+    const change = await setStatus(app.id, 'applied', {}, db, t1);
+    expect(change.after.appliedAt).toBeDefined();
+    expect(await undoStatusChange(change, db, t2)).toBe(true);
+    const restored = await db.applications.get(app.id);
+    expect(restored).toEqual({ ...app, updatedAt: t2.toISOString() });
+    expect(restored).not.toHaveProperty('appliedAt');
+  });
+
+  it("Undo does nothing once the row has changed again, and can't run twice", async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
+    const first = await setStatus(app.id, 'screening', {}, db, t1);
+    const second = await setStatus(app.id, 'interviewing', {}, db, t2);
+    expect(await undoStatusChange(first, db)).toBe(false);
+    expect((await db.applications.get(app.id))?.status).toBe('interviewing');
+    expect(await undoStatusChange(second, db)).toBe(true);
+    expect((await db.applications.get(app.id))?.status).toBe('screening');
+    expect(await undoStatusChange(second, db)).toBe(false);
+  });
+
+  it('Undo does nothing for a row deleted meanwhile', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db, t0);
+    const change = await setStatus(app.id, 'offer', {}, db, t1);
+    await softDeleteApplication(app.id, db, t2);
+    expect(await undoStatusChange(change, db)).toBe(false);
+  });
+});
+
+describe('saving with a status', () => {
+  it('a new Saved job has no date applied and starts its history as Saved', async () => {
+    const result = await saveApplication(
+      { url: 'https://acme.com/1', company: 'Acme', status: 'saved' },
+      {},
+      db,
+    );
+    if (!('saved' in result)) throw new Error('expected a save');
+    expect(result.saved).not.toHaveProperty('appliedAt');
+    expect(result.saved.statusHistory.map((e) => e.status)).toEqual(['saved']);
+  });
+
+  it('an edit that changes the status appends one history entry', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
+    const updated = await updateApplication(
+      app.id,
+      { url: app.url, company: 'Acme', status: 'offer', appliedAt: app.appliedAt },
+      db,
+      new Date('2026-10-20T10:00:00.000Z'),
+    );
+    expect(updated.status).toBe('offer');
+    expect(updated.statusHistory).toEqual([
+      ...app.statusHistory,
+      { status: 'offer', at: '2026-10-20T10:00:00.000Z' },
+    ]);
+  });
+
+  it('an edit that keeps the status leaves history alone', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
+    const updated = await updateApplication(
+      app.id,
+      { url: app.url, company: 'Acme Corp', status: 'applied', appliedAt: app.appliedAt },
+      db,
+    );
+    expect(updated.statusHistory).toEqual(app.statusHistory);
   });
 });
