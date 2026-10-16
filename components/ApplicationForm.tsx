@@ -16,14 +16,15 @@ import {
   type InputField,
 } from '@/lib/applicationInput';
 import {
-  addApplication,
   NotFoundError,
-  updateApplication,
+  saveApplication,
   ValidationError,
+  type DuplicateMatch,
 } from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
 import { defaultCurrency, knownCurrencies, numberSeparators } from '@/lib/locale';
 import type { Application } from '@/lib/types';
+import { DuplicateWarning } from './DuplicateWarning';
 import type { CapturePrefill } from './useCaptureDraft';
 
 interface Props {
@@ -33,6 +34,8 @@ interface Props {
   application?: Application;
   onSaved: (application: Application) => void;
   onCancel: () => void;
+  /** "View existing" in the duplicate warning: leave this form for that application. */
+  onViewExisting: (id: string) => void;
 }
 
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
@@ -76,7 +79,13 @@ function formValuesFrom(app: Application): FormValues {
   };
 }
 
-export function ApplicationForm({ prefill, application, onSaved, onCancel }: Props) {
+export function ApplicationForm({
+  prefill,
+  application,
+  onSaved,
+  onCancel,
+  onViewExisting,
+}: Props) {
   // Without React's colons, the ids are valid in CSS selectors too (happy-dom resolves `list` that way).
   const id = useId().replace(/:/g, '');
   const draft = application ? undefined : prefill?.draft;
@@ -104,6 +113,15 @@ export function ApplicationForm({ prefill, application, onSaved, onCancel }: Pro
   const saving = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const fieldRefs = useRef<Partial<Record<InputField, HTMLElement | null>>>({});
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[] | null>(null);
+  // Focus for the first invalid field moves after the render that re-enables the fieldset (a
+  // disabled field can't take focus). A ref, used once, so it never steals focus later.
+  const pendingFocus = useRef<InputField | null>(null);
+  useLayoutEffect(() => {
+    if (isSaving || !pendingFocus.current) return;
+    fieldRefs.current[pendingFocus.current]?.focus();
+    pendingFocus.current = null;
+  }, [errors, isSaving]);
   const currencies = useMemo(() => knownCurrencies(), []);
 
   // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
@@ -118,31 +136,45 @@ export function ApplicationForm({ prefill, application, onSaved, onCancel }: Pro
     title: Boolean(draft?.title) && values.title === draft?.title,
   };
 
-  const set = (field: keyof FormValues) => (value: string) =>
+  const set = (field: keyof FormValues) => (value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
+    // The warning is about what was submitted; changing what it matched on clears it.
+    if (field === 'url' || field === 'company' || field === 'title') setDuplicates(null);
+  };
   const register = (field: InputField) => (element: HTMLElement | null) => {
     fieldRefs.current[field] = element;
   };
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    await save({ allowDuplicate: false });
+  }
+
+  async function save({ allowDuplicate }: { allowDuplicate: boolean }) {
     if (saving.current) return;
     setErrors({});
     setSaveError(null);
     saving.current = true;
     setIsSaving(true);
     try {
-      // Saving validates once and reports field errors through ValidationError.
-      onSaved(
-        await (application ? updateApplication(application.id, values) : addApplication(values)),
-      );
+      // One call validates, checks for duplicates and saves; the rules live in lib only.
+      const result = await saveApplication(values, { id: application?.id, allowDuplicate });
+      if ('duplicates' in result) {
+        setDuplicates(result.duplicates);
+        saving.current = false;
+        setIsSaving(false);
+        return;
+      }
+      onSaved(result.saved);
     } catch (error) {
       saving.current = false;
       setIsSaving(false);
+      setDuplicates(null);
       if (error instanceof ValidationError) {
         setErrors(error.fields);
+        // The first invalid field, in screen order (also for errors only storage can catch).
         const first = FIELD_ORDER.find((field) => error.fields[field]);
-        if (first) fieldRefs.current[first]?.focus();
+        pendingFocus.current = first ?? null;
         return;
       }
       if (error instanceof NotFoundError) {
@@ -350,6 +382,14 @@ export function ApplicationForm({ prefill, application, onSaved, onCancel }: Pro
           {message('notes')}
         </Field>
       </fieldset>
+      {duplicates && (
+        <DuplicateWarning
+          matches={duplicates}
+          editing={Boolean(application)}
+          onViewExisting={onViewExisting}
+          onSaveAnyway={() => void save({ allowDuplicate: true })}
+        />
+      )}
       {saveError && (
         <p role="alert" className="text-xs text-red-700">
           {saveError}

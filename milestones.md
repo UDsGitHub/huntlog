@@ -30,7 +30,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
   - (d) Behavior on restricted pages such as `chrome://` and the Web Store, where the extension falls back to an empty form.
 - **Tests:** an e2e test that triggers the flow on a local fixture page, or calls the background handler directly if Playwright can't click Chrome context menus.
 
-## M2 — Complete application record
+## M2 — Complete application record ✅ (v0.2.0)
 **Slice:** Add, view, edit and delete an application with every v1 field, and get warned about duplicates.
 
 - All `Application` fields except the resume (§5): title, location, work mode, salary, source with suggestions, and notes.

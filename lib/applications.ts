@@ -32,6 +32,14 @@ export async function addApplication(
 ): Promise<Application> {
   const { values, errors } = validateApplication(input, now);
   if (!values) throw new ValidationError(errors);
+  return insertValidated(values, database, now);
+}
+
+async function insertValidated(
+  values: ApplicationValues,
+  database: JobLogDB,
+  now: Date,
+): Promise<Application> {
   const at = now.toISOString();
   const application: Application = {
     id: crypto.randomUUID(),
@@ -130,10 +138,24 @@ export async function updateApplication(
 ): Promise<Application> {
   const current = await getApplication(id, database);
   if (!current) throw new NotFoundError(id);
-  const { values, errors } = validateApplication(input, now, undefined, {
+  const { values, errors } = validateForUpdate(current, input, now);
+  if (!values) throw new ValidationError(errors);
+  return updateValidated(id, values, database, now);
+}
+
+/** Date applied is optional only for a Saved job (spec §5), judged by the stored status. */
+function validateForUpdate(current: Application, input: ApplicationInput, now: Date) {
+  return validateApplication(input, now, undefined, {
     appliedAtRequired: current.status !== 'saved',
   });
-  if (!values) throw new ValidationError(errors);
+}
+
+async function updateValidated(
+  id: string,
+  values: ApplicationValues,
+  database: JobLogDB,
+  now: Date,
+): Promise<Application> {
   // Dexie wraps errors thrown inside a transaction, so "not found" comes out as undefined.
   const updated = await database.transaction('rw', database.applications, async () => {
     if (!(await getApplication(id, database))) return undefined;
@@ -148,6 +170,57 @@ export async function updateApplication(
   });
   if (!updated) throw new NotFoundError(id);
   return updated;
+}
+
+export interface DuplicateMatch {
+  application: Application;
+  /** Why it matched, for the warning's wording. */
+  reason: 'url' | 'companyTitle';
+}
+
+export type SaveResult = { saved: Application } | { duplicates: DuplicateMatch[] };
+
+/**
+ * The form's single save path (spec §4.5): validates once, checks for duplicates unless
+ * `allowDuplicate` ("Save anyway"), then adds, or updates `id`. Returns the matches instead of
+ * saving when there are any. An edit that leaves url, company and title as they were isn't
+ * re-checked, so a job kept with "Save anyway" doesn't warn on every later edit.
+ * Throws ValidationError or NotFoundError.
+ */
+export async function saveApplication(
+  input: ApplicationInput,
+  { id, allowDuplicate = false }: { id?: string; allowDuplicate?: boolean } = {},
+  database: JobLogDB = defaultDb,
+  now: Date = new Date(),
+): Promise<SaveResult> {
+  const current = id === undefined ? undefined : await getApplication(id, database);
+  if (id !== undefined && !current) throw new NotFoundError(id);
+  const { values, errors } = current
+    ? validateForUpdate(current, input, now)
+    : validateApplication(input, now);
+  if (!values) throw new ValidationError(errors);
+
+  const derived = derivedFields(values);
+  const unchanged =
+    current !== undefined &&
+    derived.urlNormalized === current.urlNormalized &&
+    derived.companyTitleKey === current.companyTitleKey;
+  if (!allowDuplicate && !unchanged) {
+    const matches = await findDuplicates(values, { excludeId: id }, database);
+    if (matches.length > 0) {
+      return {
+        duplicates: matches.map((application) => ({
+          application,
+          reason: application.urlNormalized === derived.urlNormalized ? 'url' : 'companyTitle',
+        })),
+      };
+    }
+  }
+  return {
+    saved: current
+      ? await updateValidated(current.id, values, database, now)
+      : await insertValidated(values, database, now),
+  };
 }
 
 /** Soft delete (spec §5): sets `deletedAt`, so every read hides it and it can be restored. */

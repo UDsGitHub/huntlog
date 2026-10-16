@@ -5,6 +5,7 @@ import {
   listApplications,
   NotFoundError,
   restoreApplication,
+  saveApplication,
   safeHref,
   softDeleteApplication,
   updateApplication,
@@ -358,5 +359,97 @@ describe('soft-deleted rows stay out of every read', () => {
     const hidden = await read(app);
     expect(visible).toBeTruthy();
     expect(hidden === undefined || hidden === 0).toBe(true);
+  });
+});
+
+describe('saveApplication', () => {
+  const seed = () =>
+    addApplication(
+      { url: 'https://acme.com/jobs/1?utm_source=x', company: 'Acme', title: 'Engineer' },
+      db,
+    );
+
+  it('adds when nothing matches', async () => {
+    const result = await saveApplication({ url: 'https://new.com/1', company: 'New' }, {}, db);
+    expect('saved' in result && result.saved.company).toBe('New');
+  });
+
+  it('returns matches with their reason instead of saving', async () => {
+    const existing = await seed();
+    const byUrl = await saveApplication({ url: 'http://acme.com/jobs/1/', company: 'X' }, {}, db);
+    expect(byUrl).toEqual({ duplicates: [{ application: existing, reason: 'url' }] });
+    const byTitle = await saveApplication(
+      { url: 'https://other.com/2', company: ' ACME ', title: 'engineer' },
+      {},
+      db,
+    );
+    expect(byTitle).toEqual({ duplicates: [{ application: existing, reason: 'companyTitle' }] });
+    expect(await db.applications.count()).toBe(1);
+  });
+
+  it('saves anyway when allowed', async () => {
+    const existing = await seed();
+    const result = await saveApplication(
+      { url: existing.url, company: 'Acme' },
+      { allowDuplicate: true },
+      db,
+    );
+    expect('saved' in result).toBe(true);
+    expect(await db.applications.count()).toBe(2);
+  });
+
+  it('updates without re-checking when url, company and title are unchanged', async () => {
+    const existing = await seed();
+    await addApplication({ url: existing.url, company: 'Twin', title: 'Engineer' }, db);
+    const twin = (await db.applications.toArray()).find((a) => a.company === 'Twin')!;
+    const result = await saveApplication(
+      { url: twin.url, company: 'Twin', title: 'Engineer', notes: 'Second round' },
+      { id: twin.id },
+      db,
+    );
+    expect('saved' in result && result.saved.notes).toBe('Second round');
+  });
+
+  it('re-checks an edit that changes url, company or title, ignoring itself', async () => {
+    const existing = await seed();
+    const other = await addApplication({ url: 'https://beta.com/1', company: 'Beta' }, db);
+    const result = await saveApplication(
+      { url: existing.url, company: 'Beta' },
+      { id: other.id },
+      db,
+    );
+    expect(result).toEqual({ duplicates: [{ application: existing, reason: 'url' }] });
+    const self = await saveApplication(
+      { url: 'https://acme.com/jobs/1', company: 'Acme', title: 'Engineer Two' },
+      { id: existing.id },
+      db,
+    );
+    expect('saved' in self).toBe(true);
+  });
+
+  it('applies the status-aware Date applied rule when editing', async () => {
+    const existing = await seed();
+    await expect(
+      saveApplication(
+        { url: existing.url, company: 'Acme', appliedAt: '' },
+        { id: existing.id },
+        db,
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await db.applications.update(existing.id, { status: 'saved' });
+    const result = await saveApplication(
+      { url: existing.url, company: 'Acme', title: 'Engineer', appliedAt: '' },
+      { id: existing.id },
+      db,
+    );
+    expect('saved' in result && result.saved).not.toHaveProperty('appliedAt');
+  });
+
+  it('fails for a missing or soft-deleted id', async () => {
+    const existing = await seed();
+    await softDeleteApplication(existing.id, db);
+    await expect(
+      saveApplication({ url: 'https://a.com', company: 'A' }, { id: existing.id }, db),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

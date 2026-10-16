@@ -36,6 +36,15 @@ export default function App() {
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   function navigate(next: View) {
+    // Leaving Edit some other way than its own Save/Cancel (e.g. View existing): a capture that
+    // waited for the edit mustn't be lost, nor linger to hijack a later edit.
+    if (deferredCapture.current && viewRef.current.name === 'edit' && next.name !== 'add') {
+      deferredCapture.current = false;
+      showToast({
+        message: 'Your captured job is ready.',
+        action: { label: 'Open', onAction: () => navigate({ name: 'add' }) },
+      });
+    }
     viewRef.current = next;
     setView(next);
   }
@@ -130,6 +139,9 @@ export default function App() {
       ) : view.name === 'edit' ? (
         <EditView
           id={view.id}
+          onViewExisting={(id) => {
+            if (isCurrent(view)) navigate({ name: 'detail', id, focus: 'heading' });
+          }}
           onDone={(saved) => {
             if (saved) announce('Saved changes.');
             if (!isCurrent(view)) return;
@@ -160,6 +172,11 @@ export default function App() {
             onCancel={() => {
               consume();
               toList({ kind: 'add' });
+            }}
+            onViewExisting={(id) => {
+              if (!isCurrent(view)) return;
+              consume();
+              navigate({ name: 'detail', id, focus: 'heading' });
             }}
           />
         </section>
@@ -224,7 +241,15 @@ function AddButton({
   );
 }
 
-function EditView({ id, onDone }: { id: string; onDone: (saved: boolean) => void }) {
+function EditView({
+  id,
+  onDone,
+  onViewExisting,
+}: {
+  id: string;
+  onDone: (saved: boolean) => void;
+  onViewExisting: (id: string) => void;
+}) {
   // Loaded once, not live: if the row is deleted in another window, the form stays (so typed
   // changes aren't lost) and Save explains why it can't save.
   const [application, setApplication] = useState<Application | null | undefined>(undefined);
@@ -258,6 +283,7 @@ function EditView({ id, onDone }: { id: string; onDone: (saved: boolean) => void
           application={application}
           onSaved={() => onDone(true)}
           onCancel={() => onDone(false)}
+          onViewExisting={onViewExisting}
         />
       ) : (
         <>
