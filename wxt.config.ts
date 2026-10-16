@@ -11,9 +11,15 @@ export default defineConfig({
     name: 'Job Log',
     // sidePanel API landed in 114, setPanelBehavior in 116.
     minimum_chrome_version: '116',
-    permissions: ['sidePanel', 'storage'],
+    permissions: ['sidePanel', 'storage', 'contextMenus', 'activeTab', 'scripting'],
     action: {
       default_title: 'Open Job Log',
+    },
+    commands: {
+      'add-job': {
+        suggested_key: { default: 'Alt+Shift+J' },
+        description: 'Add the current page to Job Log',
+      },
     },
   },
 });
