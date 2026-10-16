@@ -5,6 +5,7 @@ import type { Application } from './types';
 export interface NewApplicationInput {
   url: string;
   company: string;
+  title?: string;
 }
 
 export type FieldErrors = Partial<Record<keyof NewApplicationInput, string>>;
@@ -53,7 +54,8 @@ export function validateNewApplication(input: NewApplicationInput): {
   if (!input.url.trim()) errors.url = 'Enter the job posting URL.';
   else if (!url) errors.url = 'Enter a valid web address (http or https).';
   if (!company) errors.company = 'Enter the company name.';
-  if (url && company) return { values: { url, company }, errors };
+  const title = input.title?.trim() || undefined;
+  if (url && company) return { values: { url, company, ...(title && { title }) }, errors };
   return { values: null, errors };
 }
 
@@ -69,6 +71,7 @@ export async function addApplication(
     id: crypto.randomUUID(),
     url: values.url,
     company: values.company,
+    ...(values.title && { title: values.title }),
     status: 'applied',
     statusHistory: [{ status: 'applied', at }],
     appliedAt: todayLocal(now),

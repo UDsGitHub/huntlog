@@ -95,6 +95,19 @@ describe('addApplication', () => {
     expect(app.company).toBe('Acme Corp');
   });
 
+  it('stores an optional title, trimmed', async () => {
+    const app = await addApplication(
+      { url: 'https://example.com', company: 'Acme', title: '  Senior Engineer \n' },
+      db,
+    );
+    expect((await db.applications.get(app.id))?.title).toBe('Senior Engineer');
+  });
+
+  it.each([[undefined], [''], ['   \t']])('omits a blank title %j', async (title) => {
+    const app = await addApplication({ url: 'https://example.com', company: 'Acme', title }, db);
+    expect(await db.applications.get(app.id)).not.toHaveProperty('title');
+  });
+
   it('keeps unicode and very long company names unchanged', async () => {
     const long = 'Ünïcødé 株式会社 🚀 '.repeat(40).trim();
     const app = await addApplication({ url: 'https://example.com', company: long }, db);
