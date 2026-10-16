@@ -146,7 +146,7 @@ test("a capture in another window doesn't prefill this panel", async ({ session 
   await panel.waitForTimeout(300);
 
   await expect(panel.getByRole('form')).toHaveCount(0);
-  await expect(panel.getByRole('button', { name: '+ Add application' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Add application' })).toBeVisible();
   expect(await readDraft(session, otherWindowId)).toBeDefined();
 });
 

@@ -7,9 +7,12 @@ import { formatLocalDate } from '@/lib/dates';
 import { DEFAULT_QUERY, queryApplications, rankOf, type ListQuery } from '@/lib/listQuery';
 import type { Application } from '@/lib/types';
 import { ListControls } from './ListControls';
+import { PlusIcon } from './icons';
 import { StatusChip, type StatusPick } from './StatusChip';
 
 interface Props {
+  /** Opens a new application (the empty state's button). */
+  onAdd: () => void;
   /** Search, filter and sort; kept by App so they survive opening a job and coming back. */
   query: ListQuery;
   onQueryChange: (query: ListQuery) => void;
@@ -25,6 +28,7 @@ interface Props {
 }
 
 export function ApplicationList({
+  onAdd,
   query,
   onQueryChange,
   onOpen,
@@ -78,11 +82,18 @@ export function ApplicationList({
 
   if (!applications || !visible) return null;
   if (applications.length === 0) {
+    // Spec §4.2: an empty list also offers a full-size button, not just the floating one.
     return (
-      <p className="text-sm text-muted-foreground">
-        No applications yet. Tap + Add application, or right-click any job posting and choose Add
-        job to Job Log.
-      </p>
+      <div className="flex flex-col items-stretch gap-3 py-6 text-center">
+        <p className="text-sm text-muted-foreground">No applications yet.</p>
+        <button type="button" onClick={onAdd} className="btn btn-primary">
+          <PlusIcon />
+          Add your first application
+        </button>
+        <p className="text-xs text-muted-foreground">
+          Tip: right-click any job posting and choose Add job to Job Log to fill it in for you.
+        </p>
+      </div>
     );
   }
 

@@ -25,7 +25,7 @@ const isHidden = (label: RegExp | string) =>
 async function openAdd(user: User) {
   render(<App />);
   await screen.findByText(/No applications yet/);
-  await user.click(screen.getByRole('button', { name: '+ Add application' }));
+  await user.click(screen.getByRole('button', { name: 'Add application' }));
 }
 
 describe('More details', () => {
@@ -187,7 +187,7 @@ describe('Remembered defaults', () => {
     }) as never);
     const user = userEvent.setup();
     render(<App />);
-    await user.click(await screen.findByRole('button', { name: '+ Add application' }));
+    await user.click(await screen.findByRole('button', { name: 'Add application' }));
     expect(screen.queryByRole('form')).toBeNull();
     release();
     await waitFor(() => expect(screen.getByLabelText(/Source/)).toHaveValue('LinkedIn'));
@@ -197,7 +197,7 @@ describe('Remembered defaults', () => {
     user: User,
     fields: { company: string; source?: string; workMode?: string },
   ) {
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.type(screen.getByLabelText('Job posting URL'), `https://${fields.company}.com/1`);
     await user.type(screen.getByLabelText('Company'), fields.company);
     await user.click(detailsToggle());
@@ -215,7 +215,7 @@ describe('Remembered defaults', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await addOne(user, { company: 'acme', source: 'Referral', workMode: 'remote' });
 
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.getByLabelText(/Source/)).toHaveValue('Referral');
     expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
@@ -239,7 +239,7 @@ describe('Remembered defaults', () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     await addOne(user, { company: 'beta' });
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.getByLabelText(/Source/)).toHaveValue('');
   });
 
@@ -272,7 +272,7 @@ describe('Remembered defaults', () => {
     await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
     await user.type(screen.getByLabelText('Company'), 'Captured Co{Enter}');
     await screen.findByRole('button', { name: /^Captured Co/ });
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.getByLabelText(/Source/)).toHaveValue('LinkedIn');
     expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
   });

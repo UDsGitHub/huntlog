@@ -11,7 +11,7 @@ const today = () => {
 test('chip → Interviewing → the timeline records it → Undo reverts it', async ({ session }) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('button', { name: 'Save' }).click();
@@ -37,7 +37,7 @@ test('an interview date can be backfilled from the timeline', async ({ session }
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByLabel('Date applied').fill('2026-09-01');

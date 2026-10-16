@@ -105,7 +105,7 @@ describe('Detail view', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '← Back to applications' }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
   });
 });
@@ -208,7 +208,7 @@ describe('Delete', () => {
     expect(await screen.findByText('Deleted Acme.')).toBeInTheDocument();
     expect(await screen.findByText(/No applications yet/)).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
     expect((await db.applications.get(app.id))?.deletedAt).toBeDefined();
 
@@ -244,7 +244,7 @@ describe('focus after the review fixes', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
     await user.click(await screen.findByRole('button', { name: 'Dismiss' }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
   });
 
@@ -260,10 +260,10 @@ describe('focus after the review fixes', () => {
     document.addEventListener('focusin', (e) =>
       focused.push((e.target as HTMLElement).textContent ?? ''),
     );
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+      expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
     expect(focused.some((text) => text.startsWith('Acme'))).toBe(false);
   });

@@ -230,7 +230,7 @@ describe('capture prefill', () => {
     expect(screen.queryByText(HINT)).toBeNull();
 
     // The consumed capture doesn't come back on the next manual Add.
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(fields().title).toHaveValue('');
     expect(fields().url).toHaveValue('');
     const [saved] = await db.applications.toArray();
@@ -242,7 +242,7 @@ describe('capture prefill', () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.type(fields().company, 'Typed Co');
 
     await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
@@ -295,7 +295,7 @@ describe('capture prefill', () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.type(fields().url, 'https://first.example/1');
     await user.type(fields().company, 'First{Enter}');
 
@@ -415,7 +415,7 @@ describe('capture prefill', () => {
     await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
 
     expect(fields().title).toHaveValue('');
     expect(screen.queryByText(HINT)).toBeNull();
@@ -431,6 +431,6 @@ describe('capture prefill', () => {
       expect(error).toHaveBeenCalledWith('Reading the capture draft failed', expect.any(Error)),
     );
     expect(screen.queryByRole('form')).toBeNull();
-    expect(screen.getByRole('button', { name: '+ Add application' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add application' })).toBeEnabled();
   });
 });

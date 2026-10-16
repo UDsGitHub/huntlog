@@ -6,7 +6,7 @@ async function addJob(
   company: string,
   fields: { title?: string; status?: string } = {},
 ) {
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page
     .getByLabel('Job posting URL')
     .fill(`https://${company.replace(/\W/g, '').toLowerCase()}.com/1`);

@@ -153,3 +153,69 @@ html {
 @utility link {
   @apply focus-ring rounded-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/80;
 }
+
+/* Bottom sheet (components/Sheet.tsx): slides up over a dimmed page. */
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+.sheet[data-state='open'] .sheet-panel {
+  animation: sheet-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet[data-state='closing'] .sheet-panel {
+  animation: sheet-out 200ms ease-in forwards;
+}
+.sheet[data-state='open']::backdrop {
+  animation: fade-in 200ms ease-out;
+}
+.sheet[data-state='closing']::backdrop {
+  animation: fade-out 200ms ease-in forwards;
+}
+
+/* Toasts (components/Toast.tsx) slide up in and fade down out. */
+.toast[data-state='open'] {
+  animation: toast-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.toast[data-state='closing'] {
+  animation: toast-out 150ms ease-in forwards;
+}
+
+@keyframes sheet-in {
+  from {
+    translate: 0 100%;
+  }
+}
+@keyframes sheet-out {
+  to {
+    translate: 0 100%;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel,
+  .sheet::backdrop,
+  .toast {
+    animation: none !important;
+  }
+}

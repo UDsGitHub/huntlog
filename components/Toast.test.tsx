@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
-import { Toast, TOAST_DURATION_MS, useToast, type ToastData } from './Toast';
+import { Toast, TOAST_DURATION_MS, TOAST_EXIT_MS, useToast, type ToastData } from './Toast';
+import { registerToastLayer } from './toastLayer';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -25,6 +26,18 @@ function show(data: Omit<ToastData, 'id'>) {
   act(() => showToast(data));
 }
 
+/** A toast that went slides out, hidden from assistive tech and inert, then leaves the DOM. */
+function expectGone(text: string) {
+  const leaving = screen.queryByText(text)?.closest<HTMLElement>('[data-state]');
+  if (leaving) {
+    expect(leaving).toHaveAttribute('data-state', 'closing');
+    expect(leaving).toHaveAttribute('aria-hidden', 'true');
+    expect(leaving).toHaveAttribute('inert');
+  }
+  act(() => vi.advanceTimersByTime(TOAST_EXIT_MS));
+  expect(screen.queryByText(text)).toBeNull();
+}
+
 describe('Toast', () => {
   it('shows the message and disappears after 5 seconds', () => {
     render(<Harness />);
@@ -33,7 +46,7 @@ describe('Toast', () => {
     act(() => vi.advanceTimersByTime(TOAST_DURATION_MS - 1));
     expect(screen.getByText('Deleted Acme.')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.queryByText('Deleted Acme.')).toBeNull();
+    expectGone('Deleted Acme.');
   });
 
   it('lives in a polite live region that exists before any toast', () => {
@@ -47,14 +60,14 @@ describe('Toast', () => {
     show({ message: 'Deleted Acme.', action: { label: 'Undo', onAction } });
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     expect(onAction).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText('Deleted Acme.')).toBeNull();
+    expectGone('Deleted Acme.');
   });
 
   it('can be dismissed, and reports why each toast closed', () => {
     render(<Harness />);
     show({ message: 'Saved.' });
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-    expect(screen.queryByText('Saved.')).toBeNull();
+    expectGone('Saved.');
     show({ message: 'Deleted.', action: { label: 'Undo', onAction: () => {} } });
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     show({ message: 'Later.' });
@@ -74,7 +87,7 @@ describe('Toast', () => {
     act(() => vi.advanceTimersByTime(TOAST_DURATION_MS - 1));
     expect(screen.getByText('Deleted Acme.')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.queryByText('Deleted Acme.')).toBeNull();
+    expectGone('Deleted Acme.');
   });
 
   it('pauses while a button inside has keyboard focus', () => {
@@ -85,7 +98,7 @@ describe('Toast', () => {
     expect(screen.getByText('Deleted Acme.')).toBeInTheDocument();
     act(() => screen.getByRole('button', { name: 'Undo' }).blur());
     act(() => vi.advanceTimersByTime(TOAST_DURATION_MS));
-    expect(screen.queryByText('Deleted Acme.')).toBeNull();
+    expectGone('Deleted Acme.');
   });
 
   it('replaces the previous toast and its action, with a fresh timer', () => {
@@ -94,7 +107,7 @@ describe('Toast', () => {
     show({ message: 'Deleted Acme.', action: { label: 'Undo', onAction: first } });
     act(() => vi.advanceTimersByTime(4000));
     show({ message: 'Deleted Beta.' });
-    expect(screen.queryByText('Deleted Acme.')).toBeNull();
+    expectGone('Deleted Acme.');
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
     act(() => vi.advanceTimersByTime(4000));
     expect(screen.getByText('Deleted Beta.')).toBeInTheDocument();
@@ -106,7 +119,7 @@ describe('Toast', () => {
     act(() => screen.getByRole('button', { name: 'Undo' }).focus());
     show({ message: 'Second' });
     act(() => vi.advanceTimersByTime(TOAST_DURATION_MS));
-    expect(screen.queryByText('Second')).toBeNull();
+    expectGone('Second');
   });
 
   it('runs onClose exactly once, with how the toast went', () => {
@@ -122,5 +135,65 @@ describe('Toast', () => {
     show({ message: 'Four', onClose });
     show({ message: 'Five' });
     expect(closes).toEqual(['timeout', 'dismiss', 'action', 'replaced']);
+  });
+
+  it('is removed at once when the user prefers reduced motion', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+    render(<Harness />);
+    show({ message: 'Deleted Acme.' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText('Deleted Acme.')).toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('a new toast replaces one that is sliding out', () => {
+    render(<Harness />);
+    show({ message: 'First' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.getByText('First')).toBeInTheDocument();
+    show({ message: 'Second' });
+    expect(screen.queryByText('First')).toBeNull();
+    expect(screen.getByText('Second').closest('[data-state]')).toHaveAttribute(
+      'data-state',
+      'open',
+    );
+  });
+
+  it('moves into an open sheet silently, without restarting its time', () => {
+    render(<Harness />);
+    show({ message: 'Deleted Acme.' });
+    act(() => vi.advanceTimersByTime(3000));
+    const region = document.createElement('div');
+    region.setAttribute('aria-live', 'polite');
+    document.body.append(region);
+    let unregister!: () => void;
+    act(() => {
+      unregister = registerToastLayer({ region });
+    });
+    expect(region).toContainElement(screen.getByText('Deleted Acme.'));
+    expect(screen.getByText('Deleted Acme.').closest('[aria-live]')).toHaveAttribute(
+      'aria-live',
+      'off',
+    );
+    act(() => vi.advanceTimersByTime(TOAST_DURATION_MS - 3000));
+    expect(dismissReasons).toEqual(['timeout']);
+    act(() => unregister());
+    region.remove();
+  });
+
+  it('a toast that first appears in a sheet is announced there', () => {
+    const region = document.createElement('div');
+    region.setAttribute('aria-live', 'polite');
+    document.body.append(region);
+    let unregister!: () => void;
+    act(() => {
+      unregister = registerToastLayer({ region });
+    });
+    render(<Harness />);
+    show({ message: 'Saved.' });
+    const wrapper = screen.getByText('Saved.').closest('[aria-live]');
+    expect(wrapper).toBe(region);
+    act(() => unregister());
+    region.remove();
   });
 });

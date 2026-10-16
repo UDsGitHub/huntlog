@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, expectNoHorizontalScroll, launchExtension, panelUrl, test } from './fixtures';
 
 async function addJob(page: Page, fields: { url: string; company: string; notes?: string }) {
-  await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill(fields.url);
   await page.getByLabel('Company').fill(fields.company);
   if (fields.notes) {
@@ -78,7 +78,7 @@ test('the whole flow works with the keyboard alone', async ({ session }) => {
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Delete' })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', { name: '+ Add application' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Add application' })).toBeFocused();
   await page.getByRole('button', { name: 'Undo' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Acme GmbH');

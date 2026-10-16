@@ -67,7 +67,7 @@ describe('Tab bar', () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText(/No applications yet/);
-    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.queryByRole('tablist')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByRole('tablist')).toBeInTheDocument();
