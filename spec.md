@@ -134,7 +134,7 @@ This is a side-panel tab.
 
 ## 5. Data model
 
-All records use UUIDv4 IDs and `createdAt` / `updatedAt` timestamps (ISO 8601 UTC), and deletes are soft (`deletedAt`). This keeps the data ready for sync later.
+All records use UUIDv4 IDs and `createdAt` / `updatedAt` timestamps (ISO 8601 UTC), and deletes are soft (`deletedAt`). This keeps the data ready for sync later. Deleting an application takes effect immediately and shows an Undo toast for about 5 seconds; Undo clears `deletedAt` and moves `updatedAt` forward, so with last-write-wins sync the restore is the newest change.
 
 ```ts
 type Status =
