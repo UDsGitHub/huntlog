@@ -74,7 +74,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 - **More details**, a disclosure that is collapsed by default: Location, Work mode, Salary, Source, Notes. It opens on its own when a field inside has a validation error or was auto-filled by a capture, and in Edit when any field inside has a value.
 - **Save and Cancel** stay visible at the bottom of the panel (a sticky bar), however long the form is.
 - **Currency** lists the locale's default plus USD, EUR and GBP first, then every other code.
-- **Remembered defaults:** a new manual Add starts with the source and work mode from the last application saved, stored in `chrome.storage.local`. They never apply to a capture, which only fills what it captured, or to Edit.
+- **Remembered defaults:** a new manual Add starts with the source and work mode of the last *new* application (edits don't count), stored in `chrome.storage.local`. After a manual Add they're remembered exactly, blanks included. After a capture, only the values it has replace the old ones, since a capture's blanks mean "not captured". They never prefill a capture, which only fills what it captured, or Edit.
 
 
 

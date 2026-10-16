@@ -4,3 +4,8 @@ html,
 body {
   min-width: 320px;
 }
+
+/* Keep focused or scrolled-to fields clear of the forms' sticky Save bar (WCAG 2.4.11). */
+html {
+  scroll-padding-bottom: calc(var(--sticky-bar-height, 0px) + 1rem);
+}

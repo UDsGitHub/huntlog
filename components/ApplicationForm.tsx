@@ -22,9 +22,11 @@ import {
   type DuplicateMatch,
 } from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
-import { defaultCurrency, knownCurrencies, numberSeparators } from '@/lib/locale';
+import type { FormDefaults } from '@/lib/formDefaults';
+import { defaultCurrency, numberSeparators, orderedCurrencies } from '@/lib/locale';
 import type { Application } from '@/lib/types';
 import { DuplicateWarning } from './DuplicateWarning';
+import { useStickyBar } from './Toast';
 import type { CapturePrefill } from './useCaptureDraft';
 
 interface Props {
@@ -32,6 +34,8 @@ interface Props {
   prefill?: CapturePrefill | null;
   /** Edit mode: the stored application to change. Without it, the form adds a new one. */
   application?: Application;
+  /** Remembered source and work mode; used only for a manual Add (no capture, not Edit). */
+  defaults?: FormDefaults;
   onSaved: (application: Application) => void;
   onCancel: () => void;
   /** "View existing" in the duplicate warning: leave this form for that application. */
@@ -40,13 +44,12 @@ interface Props {
 
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
 
-/** Order of the fields on screen; the first invalid one gets focus. */
-const FIELD_ORDER: InputField[] = [
-  'url',
-  'company',
+/** Fields above More details, in screen order (title has no validation of its own). */
+const MAIN_FIELDS: InputField[] = ['url', 'company', 'appliedAt'];
+/** Fields under More details (spec §4.2), in screen order. */
+const DETAIL_FIELDS: InputField[] = [
   'location',
   'workMode',
-  'appliedAt',
   'salaryMin',
   'salaryMax',
   'salaryCurrency',
@@ -54,6 +57,13 @@ const FIELD_ORDER: InputField[] = [
   'source',
   'notes',
 ];
+/** Screen order; the first invalid field gets focus. */
+const FIELD_ORDER: InputField[] = [...MAIN_FIELDS, ...DETAIL_FIELDS];
+/** Detail fields whose value means something was entered: currency and period always have one. */
+const DETAIL_VALUE_FIELDS = DETAIL_FIELDS.filter(
+  (field): field is Exclude<InputField, 'salaryCurrency' | 'salaryPeriod'> =>
+    field !== 'salaryCurrency' && field !== 'salaryPeriod',
+);
 
 const input =
   'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
@@ -82,6 +92,7 @@ function formValuesFrom(app: Application): FormValues {
 export function ApplicationForm({
   prefill,
   application,
+  defaults,
   onSaved,
   onCancel,
   onViewExisting,
@@ -97,16 +108,25 @@ export function ApplicationForm({
           company: '',
           title: draft?.title ?? '',
           location: '',
-          workMode: '',
+          // Remembered defaults are for a manual Add only (this form owns that rule); a capture
+          // fills just what it captured.
+          workMode: (!draft && defaults?.workMode) || '',
           appliedAt: todayLocal(),
           salaryMin: '',
           salaryMax: '',
           salaryCurrency: defaultCurrency(),
           salaryPeriod: 'year',
-          source: '',
+          source: (!draft && defaults?.source) || '',
           notes: '',
         },
   );
+  // More details opens on its own in Edit when a field inside has a value, and after a capture
+  // that filled one (M8 captures more than URL and title). Errors inside open it too (save()).
+  const [detailsOpen, setDetailsOpen] = useState(() => {
+    if (application) return DETAIL_VALUE_FIELDS.some((field) => application[field] !== undefined);
+    const captured = draft as Record<string, unknown> | undefined;
+    return DETAIL_VALUE_FIELDS.some((field) => captured?.[field] !== undefined);
+  });
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -122,7 +142,11 @@ export function ApplicationForm({
     fieldRefs.current[pendingFocus.current]?.focus();
     pendingFocus.current = null;
   }, [errors, isSaving]);
-  const currencies = useMemo(() => knownCurrencies(), []);
+  // Includes a stored currency the runtime doesn't know, so Edit never silently swaps it.
+  const storedCurrency = application?.salaryCurrency;
+  const currencies = useMemo(() => orderedCurrencies(undefined, storedCurrency), [storedCurrency]);
+  const stickyBar = useRef<HTMLDivElement>(null);
+  useStickyBar(stickyBar);
 
   // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
   // A layout effect, so focus moves in the same commit that shows the form.
@@ -174,6 +198,8 @@ export function ApplicationForm({
         setErrors(error.fields);
         // The first invalid field, in screen order (also for errors only storage can catch).
         const first = FIELD_ORDER.find((field) => error.fields[field]);
+        // Any error inside More details opens it, even when the first error is above it.
+        if (DETAIL_FIELDS.some((field) => error.fields[field])) setDetailsOpen(true);
         pendingFocus.current = first ?? null;
         return;
       }
@@ -209,6 +235,20 @@ export function ApplicationForm({
       )}
     </>
   );
+
+  const workModeLabel = values.workMode
+    ? WORK_MODE_LABELS[values.workMode as keyof typeof WORK_MODE_LABELS]
+    : undefined;
+  // While collapsed, say what's inside, so remembered defaults are never invisible.
+  const detailsSummary = [
+    values.location.trim(),
+    workModeLabel,
+    (values.salaryMin.trim() || values.salaryMax.trim()) && 'Salary',
+    values.source.trim(),
+    values.notes.trim() && 'Notes',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <form
@@ -259,33 +299,6 @@ export function ApplicationForm({
           {hints.title && <AutoFilledHint id={`${id}-title-hint`} />}
         </Field>
 
-        <Field label="Location" optional htmlFor={`${id}-location`}>
-          <input
-            {...control('location')}
-            type="text"
-            autoComplete="off"
-            value={values.location}
-            onChange={(e) => set('location')(e.target.value)}
-          />
-          {message('location')}
-        </Field>
-
-        <Field label="Work mode" optional htmlFor={`${id}-workMode`}>
-          <select
-            {...control('workMode')}
-            value={values.workMode}
-            onChange={(e) => set('workMode')(e.target.value)}
-          >
-            <option value="">Not set</option>
-            {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          {message('workMode')}
-        </Field>
-
         <Field label="Date applied" htmlFor={`${id}-appliedAt`}>
           <input
             {...control('appliedAt')}
@@ -297,90 +310,145 @@ export function ApplicationForm({
           {message('appliedAt')}
         </Field>
 
-        <fieldset className="flex min-w-0 flex-col gap-2">
-          <legend className="text-sm font-medium">
-            Salary <span className="font-normal text-slate-600">(optional)</span>
-          </legend>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
-              <input
-                {...control('salaryMin')}
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={values.salaryMin}
-                onChange={(e) => set('salaryMin')(e.target.value)}
-              />
-              {message('salaryMin')}
-            </Field>
-            <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
-              <input
-                {...control('salaryMax')}
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={values.salaryMax}
-                onChange={(e) => set('salaryMax')(e.target.value)}
-              />
-              {message('salaryMax')}
-            </Field>
-            <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
-              <select
-                {...control('salaryCurrency')}
-                value={values.salaryCurrency}
-                onChange={(e) => set('salaryCurrency')(e.target.value)}
-              >
-                {currencies.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
-              {message('salaryCurrency')}
-            </Field>
-            <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
-              <select
-                {...control('salaryPeriod')}
-                value={values.salaryPeriod}
-                onChange={(e) => set('salaryPeriod')(e.target.value)}
-              >
-                {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              {message('salaryPeriod')}
-            </Field>
-          </div>
-        </fieldset>
+        <div className="flex min-w-0 flex-col gap-1">
+          <button
+            type="button"
+            aria-expanded={detailsOpen}
+            aria-controls={`${id}-details`}
+            onClick={() => setDetailsOpen((open) => !open)}
+            className="flex items-center gap-1 self-start rounded text-sm font-medium text-indigo-700 hover:underline focus:outline-2 focus:outline-indigo-600"
+          >
+            <span aria-hidden="true">{detailsOpen ? '▾' : '▸'}</span>
+            More details
+          </button>
+          {!detailsOpen && detailsSummary && (
+            <p className="text-xs break-words text-slate-600">{detailsSummary}</p>
+          )}
+        </div>
 
-        <Field label="Source" optional htmlFor={`${id}-source`}>
-          <input
-            {...control('source')}
-            type="text"
-            autoComplete="off"
-            list={`${id}-source-suggestions`}
-            value={values.source}
-            onChange={(e) => set('source')(e.target.value)}
-          />
-          <datalist id={`${id}-source-suggestions`}>
-            {SOURCE_SUGGESTIONS.map((source) => (
-              <option key={source} value={source} />
-            ))}
-          </datalist>
-          {message('source')}
-        </Field>
+        {/* Hidden, not unmounted: values and field refs survive collapsing. */}
+        <div id={`${id}-details`} hidden={!detailsOpen} className="flex min-w-0 flex-col gap-3">
+          <Field label="Location" optional htmlFor={`${id}-location`}>
+            <input
+              {...control('location')}
+              type="text"
+              autoComplete="off"
+              value={values.location}
+              onChange={(e) => set('location')(e.target.value)}
+            />
+            {message('location')}
+          </Field>
 
-        <Field label="Notes" optional htmlFor={`${id}-notes`}>
-          <textarea
-            {...control('notes')}
-            rows={4}
-            value={values.notes}
-            onChange={(e) => set('notes')(e.target.value)}
-          />
-          {message('notes')}
-        </Field>
+          <Field label="Work mode" optional htmlFor={`${id}-workMode`}>
+            <select
+              {...control('workMode')}
+              value={values.workMode}
+              onChange={(e) => set('workMode')(e.target.value)}
+            >
+              <option value="">Not set</option>
+              {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            {message('workMode')}
+          </Field>
+
+          <fieldset className="flex min-w-0 flex-col gap-2">
+            <legend className="text-sm font-medium">
+              Salary <span className="font-normal text-slate-600">(optional)</span>
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
+                <input
+                  {...control('salaryMin')}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={values.salaryMin}
+                  onChange={(e) => set('salaryMin')(e.target.value)}
+                />
+                {message('salaryMin')}
+              </Field>
+              <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
+                <input
+                  {...control('salaryMax')}
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={values.salaryMax}
+                  onChange={(e) => set('salaryMax')(e.target.value)}
+                />
+                {message('salaryMax')}
+              </Field>
+              <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
+                <select
+                  {...control('salaryCurrency')}
+                  value={values.salaryCurrency}
+                  onChange={(e) => set('salaryCurrency')(e.target.value)}
+                >
+                  <optgroup label="Common">
+                    {currencies.common.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="All currencies">
+                    {currencies.others.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+                {message('salaryCurrency')}
+              </Field>
+              <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
+                <select
+                  {...control('salaryPeriod')}
+                  value={values.salaryPeriod}
+                  onChange={(e) => set('salaryPeriod')(e.target.value)}
+                >
+                  {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {message('salaryPeriod')}
+              </Field>
+            </div>
+          </fieldset>
+
+          <Field label="Source" optional htmlFor={`${id}-source`}>
+            <input
+              {...control('source')}
+              type="text"
+              autoComplete="off"
+              list={`${id}-source-suggestions`}
+              value={values.source}
+              onChange={(e) => set('source')(e.target.value)}
+            />
+            <datalist id={`${id}-source-suggestions`}>
+              {SOURCE_SUGGESTIONS.map((source) => (
+                <option key={source} value={source} />
+              ))}
+            </datalist>
+            {message('source')}
+          </Field>
+
+          <Field label="Notes" optional htmlFor={`${id}-notes`}>
+            <textarea
+              {...control('notes')}
+              rows={4}
+              value={values.notes}
+              onChange={(e) => set('notes')(e.target.value)}
+            />
+            {message('notes')}
+          </Field>
+        </div>
       </fieldset>
       {duplicates && (
         <DuplicateWarning
@@ -395,7 +463,11 @@ export function ApplicationForm({
           {saveError}
         </p>
       )}
-      <div className="flex gap-2">
+      {/* Sticky: Save is always reachable without scrolling (spec §4.2, §10). */}
+      <div
+        ref={stickyBar}
+        className="sticky bottom-0 -mx-4 flex gap-2 border-t border-slate-200 bg-white px-4 py-3"
+      >
         <button
           type="submit"
           aria-disabled={isSaving || undefined}

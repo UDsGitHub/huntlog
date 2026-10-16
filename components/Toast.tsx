@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export const TOAST_DURATION_MS = 5000;
 
@@ -40,7 +40,9 @@ export function Toast({
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 flex justify-center"
+      // Clear of a sticky bottom bar when one is showing; it publishes its height (useStickyBar).
+      style={{ bottom: 'calc(var(--sticky-bar-height, 0px) + 1rem)' }}
+      className="pointer-events-none fixed inset-x-4 flex justify-center"
     >
       {/* Keyed per toast, so pause state never carries over to the next one. */}
       {toast && (
@@ -102,4 +104,26 @@ function ToastCard({
       </button>
     </div>
   );
+}
+
+/**
+ * Publishes a sticky bottom bar's height as `--sticky-bar-height` on the document while it's
+ * mounted, so the toast and focus scrolling keep clear of it, whatever its size.
+ */
+export function useStickyBar(bar: React.RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const element = bar.current;
+    if (!element) return;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty('--sticky-bar-height', `${element.offsetHeight}px`);
+    publish();
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(publish);
+    observer?.observe(element);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty('--sticky-bar-height');
+    };
+  }, [bar]);
 }

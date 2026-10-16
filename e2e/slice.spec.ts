@@ -66,6 +66,7 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
 
   // The full form with every validation error showing.
   await page.getByRole('button', { name: '+ Add application' }).click();
+  await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel('Minimum').fill('lots');
   await page.getByLabel('Maximum').fill('also lots');
   await page.getByLabel('Date applied').fill('');
@@ -78,6 +79,7 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByRole('button', { name: '+ Add application' }).click();
   await page.getByLabel('Job posting URL').fill(`https://example.com/${'a'.repeat(300)}`);
   await page.getByLabel('Company').fill(`Company${'X'.repeat(120)}`);
+  await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill(`Somewhere${'Y'.repeat(150)}`);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();

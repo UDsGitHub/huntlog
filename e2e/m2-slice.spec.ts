@@ -15,6 +15,7 @@ test('a full application record, end to end, with the duplicate warning', async 
     .fill('https://boards.greenhouse.io/acme/jobs/1?gh_jid=1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByLabel(/Job title/).fill('Senior Engineer');
+  await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill('Berlin');
   await page.getByLabel(/Work mode/).selectOption('hybrid');
   await page.getByLabel('Date applied').fill('2026-10-01');

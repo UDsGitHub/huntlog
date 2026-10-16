@@ -1,0 +1,63 @@
+import { WORK_MODES } from './applicationInput';
+import type { Application, WorkMode } from './types';
+
+/** `chrome.storage.local` key (spec §4.2, §6: settings-like data lives there). */
+export const FORM_DEFAULTS_KEY = 'formDefaults';
+
+/** What a new manual Add starts with: the source and work mode of the last new application. */
+export interface FormDefaults {
+  source?: string;
+  workMode?: WorkMode;
+}
+
+/** Keeps only well-formed values; anything else (old shapes, hand edits) is dropped. */
+export function parseFormDefaults(raw: unknown): FormDefaults {
+  if (typeof raw !== 'object' || raw === null) return {};
+  const { source, workMode } = raw as Record<string, unknown>;
+  const defaults: FormDefaults = {};
+  if (typeof source === 'string' && source.trim() && source.length <= 100) {
+    defaults.source = source.trim();
+  }
+  if (typeof workMode === 'string' && (WORK_MODES as string[]).includes(workMode)) {
+    defaults.workMode = workMode as WorkMode;
+  }
+  return defaults;
+}
+
+/** Never throws: without storage, the form just starts blank. */
+export async function readFormDefaults(): Promise<FormDefaults> {
+  try {
+    const stored = await browser.storage.local.get(FORM_DEFAULTS_KEY);
+    return parseFormDefaults(stored[FORM_DEFAULTS_KEY]);
+  } catch (error) {
+    console.error('Reading form defaults failed', error);
+    return {};
+  }
+}
+
+let writes: Promise<unknown> = Promise.resolve();
+
+/**
+ * Remembers a newly saved application's source and work mode (never an edit's). After a manual
+ * Add they're remembered exactly, blanks included: the defaults are "what the last one had".
+ * After a capture only the values it has replace the old ones, since a capture's blanks mean
+ * "not captured", not "none". Writes run in order, so overlapping saves can't swap them.
+ * Never throws.
+ */
+export function rememberFormDefaults(
+  application: Pick<Application, 'source' | 'workMode'>,
+  { captured = false }: { captured?: boolean } = {},
+): Promise<FormDefaults> {
+  const write = writes.then(async () => {
+    const next = parseFormDefaults(application);
+    const defaults = captured ? { ...(await readFormDefaults()), ...next } : next;
+    try {
+      await browser.storage.local.set({ [FORM_DEFAULTS_KEY]: defaults });
+    } catch (error) {
+      console.error('Saving form defaults failed', error);
+    }
+    return defaults;
+  });
+  writes = write;
+  return write;
+}
