@@ -45,6 +45,8 @@ export interface ApplicationInput {
   notes?: string;
   /** One of the 9 statuses. Omitted: Applied for a new application, unchanged for an edit. */
   status?: string;
+  /** The resume sent (spec §4.6). Empty or omitted: none. Checked against storage on save. */
+  resumeId?: string;
   /**
    * YYYY-MM-DD local date. Omitted: today, unless the status doesn't need one. An empty string
    * means none, which is an error unless the status is Saved or Withdrawn.
@@ -66,6 +68,7 @@ export interface ApplicationValues {
   source?: string;
   notes?: string;
   status?: Status;
+  resumeId?: string;
   appliedAt?: string;
 }
 
@@ -222,6 +225,9 @@ export function validateApplication(
       out.salaryPeriod = period as SalaryPeriod;
     }
   }
+
+  const resumeId = input.resumeId?.trim();
+  if (resumeId) out.resumeId = resumeId;
 
   let status: Status = current?.status ?? 'applied';
   if (input.status !== undefined && input.status !== '') {
