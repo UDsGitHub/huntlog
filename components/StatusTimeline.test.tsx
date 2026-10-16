@@ -12,6 +12,12 @@ beforeEach(async () => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+/** Picks a date and leaves the field, which is when the timeline saves. */
+function changeDate(input: HTMLElement, value: string) {
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+}
+
 async function openDetail() {
   const user = userEvent.setup();
   render(<App />);
@@ -41,9 +47,7 @@ describe('Status timeline', () => {
     const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
     await setStatus(app.id, 'interviewing');
     const timeline = await openDetail();
-    fireEvent.change(within(timeline).getByLabelText('Interviewing'), {
-      target: { value: '2020-01-02' },
-    });
+    changeDate(within(timeline).getByLabelText('Interviewing'), '2020-01-02');
 
     await waitFor(async () =>
       expect(localDateOf((await db.applications.get(app.id))!.statusHistory[1]!.at)).toBe(
@@ -67,9 +71,7 @@ describe('Status timeline', () => {
   it('moves Date applied with the first Applied entry', async () => {
     const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
     const timeline = await openDetail();
-    fireEvent.change(within(timeline).getByLabelText('Applied'), {
-      target: { value: '2026-01-05' },
-    });
+    changeDate(within(timeline).getByLabelText('Applied'), '2026-01-05');
     await waitFor(async () =>
       expect((await db.applications.get(app.id))?.appliedAt).toBe('2026-01-05'),
     );
@@ -83,7 +85,7 @@ describe('Status timeline', () => {
     const before = await db.applications.get(app.id);
     const timeline = await openDetail();
     const input = within(timeline).getByLabelText('Applied');
-    fireEvent.change(input, { target: { value: '2999-01-01' } });
+    changeDate(input, '2999-01-01');
     await waitFor(() =>
       expect(input).toHaveAccessibleDescription("This date can't be in the future."),
     );
@@ -98,7 +100,7 @@ describe('Status timeline', () => {
     vi.spyOn(applications, 'updateHistoryDate').mockResolvedValueOnce({
       error: 'This entry changed meanwhile. Check the date and try again.',
     });
-    fireEvent.change(input, { target: { value: '2026-01-05' } });
+    changeDate(input, '2026-01-05');
     await waitFor(() =>
       expect(input).toHaveAccessibleDescription(
         'This entry changed meanwhile. Check the date and try again.',
@@ -129,5 +131,28 @@ describe('Status timeline', () => {
       await setStatus(app.id, 'offer');
     });
     await waitFor(() => expect(within(timeline).getByLabelText('Offer')).toBeInTheDocument());
+  });
+
+  it("doesn't save while the date is still being changed, only when the field is left", async () => {
+    const spy = vi.spyOn(applications, 'updateHistoryDate');
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const timeline = await openDetail();
+    const input = within(timeline).getByLabelText('Applied');
+    // Typing a year arrives as a series of changes; none of them saves.
+    for (const partial of ['0002-01-05', '0020-01-05', '0202-01-05', '2025-01-05']) {
+      fireEvent.change(input, { target: { value: partial } });
+    }
+    expect(spy).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    expect(spy.mock.calls[0]![2]).toBe('2025-01-05');
+  });
+
+  it('rejects a half-typed year that would otherwise look valid', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const timeline = await openDetail();
+    const input = within(timeline).getByLabelText('Applied');
+    changeDate(input, '0202-01-05');
+    await waitFor(() => expect(input).toHaveAccessibleDescription('Enter a valid date.'));
   });
 });

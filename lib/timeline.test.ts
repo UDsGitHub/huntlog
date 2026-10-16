@@ -81,6 +81,33 @@ describe('editHistoryDate', () => {
     expect(result.appliedAt).toBe('2026-09-15');
   });
 
+  it('follows when a later Applied entry is moved before the first one', () => {
+    const twice = app({
+      statusHistory: [
+        { status: 'applied', at: local(2026, 5, 1) },
+        { status: 'withdrawn', at: local(2026, 5, 5) },
+        { status: 'applied', at: local(2026, 6, 1) },
+      ],
+      appliedAt: '2026-05-01',
+    });
+    expect(edited(editHistoryDate(twice, 2, '2026-04-01', now)).appliedAt).toBe('2026-04-01');
+  });
+
+  it('hands over to the next Applied entry when the first moves past it', () => {
+    const twice = app({
+      statusHistory: [
+        { status: 'applied', at: local(2026, 5, 1) },
+        { status: 'applied', at: local(2026, 5, 10) },
+      ],
+      appliedAt: '2026-05-01',
+    });
+    expect(edited(editHistoryDate(twice, 0, '2026-05-20', now)).appliedAt).toBe('2026-05-10');
+  });
+
+  it.each([['0202-10-10'], ['1969-12-31']])('rejects the implausible year %s', (date) => {
+    expect(editHistoryDate(app(), 1, date, now)).toEqual({ error: 'Enter a valid date.' });
+  });
+
   it('leaves Date applied alone for other entries, or a later Applied entry', () => {
     expect(edited(editHistoryDate(app(), 1, '2026-10-02', now)).appliedAt).toBe('2026-10-01');
     const twice = app({

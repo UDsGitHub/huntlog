@@ -1,4 +1,4 @@
-import { isValidLocalDate, todayLocal } from './dates';
+import { checkPastLocalDate, todayLocal } from './dates';
 import type { Application, Status } from './types';
 
 /** The fixed status pipeline (spec §5), in display order. Not configurable. */
@@ -125,7 +125,8 @@ export function editHistoryDate(
 ): HistoryDateResult {
   const entry = app.statusHistory?.[index];
   if (!entry) return { error: 'That history entry no longer exists.' };
-  if (!isValidLocalDate(date)) return { error: 'Enter a valid date.' };
+  const problem = checkPastLocalDate(date, now);
+  if (problem) return { error: problem };
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
   const original = new Date(entry.at);
   // A time that doesn't exist on that day (a DST gap) moves forward within the same day, so
@@ -139,20 +140,21 @@ export function editHistoryDate(
     original.getSeconds(),
     original.getMilliseconds(),
   );
-  if (date > todayLocal(now)) return { error: "This date can't be in the future." };
-
-  const at = moved.toISOString();
-  const firstApplied = firstEnteredAt(app, 'applied');
-  const followsAppliedAt =
-    entry.status === 'applied' &&
-    entry.at === firstApplied &&
-    app.appliedAt === localDateOf(entry.at);
-  const statusHistory = app.statusHistory.map((e, i) => (i === index ? { ...e, at } : e));
+  const statusHistory = app.statusHistory.map((e, i) =>
+    i === index ? { ...e, at: moved.toISOString() } : e,
+  );
+  // Date applied tracks the first Applied entry when the two agreed before the edit, wherever
+  // that entry ends up: a later Applied entry moved earlier becomes the first one, and the
+  // first one moved past another hands over to it.
+  const firstBefore = firstEnteredAt(app, 'applied');
+  const inSync = firstBefore !== undefined && app.appliedAt === localDateOf(firstBefore);
+  const firstAfter = firstEnteredAt({ statusHistory }, 'applied');
+  const followsAppliedAt = inSync && firstAfter !== undefined;
   return {
     application: {
       ...app,
       statusHistory,
-      ...(followsAppliedAt && { appliedAt: date }),
+      ...(followsAppliedAt && { appliedAt: localDateOf(firstAfter) }),
       updatedAt: now.toISOString(),
     },
   };

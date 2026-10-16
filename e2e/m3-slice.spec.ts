@@ -48,8 +48,33 @@ test('an interview date can be backfilled from the timeline', async ({ session }
 
   const timeline = page.getByRole('region', { name: 'Status history' });
   await timeline.getByLabel('Interviewing').fill('2026-09-10');
+  // The timeline saves when the field is left.
+  await timeline.getByLabel('Interviewing').blur();
   await expect(timeline.getByLabel('Interviewing')).toHaveValue('2026-09-10');
   await expectNoHorizontalScroll(page);
+  // Wait for the write itself before reloading.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<string[]>((resolve, reject) => {
+            const open = indexedDB.open('job-log');
+            open.onerror = () => reject(open.error);
+            open.onsuccess = () => {
+              const all = open.result
+                .transaction('applications')
+                .objectStore('applications')
+                .getAll();
+              all.onsuccess = () => {
+                const [row] = all.result as { statusHistory: { at: string }[] }[];
+                resolve(row?.statusHistory.map((e) => e.at) ?? []);
+                open.result.close();
+              };
+            };
+          }),
+      ),
+    )
+    .toContainEqual(expect.stringMatching(/^2026-09-(09|10|11)T/));
 
   // Survives a reload: it was saved.
   await page.reload();

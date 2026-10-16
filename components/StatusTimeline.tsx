@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { updateHistoryDate, NotFoundError } from '@/lib/applications';
-import { todayLocal } from '@/lib/dates';
+import { MIN_YEAR, todayLocal } from '@/lib/dates';
 import { localDateOf, STATUS_LABELS } from '@/lib/status';
 import type { Application } from '@/lib/types';
 
@@ -57,16 +57,23 @@ function TimelineEntry({
   const stored = localDateOf(at);
   const [value, setValue] = useState(stored);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // The panel can stay open past midnight; refresh "today" whenever the field is focused.
+  const [max, setMax] = useState(() => todayLocal());
 
-  async function save(date: string) {
-    setValue(date);
-    if (date === stored) return setError(null);
+  // Saves when the field is left, not on every change: Chrome fires a change per keystroke in a
+  // date field, so typing a year would otherwise save "0202" halfway through.
+  async function save() {
+    if (saving || !value || value === stored) return;
+    setSaving(true);
     try {
-      const result = await updateHistoryDate(applicationId, { index, at }, date);
+      const result = await updateHistoryDate(applicationId, { index, at }, value);
       setError('error' in result ? result.error : null);
     } catch (failure) {
       if (!(failure instanceof NotFoundError)) console.error('updateHistoryDate failed', failure);
       setError("Couldn't save this date.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -78,10 +85,20 @@ function TimelineEntry({
       <input
         id={inputId}
         type="date"
-        max={todayLocal()}
+        min={`${MIN_YEAR}-01-01`}
+        max={max}
         value={value}
-        // A date input reports a complete date (or '' when cleared) on change.
-        onChange={(event) => event.target.value && void save(event.target.value)}
+        readOnly={saving}
+        aria-busy={saving || undefined}
+        onFocus={() => setMax(todayLocal())}
+        onChange={(event) => {
+          setValue(event.target.value);
+          setError(null);
+        }}
+        onBlur={() => void save()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') void save();
+        }}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${inputId}-error` : undefined}
         className="min-w-0 rounded border border-slate-300 px-2 py-1 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700"
