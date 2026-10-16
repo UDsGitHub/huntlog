@@ -125,15 +125,31 @@ export function numberSeparators(locale?: string): {
 /** Shown first in the currency picker, after the locale's own (spec §4.2). */
 export const COMMON_CURRENCIES = ['USD', 'EUR', 'GBP'];
 
+const ordered = new Map<string, { common: string[]; others: string[] }>();
+
 /**
  * Currencies for the picker: the locale's default plus USD, EUR and GBP first (no repeats), then
- * every other known code alphabetically.
+ * every other known code alphabetically. `include` adds a stored code the runtime doesn't know
+ * (old or imported data), so editing never silently swaps it for another.
  */
-export function orderedCurrencies(locale?: string): { common: string[]; others: string[] } {
-  const all = knownCurrencies();
-  const common = [...new Set([defaultCurrency(locale), ...COMMON_CURRENCIES])].filter((code) =>
-    isKnownCurrency(code),
-  );
-  const others = all.filter((code) => !common.includes(code)).sort();
-  return { common, others };
+export function orderedCurrencies(
+  locale?: string,
+  include?: string,
+): { common: string[]; others: string[] } {
+  const key = locale ?? '';
+  let lists = ordered.get(key);
+  if (!lists) {
+    const common = [...new Set([defaultCurrency(locale), ...COMMON_CURRENCIES])].filter((code) =>
+      isKnownCurrency(code),
+    );
+    const others = knownCurrencies()
+      .filter((code) => !common.includes(code))
+      .sort();
+    lists = { common, others };
+    ordered.set(key, lists);
+  }
+  if (include && !lists.common.includes(include) && !lists.others.includes(include)) {
+    return { common: [...lists.common, include], others: lists.others };
+  }
+  return lists;
 }

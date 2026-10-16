@@ -26,6 +26,7 @@ import type { FormDefaults } from '@/lib/formDefaults';
 import { defaultCurrency, numberSeparators, orderedCurrencies } from '@/lib/locale';
 import type { Application } from '@/lib/types';
 import { DuplicateWarning } from './DuplicateWarning';
+import { useStickyBar } from './Toast';
 import type { CapturePrefill } from './useCaptureDraft';
 
 interface Props {
@@ -43,22 +44,9 @@ interface Props {
 
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
 
-/** Order of the fields on screen; the first invalid one gets focus. */
-const FIELD_ORDER: InputField[] = [
-  'url',
-  'company',
-  'appliedAt',
-  'location',
-  'workMode',
-  'salaryMin',
-  'salaryMax',
-  'salaryCurrency',
-  'salaryPeriod',
-  'source',
-  'notes',
-];
-
-/** Fields under More details (spec §4.2). */
+/** Fields above More details, in screen order (title has no validation of its own). */
+const MAIN_FIELDS: InputField[] = ['url', 'company', 'appliedAt'];
+/** Fields under More details (spec §4.2), in screen order. */
 const DETAIL_FIELDS: InputField[] = [
   'location',
   'workMode',
@@ -69,15 +57,13 @@ const DETAIL_FIELDS: InputField[] = [
   'source',
   'notes',
 ];
-/** Detail fields whose value means something was entered (currency and period always have one). */
-const DETAIL_VALUE_FIELDS = [
-  'location',
-  'workMode',
-  'salaryMin',
-  'salaryMax',
-  'source',
-  'notes',
-] as const;
+/** Screen order; the first invalid field gets focus. */
+const FIELD_ORDER: InputField[] = [...MAIN_FIELDS, ...DETAIL_FIELDS];
+/** Detail fields whose value means something was entered: currency and period always have one. */
+const DETAIL_VALUE_FIELDS = DETAIL_FIELDS.filter(
+  (field): field is Exclude<InputField, 'salaryCurrency' | 'salaryPeriod'> =>
+    field !== 'salaryCurrency' && field !== 'salaryPeriod',
+);
 
 const input =
   'w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
@@ -122,7 +108,8 @@ export function ApplicationForm({
           company: '',
           title: draft?.title ?? '',
           location: '',
-          // Remembered defaults are for a manual Add only; a capture fills just what it captured.
+          // Remembered defaults are for a manual Add only (this form owns that rule); a capture
+          // fills just what it captured.
           workMode: (!draft && defaults?.workMode) || '',
           appliedAt: todayLocal(),
           salaryMin: '',
@@ -155,7 +142,11 @@ export function ApplicationForm({
     fieldRefs.current[pendingFocus.current]?.focus();
     pendingFocus.current = null;
   }, [errors, isSaving]);
-  const currencies = useMemo(() => orderedCurrencies(), []);
+  // Includes a stored currency the runtime doesn't know, so Edit never silently swaps it.
+  const storedCurrency = application?.salaryCurrency;
+  const currencies = useMemo(() => orderedCurrencies(undefined, storedCurrency), [storedCurrency]);
+  const stickyBar = useRef<HTMLDivElement>(null);
+  useStickyBar(stickyBar);
 
   // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
   // A layout effect, so focus moves in the same commit that shows the form.
@@ -207,7 +198,8 @@ export function ApplicationForm({
         setErrors(error.fields);
         // The first invalid field, in screen order (also for errors only storage can catch).
         const first = FIELD_ORDER.find((field) => error.fields[field]);
-        if (first && DETAIL_FIELDS.includes(first)) setDetailsOpen(true);
+        // Any error inside More details opens it, even when the first error is above it.
+        if (DETAIL_FIELDS.some((field) => error.fields[field])) setDetailsOpen(true);
         pendingFocus.current = first ?? null;
         return;
       }
@@ -472,7 +464,10 @@ export function ApplicationForm({
         </p>
       )}
       {/* Sticky: Save is always reachable without scrolling (spec §4.2, §10). */}
-      <div className="sticky bottom-0 -mx-4 flex gap-2 border-t border-slate-200 bg-white px-4 py-3">
+      <div
+        ref={stickyBar}
+        className="sticky bottom-0 -mx-4 flex gap-2 border-t border-slate-200 bg-white px-4 py-3"
+      >
         <button
           type="submit"
           aria-disabled={isSaving || undefined}

@@ -72,6 +72,27 @@ describe('More details', () => {
     expect(isHidden('Minimum')).toBe(false);
   });
 
+  it('opens for an error inside even when an earlier field fails too', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(detailsToggle());
+    await user.type(screen.getByLabelText('Minimum'), 'lots');
+    await user.click(detailsToggle());
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByLabelText('Job posting URL')).toHaveFocus());
+    expect(detailsToggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('Minimum')).toHaveAccessibleDescription(/Enter a number/);
+  });
+
+  it('publishes the sticky bar height so the toast and focus scrolling keep clear', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--sticky-bar-height')).toMatch(/^\d+px$/);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(root.style.getPropertyValue('--sticky-bar-height')).toBe('');
+  });
+
   it('stays collapsed when only a top field fails', async () => {
     const user = userEvent.setup();
     await openAdd(user);
@@ -108,6 +129,30 @@ describe('More details', () => {
 });
 
 describe('Currency picker', () => {
+  it('keeps a stored currency the runtime does not know, and flags it on save', async () => {
+    await db.applications.add({
+      id: 'legacy',
+      url: 'https://acme.com/1',
+      urlNormalized: '',
+      company: 'Legacy',
+      status: 'applied',
+      statusHistory: [],
+      appliedAt: '2026-10-01',
+      salaryMin: 100,
+      salaryCurrency: 'XYZ',
+      salaryPeriod: 'year',
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Legacy/ }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText('Currency')).toHaveValue('XYZ');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByLabelText('Currency')).toHaveAccessibleDescription(/Choose a currency/);
+  });
+
   it('lists the locale default and USD, EUR, GBP first', async () => {
     const user = userEvent.setup();
     await openAdd(user);
@@ -187,6 +232,40 @@ describe('Remembered defaults', () => {
     await addOne(user, { company: 'beta' });
     await user.click(screen.getByRole('button', { name: '+ Add application' }));
     expect(screen.getByLabelText(/Source/)).toHaveValue('');
+  });
+
+  it("don't hold up a capture's form while they load", async () => {
+    vi.spyOn(fakeBrowser.storage.local, 'get').mockImplementation(
+      (() => new Promise(() => {})) as never,
+    );
+    await fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('page', {
+        url: 'https://jobs.example.test/1',
+        title: 'Engineer',
+      }),
+    });
+    render(<App />);
+    await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
+  });
+
+  it("aren't wiped by saving a capture that had no source or work mode", async () => {
+    await fakeBrowser.storage.local.set({
+      [FORM_DEFAULTS_KEY]: { source: 'LinkedIn', workMode: 'remote' },
+    });
+    await fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('page', {
+        url: 'https://jobs.example.test/1',
+        title: 'Engineer',
+      }),
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
+    await user.type(screen.getByLabelText('Company'), 'Captured Co{Enter}');
+    await screen.findByRole('button', { name: /^Captured Co/ });
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    expect(screen.getByLabelText(/Source/)).toHaveValue('LinkedIn');
+    expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
   });
 
   it("don't apply to a capture", async () => {

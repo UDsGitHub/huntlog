@@ -41,3 +41,8 @@ describe('orderedCurrencies', () => {
     expect(new Set([...common, ...others])).toEqual(new Set(knownCurrencies()));
   });
 });
+
+it('keeps a stored currency the runtime does not know', () => {
+  expect(orderedCurrencies('en-US', 'XYZ').common).toEqual(['USD', 'EUR', 'GBP', 'XYZ']);
+  expect(orderedCurrencies('en-US', 'EUR').common).toEqual(['USD', 'EUR', 'GBP']);
+});

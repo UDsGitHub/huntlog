@@ -70,29 +70,26 @@ test('More details opens on a hidden error and the toast clears the sticky bar',
   await expect(page.getByLabel('Minimum')).toBeVisible();
 });
 
-test('remembered source and work mode survive a panel reload', async ({ session }) => {
+test('a focused field is never hidden behind the sticky bar', async ({ session }) => {
   const page = await session.context.newPage();
+  const save = page.getByRole('button', { name: 'Save' });
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: '+ Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('button', { name: 'More details' }).click();
-  await page.getByLabel(/Source/).fill('Referral');
-  await page.getByLabel(/Work mode/).selectOption('remote');
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('button', { name: /^Acme/ })).toBeVisible();
-  // The defaults are written just after the save; wait for them before reloading.
-  await expect
-    .poll(() =>
-      session.serviceWorker.evaluate(
-        async () => (await chrome.storage.local.get('formDefaults')).formDefaults,
-      ),
-    )
-    .toEqual({ source: 'Referral', workMode: 'remote' });
+  await page.getByLabel(/Location/).fill('x'.repeat(201));
+  await page.getByLabel(/Notes/).fill('A long note.\n'.repeat(30));
 
-  await page.reload();
-  await page.getByRole('button', { name: '+ Add application' }).click();
-  await expect(page.getByText('Remote · Referral')).toBeVisible();
-  await page.getByRole('button', { name: 'More details' }).click();
-  await expect(page.getByLabel(/Source/)).toHaveValue('Referral');
+  // Every panel height from short to tall: the invalid field must land above the bar.
+  for (let height = 380; height <= 700; height += 40) {
+    await page.setViewportSize({ width: 320, height });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await save.click();
+    const location = page.getByLabel(/Location/);
+    await expect(location).toBeFocused();
+    const field = (await location.boundingBox())!;
+    const bar = (await save.locator('..').boundingBox())!;
+    expect(field.y + field.height, `panel height ${height}`).toBeLessThanOrEqual(bar.y);
+  }
 });

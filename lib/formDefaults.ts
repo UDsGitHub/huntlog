@@ -35,18 +35,29 @@ export async function readFormDefaults(): Promise<FormDefaults> {
   }
 }
 
+let writes: Promise<unknown> = Promise.resolve();
+
 /**
- * Remembers a newly saved application's source and work mode. A blank one is remembered as
- * blank: the defaults are "what the last application had". Never throws.
+ * Remembers a newly saved application's source and work mode (never an edit's). After a manual
+ * Add they're remembered exactly, blanks included: the defaults are "what the last one had".
+ * After a capture only the values it has replace the old ones, since a capture's blanks mean
+ * "not captured", not "none". Writes run in order, so overlapping saves can't swap them.
+ * Never throws.
  */
-export async function rememberFormDefaults(
+export function rememberFormDefaults(
   application: Pick<Application, 'source' | 'workMode'>,
+  { captured = false }: { captured?: boolean } = {},
 ): Promise<FormDefaults> {
-  const defaults = parseFormDefaults(application);
-  try {
-    await browser.storage.local.set({ [FORM_DEFAULTS_KEY]: defaults });
-  } catch (error) {
-    console.error('Saving form defaults failed', error);
-  }
-  return defaults;
+  const write = writes.then(async () => {
+    const next = parseFormDefaults(application);
+    const defaults = captured ? { ...(await readFormDefaults()), ...next } : next;
+    try {
+      await browser.storage.local.set({ [FORM_DEFAULTS_KEY]: defaults });
+    } catch (error) {
+      console.error('Saving form defaults failed', error);
+    }
+    return defaults;
+  });
+  writes = write;
+  return write;
 }

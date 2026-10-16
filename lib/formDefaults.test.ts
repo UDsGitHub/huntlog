@@ -48,6 +48,23 @@ describe('reading and remembering', () => {
     });
   });
 
+  it('after a capture, keeps old defaults where the capture had nothing', async () => {
+    await rememberFormDefaults({ source: 'LinkedIn', workMode: 'remote' });
+    expect(await rememberFormDefaults({}, { captured: true })).toEqual({
+      source: 'LinkedIn',
+      workMode: 'remote',
+    });
+    await rememberFormDefaults({ workMode: 'onsite' }, { captured: true });
+    expect(await readFormDefaults()).toEqual({ source: 'LinkedIn', workMode: 'onsite' });
+  });
+
+  it('applies overlapping writes in the order they were made', async () => {
+    const first = rememberFormDefaults({ source: 'First' });
+    const second = rememberFormDefaults({ source: 'Second' });
+    await Promise.all([first, second]);
+    expect(await readFormDefaults()).toEqual({ source: 'Second' });
+  });
+
   it('ignores a malformed stored value', async () => {
     await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'moon' } });
     expect(await readFormDefaults()).toEqual({});

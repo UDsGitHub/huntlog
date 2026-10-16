@@ -171,15 +171,19 @@ export default function App() {
             Add application
           </h2>
           {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
-          {formDefaults && (
+          {/* A manual Add waits for the remembered defaults (read once, on mount); a capture
+              doesn't use them, so it never waits. */}
+          {(prefill || formDefaults) && (
             <ApplicationForm
               key={`${formSession}-${prefill?.nonce ?? 0}`}
               prefill={prefill}
-              defaults={prefill ? undefined : formDefaults}
+              defaults={formDefaults}
               onSaved={(application) => {
                 announce(`Saved ${application.company}.`);
                 // Every new application, manual or captured, sets the next manual Add's defaults.
-                void rememberFormDefaults(application).then(setFormDefaults);
+                void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
+                  setFormDefaults,
+                );
                 if (!isCurrent(view)) return;
                 consume();
                 toList({ kind: 'add' });
@@ -225,12 +229,7 @@ export default function App() {
           </ErrorBoundary>
         </section>
       )}
-      {/* Above the forms' sticky Save bar, so the two never overlap. */}
-      <Toast
-        toast={toast}
-        onDismiss={handleToastDismiss}
-        raised={view.name === 'add' || view.name === 'edit'}
-      />
+      <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>
   );
 }
