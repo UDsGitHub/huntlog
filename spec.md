@@ -40,13 +40,15 @@ A Chrome extension that helps job seekers log every application they send, remem
 
 | Surface                     | Purpose                                                                                             |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. Bottom or top tab bar. |
+| **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. A tab bar at the top; hidden while the Add/Edit form is open. |
 | **Context menu**            | "Add job to Job Log" on any page (reads the page), and "Add linked job to Job Log" on links (captures only the link URL). |
 | **Keyboard shortcut**       | `Alt+Shift+J` (user-configurable) works the same as the page context-menu item.                     |
 | **Toolbar icon**            | Opens the side panel (`openPanelOnActionClick`).                                                    |
 
 
 The side panel is roughly 320–400 px wide, so every screen is designed mobile-first for that width.
+
+**Tab bar:** at the top of the panel, with Applications and Resumes (Stats and Settings join with M5 and M6). It's at the top because the form's sticky Save bar sits at the bottom, and it's hidden while the Add/Edit form is open. Each tab keeps its state while another is shown; a capture always switches to Applications, where its form opens. Arrow keys, Home and End move between tabs.
 
 ## 4. Core flows
 

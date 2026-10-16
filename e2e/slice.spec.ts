@@ -40,6 +40,8 @@ test('works with the keyboard alone', async ({ session }) => {
   await page.goto(panelUrl(session.extensionId));
 
   await page.keyboard.press('Tab');
+  await expect(page.getByRole('tab', { name: 'Applications' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: '+ Add application' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByLabel('Job posting URL')).toBeFocused();
