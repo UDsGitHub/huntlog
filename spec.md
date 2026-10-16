@@ -90,7 +90,8 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 - The list is sorted by last activity, newest first, and can also be sorted by date applied or company.
 - **Status filter:** All / Active (Saved, Applied, Screening, Interviewing, Offer) / Closed (Accepted, Rejected, Withdrawn, Ghosted) / any single status.
-- **Search:** matches company, title, location, and notes.
+- **Search:** matches company, title, location, and notes, ignoring case and accents; every word typed must appear (in any of those fields). Characters such as `C++` or `.NET` match literally.
+- Search, filter and sort are kept while the user opens an application and comes back. While the list is on screen, a row whose status changes keeps its place and stays visible, even if it no longer matches the status filter, so it never jumps or vanishes from under the pointer. Order and membership refresh when the search, filter or sort changes or the list is shown again; new applications appear at the top, newest first.
 - **Row content:** company, title, status chip, date applied, resume name, and a link icon that opens the posting.
 
 

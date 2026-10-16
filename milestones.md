@@ -38,7 +38,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - `lib/normalizeUrl.ts` and the duplicate check on save, with "View existing" / "Save anyway" (§4.5). Add the `urlNormalized` and `[company+title]` indexes in a Dexie v2 migration.
 - **Tests:** a `normalizeUrl` table test (tracking params stripped, job-ID params kept), duplicate detection, and that soft-deleted rows stay out of every query.
 
-## M3 — Status pipeline
+## M3 — Status pipeline ✅ (v0.3.0)
 **Slice:** Tap a row's status chip → pick "Interviewing" → the list updates, the timeline records the date, and Undo reverts it.
 **Also:** Open + Add application → only the top fields show, with Save visible → open More details, enter a salary → save. Move a Saved job to Interviewing → asked for the date applied.
 

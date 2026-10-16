@@ -52,6 +52,8 @@ Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside
 
 **Form layout (spec §4.2):** top fields, then a collapsed **More details** section that is `hidden`, not unmounted, so values and refs survive. It opens on its own for an error inside (then the field is focused), a captured value inside, or a stored value in Edit. Save/Cancel sit in a sticky bottom bar; the toast is raised above it while a form shows. Remembered source and work mode (`lib/formDefaults.ts`, `chrome.storage.local`) are written after every new application and read only by a manual Add; `App` waits for them before rendering the Add form, which reads defaults once. In component tests, user-event can type into hidden fields under happy-dom, so assert visibility explicitly; Playwright catches it for real.
 
+**List (spec §4.4):** `lib/listQuery.ts` filters, searches (accent- and case-insensitive, every word) and sorts, pure. The query lives in `App` so it survives navigation. `ApplicationList` freezes row order and membership per query while it's mounted (`frozen`: ranks plus the ids shown, refreshed when the query changes or on remount), so a status change can't move or hide a row from under the pointer. `listApplications` alone filters soft-deleted rows; `queryApplications` takes its output.
+
 **UI constraint:** every screen lives in a ~320–400px side panel. Design for that width; changing status is a one-tap chip with Undo, not a Kanban board.
 
 ## Definition of done
