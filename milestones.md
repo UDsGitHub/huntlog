@@ -15,7 +15,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - **Tests:** a db unit test using `fake-indexeddb`. A Playwright smoke test loads the built extension, opens the side panel page, adds a job and sees it listed.
 - **Done when:** `npm run dev` / `build` / `zip` work, CI runs lint, typecheck, unit and e2e, and the commands in CLAUDE.md are updated to match reality.
 
-## M1 — Capture plumbing (de-risk)
+## M1 — Capture plumbing (de-risk) ✅ (v0.1.0)
 **Slice:** Right-click a job page → "Add job to Job Log" → the side panel opens with the URL and page title prefilled → Save.
 
 - Add the `contextMenus`, `activeTab` and `scripting` permissions.

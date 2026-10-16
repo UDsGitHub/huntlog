@@ -20,6 +20,7 @@ export interface Application {
   id: string;
   url: string;
   company: string;
+  title?: string;
   status: Status;
   statusHistory: StatusHistoryEntry[]; // append-only
   appliedAt?: string; // YYYY-MM-DD, local date

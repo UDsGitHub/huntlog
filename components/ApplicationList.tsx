@@ -14,6 +14,7 @@ export function ApplicationList() {
       {applications.map((app) => (
         <li key={app.id} className="flex min-w-0 flex-col gap-0.5 py-2">
           <span className="text-sm font-medium break-words">{app.company}</span>
+          {app.title && <span className="text-sm break-words text-slate-700">{app.title}</span>}
           {safeHref(app.url) ? (
             <a
               href={safeHref(app.url)}
