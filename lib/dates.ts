@@ -33,3 +33,21 @@ export function checkPastLocalDate(
   if (value > todayLocal(now)) return futureMessage;
   return undefined;
 }
+
+/**
+ * A stored local date (YYYY-MM-DD) for display in the user's locale, e.g. "Oct 1, 2026" in
+ * en-US or "1 Oct 2026" in en-GB. Built from local parts, so it never shifts a day. Anything
+ * that isn't a valid date (old or imported data) is shown as stored.
+ */
+export function formatLocalDate(value: string, locale?: string): string {
+  if (!isValidLocalDate(value)) return value;
+  const [y, m, d] = value.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(y, m - 1, d));
+}
+
+/** An ISO timestamp's local calendar date, formatted like formatLocalDate. */
+export function formatTimestampDate(iso: string, locale?: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
+}
