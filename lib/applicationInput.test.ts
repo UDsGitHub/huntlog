@@ -80,7 +80,56 @@ describe('parseSalary', () => {
   );
 });
 
+describe("parseSalary in the user's locale", () => {
+  it.each([
+    ['en-US', '85,000', 85000],
+    ['en-US', '85000.5', 85000.5],
+    ['en-US', '1,234,567.89', 1234567.89],
+    ['de-DE', '85.000', 85000],
+    ['de-DE', '85.000,50', 85000.5],
+    ['de-DE', '1,5', 1.5],
+    ['de-DE', '85 000', 85000],
+    ['fr-FR', '85 000', 85000],
+    ['fr-FR', '85\u202f000', 85000],
+    ['fr-FR', '12,5', 12.5],
+    ['de-CH', '85’000', 85000],
+    ['en-IN', '8,50,000', 850000],
+    ['en-IN', '12,34,567', 1234567],
+    ['en-IN', '850000', 850000],
+  ])('%s: %j → %d', (locale, input, expected) => {
+    expect(parseSalary(input, locale)).toBe(expected);
+  });
+
+  // A separator followed by exactly 3 digits is never read as decimals: ambiguous input is
+  // rejected rather than silently stored as 85.
+  it.each([
+    ['en-US', '85.000'],
+    ['en-US', '1,5'],
+    ['en-US', '85,00'],
+    ['de-DE', '85,000'],
+    ['de-DE', '85.5'],
+    ['en-US', '8,50,000'],
+    ['en-US', '1,23,45'],
+    ['en-US', '85,000.123'],
+  ])('%s: rejects ambiguous %j', (locale, input) => {
+    expect(parseSalary(input, locale)).toBeNaN();
+  });
+
+  it('shows the example in the locale format', () => {
+    expect(
+      validateApplication({ ...base, salaryMin: '85,000' }, now, 'de-DE').errors.salaryMin,
+    ).toBe('Enter a number, like 85.000.');
+  });
+});
+
 describe('validateApplication', () => {
+  it('counts characters, not UTF-16 units, against length caps', () => {
+    const emoji = '🚀'.repeat(MAX_LOCATION_LENGTH);
+    expect(emoji.length).toBe(MAX_LOCATION_LENGTH * 2);
+    expect(errorsOf({ location: emoji })).toEqual({});
+    expect(errorsOf({ location: `${emoji}x` })).toHaveProperty('location');
+  });
+
   it('accepts the minimum and defaults Date applied to today (local)', () => {
     expect(valuesOf({})).toEqual({
       url: 'https://acme.com/jobs/1',

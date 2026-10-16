@@ -1,10 +1,20 @@
 import { sanitizeTitle } from './captureDraft';
 import { todayLocal } from './dates';
-import { defaultCurrency, knownCurrencies } from './locale';
+import { defaultCurrency, isKnownCurrency, numberSeparators } from './locale';
 import type { SalaryPeriod, WorkMode } from './types';
 
-export const WORK_MODES: readonly WorkMode[] = ['remote', 'hybrid', 'onsite'];
-export const SALARY_PERIODS: readonly SalaryPeriod[] = ['year', 'month', 'hour'];
+export const WORK_MODE_LABELS: Record<WorkMode, string> = {
+  remote: 'Remote',
+  hybrid: 'Hybrid',
+  onsite: 'On-site',
+};
+export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = {
+  year: 'Year',
+  month: 'Month',
+  hour: 'Hour',
+};
+export const WORK_MODES = Object.keys(WORK_MODE_LABELS) as WorkMode[];
+export const SALARY_PERIODS = Object.keys(SALARY_PERIOD_LABELS) as SalaryPeriod[];
 export const SOURCE_SUGGESTIONS = [
   'LinkedIn',
   'Indeed',
@@ -72,13 +82,30 @@ export function normalizeInputUrl(raw: string): string | null {
   return parsed.href;
 }
 
-/** Accepts `120000`, `120,000`, `120 000` and decimals. Returns NaN for anything else. */
-export function parseSalary(raw: string | number | undefined): number | undefined {
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Parses a salary typed in the user's locale: `85,000` (en), `85.000` (de), `85 000` (fr) and
+ * plain `85000`, with up to 2 decimals. A separator followed by exactly 3 digits is grouping,
+ * never decimals, so `85.000` can't silently become 85 in any locale: where the input is
+ * ambiguous it's rejected (NaN) instead. Returns undefined for blank input.
+ */
+export function parseSalary(raw: string | number | undefined, locale?: string): number | undefined {
   if (raw === undefined) return undefined;
-  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
-  const compact = raw.replace(/[\s,\u00a0\u202f]/g, '');
-  if (!compact) return undefined;
-  return /^\d+(\.\d+)?$/.test(compact) ? Number(compact) : NaN;
+  if (typeof raw === 'number') return Number.isFinite(raw) && raw >= 0 ? raw : NaN;
+  const text = raw.replace(/[\s\u00a0\u202f]+/g, ' ').trim();
+  if (!text) return undefined;
+  const { group, decimal, indianGrouping } = numberSeparators(locale);
+  // Spaces always group digits; so does the locale's own separator (a no-break space in fr).
+  const groupClass = `[ ${escapeRegExp(group.replace(/[\u00a0\u202f]/g, ' '))}]`;
+  const groupedWhole = indianGrouping
+    ? `\\d{1,2}(?:${groupClass}\\d{2})*${groupClass}\\d{3}`
+    : `\\d{1,3}(?:${groupClass}\\d{3})+`;
+  const pattern = new RegExp(`^(${groupedWhole}|\\d+)(?:${escapeRegExp(decimal)}(\\d{1,2}))?$`);
+  const match = pattern.exec(text);
+  if (!match) return NaN;
+  const whole = match[1]!.replace(/\D/g, '');
+  return Number(match[2] ? `${whole}.${match[2]}` : whole);
 }
 
 function isValidLocalDate(value: string): boolean {
@@ -96,7 +123,8 @@ function optionalText(
 ): { value?: string; error?: string } {
   const value = raw?.trim();
   if (!value) return {};
-  if (value.length > max)
+  // Count characters (code points), not UTF-16 units, so an emoji counts as one.
+  if (Array.from(value).length > max)
     return { error: `${label} must be ${max.toLocaleString()} characters or fewer.` };
   return { value };
 }
@@ -143,14 +171,15 @@ export function validateApplication(
     }
   }
 
-  const min = parseSalary(input.salaryMin);
-  const max = parseSalary(input.salaryMax);
+  const min = parseSalary(input.salaryMin, locale);
+  const max = parseSalary(input.salaryMax, locale);
+  const example = new Intl.NumberFormat(locale).format(85000);
   for (const [field, value] of [
     ['salaryMin', min],
     ['salaryMax', max],
   ] as const) {
     if (value === undefined) continue;
-    if (Number.isNaN(value) || value < 0) errors[field] = 'Enter a number, like 85,000.';
+    if (Number.isNaN(value)) errors[field] = `Enter a number, like ${example}.`;
     else if (value > MAX_SALARY) errors[field] = 'That number is too large.';
   }
   if (
@@ -165,7 +194,7 @@ export function validateApplication(
   const hasSalary = min !== undefined || max !== undefined;
   if (hasSalary) {
     const currency = (input.salaryCurrency?.trim() || defaultCurrency(locale)).toUpperCase();
-    if (!/^[A-Z]{3}$/.test(currency) || !knownCurrencies().includes(currency)) {
+    if (!/^[A-Z]{3}$/.test(currency) || !isKnownCurrency(currency)) {
       errors.salaryCurrency = 'Choose a currency code, like USD or EUR.';
     }
     const period = input.salaryPeriod || 'year';

@@ -1,12 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { listApplications, safeHref } from '@/lib/applications';
-import type { WorkMode } from '@/lib/types';
-
-const WORK_MODE_LABELS: Record<WorkMode, string> = {
-  remote: 'Remote',
-  hybrid: 'Hybrid',
-  onsite: 'On-site',
-};
+import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 
 export function ApplicationList() {
   const applications = useLiveQuery(() => listApplications(), []);

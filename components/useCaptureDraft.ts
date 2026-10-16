@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { draftKey, isFresh, parseDraft, type CaptureDraft } from '@/lib/captureDraft';
 
 export interface CapturePrefill {
@@ -11,9 +11,11 @@ export interface CapturePrefill {
  * Consumes this window's capture draft from `storage.session` (spec §4.1). The panel can open
  * before the background script writes the draft, so it reads on mount and also on change.
  */
-export function useCaptureDraft(
-  onCapture?: (prefill: CapturePrefill) => void,
-): CapturePrefill | null {
+export function useCaptureDraft(onCapture?: (prefill: CapturePrefill) => void): {
+  prefill: CapturePrefill | null;
+  /** Marks the current capture as used, so it never prefills a later manual Add. */
+  consume: () => void;
+} {
   const [prefill, setPrefill] = useState<CapturePrefill | null>(null);
   // Refs survive effect re-runs (StrictMode, hot reload): the nonce must never repeat, or the
   // keyed form wouldn't remount for the next capture.
@@ -70,5 +72,6 @@ export function useCaptureDraft(
     };
   }, []);
 
-  return prefill;
+  const consume = useCallback(() => setPrefill(null), []);
+  return { prefill, consume };
 }

@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as applicationInput from '@/lib/applicationInput';
 import * as applications from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
 import { db } from '@/lib/db';
@@ -166,6 +167,54 @@ describe('Add view', () => {
     fireEvent.click(save);
     await screen.findByRole('list', { name: 'Applications' });
     expect(await db.applications.count()).toBe(1);
+  });
+
+  it('locks the fields while saving, so nothing typed during the save is lost', async () => {
+    let finish!: () => void;
+    const real = applications.addApplication;
+    vi.spyOn(applications, 'addApplication').mockImplementation(async (input) => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      return real(input);
+    });
+    const user = userEvent.setup();
+    await openAddForm(user);
+    await user.type(field('Job posting URL'), 'https://example.com');
+    await user.type(field('Company'), 'Acme');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(screen.getByRole('form')).toHaveAttribute('aria-busy', 'true');
+    expect(field(/Notes/)).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await act(async () => finish());
+    await screen.findByRole('list', { name: 'Applications' });
+  });
+
+  it('validates once per save, through addApplication', async () => {
+    const spy = vi.spyOn(applicationInput, 'validateApplication');
+    const user = userEvent.setup();
+    await openAddForm(user);
+    await user.type(field('Job posting URL'), 'https://example.com');
+    await user.type(field('Company'), 'Acme{Enter}');
+    await screen.findByRole('list', { name: 'Applications' });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces a second save even when the message repeats', async () => {
+    const user = userEvent.setup();
+    await openAddForm(user);
+    await user.type(field('Job posting URL'), 'https://example.com/1');
+    await user.type(field('Company'), 'Acme{Enter}');
+    await screen.findByRole('list', { name: 'Applications' });
+    const first = screen.getByRole('status').textContent;
+
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.type(field('Job posting URL'), 'https://example.com/2');
+    await user.type(field('Company'), 'Acme{Enter}');
+    await waitFor(() => expect(screen.getByRole('status').textContent).not.toBe(first));
+    expect(screen.getByRole('status')).toHaveTextContent('Saved Acme.');
   });
 
   it('keeps the form and shows an error when saving fails', async () => {

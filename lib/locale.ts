@@ -79,13 +79,45 @@ export function defaultCurrency(locale?: string): string {
   }
 }
 
-/** ISO 4217 codes the runtime knows, for validation and the currency picker. */
+let currencies: string[] | undefined;
+let currencySet: Set<string> | undefined;
+
+/** ISO 4217 codes the runtime knows, for the currency picker. Computed once per session. */
 export function knownCurrencies(): string[] {
+  if (!currencies) {
+    try {
+      currencies = Intl.supportedValuesOf('currency');
+    } catch {
+      currencies = [...new Set(Object.values(REGION_CURRENCY))].sort();
+    }
+  }
+  return currencies;
+}
+
+export function isKnownCurrency(code: string): boolean {
+  currencySet ??= new Set(knownCurrencies());
+  return currencySet.has(code);
+}
+
+/**
+ * The locale's grouping and decimal separators (`.` and `,` for de-DE), and whether it groups
+ * in twos above the thousands, like en-IN's `12,34,567`.
+ */
+export function numberSeparators(locale?: string): {
+  group: string;
+  decimal: string;
+  indianGrouping: boolean;
+} {
   try {
-    return Intl.supportedValuesOf('currency');
+    const format = new Intl.NumberFormat(locale);
+    const parts = format.formatToParts(1234567.5);
+    const integerGroups = parts.filter((p) => p.type === 'integer').map((p) => p.value);
+    return {
+      group: parts.find((p) => p.type === 'group')?.value ?? ',',
+      decimal: parts.find((p) => p.type === 'decimal')?.value ?? '.',
+      indianGrouping: integerGroups.join(',') === '12,34,567',
+    };
   } catch {
-    return Object.values(REGION_CURRENCY)
-      .filter((c, i, all) => all.indexOf(c) === i)
-      .sort();
+    return { group: ',', decimal: '.', indianGrouping: false };
   }
 }

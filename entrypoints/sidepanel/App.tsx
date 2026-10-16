@@ -11,18 +11,26 @@ export default function App() {
   const [view, setView] = useState<View>({ name: 'list' });
   // Each opening of the Add view gets a fresh form.
   const [formSession, setFormSession] = useState(0);
-  // The capture the form last consumed; it mustn't prefill the next manual Add.
-  const [consumedNonce, setConsumedNonce] = useState(0);
-  const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState({ text: '', count: 0 });
   // Bumped when the form closes, so focus returns to the list (spec §10).
   const [returnFocus, setReturnFocus] = useState(0);
   const addButton = useRef<HTMLButtonElement>(null);
 
-  const prefill = useCaptureDraft((capture) => {
+  const { prefill, consume } = useCaptureDraft((capture) => {
     setView({ name: 'add' });
-    setAnnouncement(captureAnnouncement(capture.draft));
+    announce(captureAnnouncement(capture.draft));
   });
-  const activePrefill = prefill && prefill.nonce !== consumedNonce ? prefill : null;
+  const formKey = `${formSession}-${prefill?.nonce ?? 0}`;
+  // A form's save can finish after a newer capture replaced that form; it must not close the
+  // new one. Handlers compare their own key with the form currently on screen.
+  const currentFormKey = useRef(formKey);
+  useEffect(() => {
+    currentFormKey.current = formKey;
+  });
+
+  function announce(text: string) {
+    setAnnouncement(({ count }) => ({ text, count: count + 1 }));
+  }
 
   useEffect(() => {
     if (returnFocus > 0) addButton.current?.focus();
@@ -33,8 +41,9 @@ export default function App() {
     setView({ name: 'add' });
   }
 
-  function closeForm() {
-    setConsumedNonce(prefill?.nonce ?? 0);
+  function closeForm(key: string) {
+    if (key !== currentFormKey.current) return;
+    consume();
     setView({ name: 'list' });
     setReturnFocus((n) => n + 1);
   }
@@ -44,7 +53,9 @@ export default function App() {
       <h1 className="text-lg font-semibold">Job Log</h1>
       {/* One live region for the whole panel, mounted before anything is announced. */}
       <p role="status" className="sr-only">
-        {announcement}
+        {/* A zero-width space alternates so a repeated message still changes the region. */}
+        {announcement.text}
+        {announcement.count % 2 ? '\u200b' : ''}
       </p>
       {view.name === 'add' ? (
         <section aria-labelledby="add-heading" className="flex flex-col gap-3">
@@ -53,13 +64,13 @@ export default function App() {
           </h2>
           {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
           <ApplicationForm
-            key={`${formSession}-${activePrefill?.nonce ?? 0}`}
-            prefill={activePrefill}
+            key={formKey}
+            prefill={prefill}
             onSaved={(application) => {
-              setAnnouncement(`Saved ${application.company}.`);
-              closeForm();
+              announce(`Saved ${application.company}.`);
+              closeForm(formKey);
             }}
-            onCancel={closeForm}
+            onCancel={() => closeForm(formKey)}
           />
         </section>
       ) : (

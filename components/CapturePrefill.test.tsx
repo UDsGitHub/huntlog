@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { Browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { createDraft, draftKey, DRAFT_MAX_AGE_MS, type CaptureDraft } from '@/lib/captureDraft';
+import * as applications from '@/lib/applications';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 
@@ -273,6 +274,31 @@ describe('capture prefill', () => {
 
     expect(await screen.findByRole('heading', { name: 'Add application' })).toBeInTheDocument();
     await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+  });
+
+  it('a save that finishes after a new capture does not close the new form', async () => {
+    let finish!: () => void;
+    const real = applications.addApplication;
+    vi.spyOn(applications, 'addApplication').mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      return real(input);
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.type(fields().url, 'https://first.example/1');
+    await user.type(fields().company, 'First{Enter}');
+
+    await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+    await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+    await act(async () => finish());
+
+    await waitFor(async () => expect(await db.applications.count()).toBe(1));
+    expect(screen.getByRole('heading', { name: 'Add application' })).toBeInTheDocument();
+    expect(fields().title).toHaveValue('Senior Engineer at Acme');
+    expect(screen.getByRole('status')).toHaveTextContent('Saved First.');
   });
 
   it('Cancel after a capture returns to the list and drops the capture', async () => {
