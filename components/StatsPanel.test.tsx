@@ -4,6 +4,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 import * as applications from '@/lib/applications';
 import { addApplication, setStatus, softDeleteApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
+import { updateSettings } from '@/lib/settings';
 import App from '@/entrypoints/sidepanel/App';
 
 // Friday, Oct 16 2026, in en-US: the week runs Sunday Oct 11 to Saturday Oct 17.
@@ -184,6 +185,38 @@ describe('Stats tab', () => {
     expect(await within(panel).findByRole('alert')).toHaveTextContent("Couldn't load your stats");
     // The rest of the panel still works.
     expect(screen.getByRole('tab', { name: 'Resumes' })).toBeInTheDocument();
+  });
+
+  it('starts the week on the day picked in Settings', async () => {
+    await updateSettings({ weekStartsOn: 1 });
+    await applied('2026-10-11'); // Sunday: last week when weeks start on Monday
+    await applied('2026-10-12'); // Monday
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    expect(panel).toHaveTextContent('Oct 12, 2026 – Oct 18, 2026');
+    expect(card(panel, 'Applied')).toHaveTextContent('1');
+  });
+
+  it('re-counts this week when the first day changes in another window', async () => {
+    await applied('2026-10-11'); // Sunday
+    await applied('2026-10-12'); // Monday
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    // en-US starts on Sunday.
+    expect(panel).toHaveTextContent('Oct 11, 2026 – Oct 17, 2026');
+    expect(card(panel, 'Applied')).toHaveTextContent('2');
+
+    await act(() => updateSettings({ weekStartsOn: 6 }));
+    expect(panel).toHaveTextContent('Oct 10, 2026 – Oct 16, 2026');
+    expect(card(panel, 'Applied')).toHaveTextContent('2');
+
+    await act(() => updateSettings({ weekStartsOn: 1 }));
+    expect(panel).toHaveTextContent('Oct 12, 2026 – Oct 18, 2026');
+    expect(card(panel, 'Applied')).toHaveTextContent('1');
+
+    // Back to following the locale.
+    await act(() => updateSettings({ weekStartsOn: undefined }));
+    expect(panel).toHaveTextContent('Oct 11, 2026 – Oct 17, 2026');
   });
 
   it('updates live when an application is added', async () => {
