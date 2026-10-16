@@ -95,7 +95,8 @@ export function applyStatusChange(
 export function firstEnteredAt(app: Pick<Application, 'statusHistory'>, status: Status) {
   let first: string | undefined;
   for (const entry of app.statusHistory ?? []) {
-    if (entry.status !== status) continue;
+    // An unreadable timestamp (old or imported data) never wins: NaN compares false to anything.
+    if (entry.status !== status || Number.isNaN(Date.parse(entry.at))) continue;
     if (first === undefined || Date.parse(entry.at) < Date.parse(first)) first = entry.at;
   }
   return first;

@@ -124,14 +124,18 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 This is a side-panel tab.
 
 - **Range picker:** This week (default), Last 7 days, This month, Last 30 days, This year, All time, Custom.
+  - This week, This month and This year are whole calendar periods, so the chart shows the days still ahead. Last 7 and Last 30 days end today. All time runs from the first date logged (a Date applied or a status entry) to today. Custom is a From and To date, both included, from 1970 up to today.
+  - Every count uses local calendar dates: a status entry counts on the local day of its timestamp.
 - **Headline cards:**
   - **Applied:** applications whose `appliedAt` falls in the range.
-  - **Interviews:** applications that first entered Interviewing during the range.
-  - **Offers:** applications that first entered Offer during the range.
+  - **Interviews:** applications that first entered Interviewing during the range. A job moved straight to Offer or Accepted had interviews too, so the interview stage starts at the first of Interviewing, Offer or Accepted; this keeps Interviews and the interview rate in agreement.
+  - **Offers:** applications that first entered Offer during the range, or Accepted if they skipped Offer.
   - **Response rate:** of the applications applied in the range, the percentage that moved past Applied to Screening, Interviewing, Offer, Accepted, or Rejected.
-  - **Interview rate:** of the applications applied in the range, the percentage that reached Interviewing.
+  - **Interview rate:** of the applications applied in the range, the percentage that reached Interviewing, or Offer or Accepted (which only come after interviews).
+  - Both rates count a stage reached at any time, even after the range ends, so a recent range isn't stuck at 0%. Ghosted and Withdrawn aren't responses. With nothing applied in the range, a rate shows "—" rather than 0%, and each rate shows its counts ("4 of 12").
+  - A job without a Date applied (the user pressed Skip) isn't counted in Applied or the rates, but its interviews and offers still count.
 - **Outcomes breakdown:** a stacked bar of how applications in the range currently stand, with Rejected as one segment. It is labeled neutrally ("Closed – not selected") and never shown as a headline number.
-- **Activity chart:** applications per day (week or month range) or per week (year or all-time range).
+- **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, longer ones per week, with weeks starting on the user's first day of the week.
 - **Weekly goal (optional):** the user sets N per week in Settings. A progress ring shows this week's count against N. Weeks start on the locale's first day of the week, which can be overridden in Settings.
 - **Tone:** copy stays factual and encouraging. Rejections are never highlighted in red.
 

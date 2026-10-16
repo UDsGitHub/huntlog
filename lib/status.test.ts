@@ -160,4 +160,14 @@ describe('firstEnteredAt', () => {
     expect(firstEnteredAt(app(), 'offer')).toBeUndefined();
     expect(firstEnteredAt({ statusHistory: [] }, 'applied')).toBeUndefined();
   });
+
+  it('skips an unreadable timestamp, so a readable later entry still counts', () => {
+    const history = [
+      { status: 'interviewing' as const, at: 'garbage' },
+      { status: 'interviewing' as const, at: '2026-10-05T12:00:00.000Z' },
+    ];
+    expect(firstEnteredAt({ statusHistory: history }, 'interviewing')).toBe(
+      '2026-10-05T12:00:00.000Z',
+    );
+  });
 });
