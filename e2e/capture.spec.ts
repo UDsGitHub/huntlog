@@ -1,6 +1,12 @@
 import type { Page } from '@playwright/test';
 import { createDraft, draftKey, type CaptureDraft } from '../lib/captureDraft';
-import { expect, test, type ExtensionSession } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  type ExtensionSession,
+  panelUrl,
+  test,
+} from './fixtures';
 
 // The service worker and extension pages have the raw `chrome` global; borrow WXT's typings.
 declare const chrome: typeof browser;
@@ -11,8 +17,6 @@ declare const chrome: typeof browser;
 // for the gesture handlers and e2e/page-access.spec.ts for the real page read).
 const JOB_URL = 'https://jobs.example.test/posting/1';
 const HINT = 'Auto-filled, please check';
-
-const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
 
 async function openPanel(session: ExtensionSession, width = 360) {
   const panel = await session.context.newPage();
@@ -136,9 +140,5 @@ test('the prefilled form fits a 320px panel with no horizontal scroll', async ({
   );
   await expect(panel.getByText(HINT)).toHaveCount(2);
 
-  const { scrollWidth, clientWidth } = await panel.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  await expectNoHorizontalScroll(panel);
 });

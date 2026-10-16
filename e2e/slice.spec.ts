@@ -1,7 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, launchExtension, test } from './fixtures';
-
-const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
+import { expect, expectNoHorizontalScroll, launchExtension, panelUrl, test } from './fixtures';
 
 async function addJob(page: Page, url: string, company: string) {
   await page.getByRole('button', { name: '+ Add application' }).click();
@@ -56,14 +54,6 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
 
-  const noHorizontalScroll = async () => {
-    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }));
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
-  };
-
   // The full form with every validation error showing.
   await page.getByRole('button', { name: '+ Add application' }).click();
   await page.getByRole('button', { name: 'More details' }).click();
@@ -72,7 +62,7 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByLabel('Date applied').fill('');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Enter the date you applied.')).toBeVisible();
-  await noHorizontalScroll();
+  await expectNoHorizontalScroll(page);
   await page.getByRole('button', { name: 'Cancel' }).click();
 
   // A row with very long values.
@@ -83,5 +73,5 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByLabel(/Location/).fill(`Somewhere${'Y'.repeat(150)}`);
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();
-  await noHorizontalScroll();
+  await expectNoHorizontalScroll(page);
 });

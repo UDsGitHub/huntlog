@@ -105,7 +105,10 @@ export function StatusChip({ application, onPick, align = 'end' }: Props) {
         event.preventDefault();
         return close({ focusChip: true });
       case 'Tab':
-        return close({ focusChip: false });
+        // Close and land on the chip, rather than letting the browser move focus from an item
+        // that's about to be removed.
+        event.preventDefault();
+        return close({ focusChip: true });
     }
   }
 
@@ -181,7 +184,7 @@ export function StatusChip({ application, onPick, align = 'end' }: Props) {
             close({ focusChip: true });
             onPick({ status: step.asking, ...(appliedAt && { appliedAt }) });
           }}
-          onCancel={() => close({ focusChip: true })}
+          onCancel={({ focusChip }) => close({ focusChip })}
         />
       )}
     </div>
@@ -198,7 +201,7 @@ function AppliedAtPrompt({
   id: string;
   status: Status;
   onDone: (appliedAt?: string) => void;
-  onCancel: () => void;
+  onCancel: (options: { focusChip: boolean }) => void;
 }) {
   const [date, setDate] = useState(() => todayLocal());
   const [error, setError] = useState<string | null>(null);
@@ -226,7 +229,13 @@ function AppliedAtPrompt({
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault();
-          onCancel();
+          onCancel({ focusChip: true });
+        }
+      }}
+      // Tabbing out of the prompt cancels it, like Escape, so it never lingers half-done.
+      onBlur={(event) => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          onCancel({ focusChip: false });
         }
       }}
       className="z-10 flex w-56 flex-col gap-2 rounded border border-slate-200 bg-white p-3 shadow-lg"

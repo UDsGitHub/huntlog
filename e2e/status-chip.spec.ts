@@ -1,7 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures';
-
-const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
+import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
 async function addJob(page: Page, company: string, status?: string) {
   await page.getByRole('button', { name: '+ Add application' }).click();
@@ -75,17 +73,10 @@ test('the open menu and the date prompt fit a 320px panel', async ({ session }) 
   await page.goto(panelUrl(session.extensionId));
   await addJob(page, `Long${'Q'.repeat(80)}`, 'saved');
 
-  const noHorizontalScroll = async () => {
-    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }));
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
-  };
   await page.getByRole('button', { name: /^Status: Saved/ }).click();
   await expect(page.getByRole('menu')).toBeVisible();
-  await noHorizontalScroll();
+  await expectNoHorizontalScroll(page);
   await page.getByRole('menuitemradio', { name: 'Offer' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
-  await noHorizontalScroll();
+  await expectNoHorizontalScroll(page);
 });

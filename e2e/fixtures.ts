@@ -1,4 +1,10 @@
-import { test as base, chromium, type BrowserContext, type Worker } from '@playwright/test';
+import {
+  test as base,
+  chromium,
+  type BrowserContext,
+  type Page,
+  type Worker,
+} from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -100,3 +106,14 @@ export const test = base.extend<{ userDataDir: string; session: ExtensionSession
 });
 
 export const expect = test.expect;
+
+export const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
+
+/** The 320px rule (CLAUDE.md DoD #6): the panel never scrolls sideways. */
+export async function expectNoHorizontalScroll(page: Page) {
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+}

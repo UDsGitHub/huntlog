@@ -115,6 +115,15 @@ describe('StatusChip (unit)', () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
+  it('Tab closes the menu and keeps focus on the chip', async () => {
+    const user = userEvent.setup();
+    render(<StatusChip application={app} onPick={() => {}} />);
+    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
+    await user.keyboard('{ArrowDown}{Tab}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.getByRole('button', { name: /Status: Applied/ })).toHaveFocus();
+  });
+
   it('a click outside closes without a change', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
@@ -202,6 +211,25 @@ describe('Date applied prompt', () => {
     expect(screen.getByRole('button', { name: /Status: Saved/ })).toHaveFocus();
   });
 
+  it('tabbing out of the prompt cancels the change', async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <>
+        <StatusChip application={saved} onPick={onPick} />
+        <button type="button">Next row</button>
+      </>,
+    );
+    await user.click(screen.getByRole('button', { name: /Status: Saved/ }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.tab(); // Set date
+    await user.tab(); // Skip
+    await user.tab(); // out of the prompt
+    expect(screen.getByRole('button', { name: 'Next row' })).toHaveFocus();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it.each([['Applied'], ['Withdrawn']])("doesn't ask for %s", async (status) => {
     const user = userEvent.setup();
     const onPick = await pick(user, status);
@@ -279,6 +307,36 @@ describe('Status changes in the panel', () => {
       expect(screen.getByRole('status')).toHaveTextContent("Couldn't undo: Acme changed since."),
     );
     expect((await db.applications.get(app.id))?.status).toBe('accepted');
+  });
+
+  it('returns focus to the row after Undo', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    await renderList();
+    await user.click(chipFor('Acme'));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    const undo = await screen.findByRole('button', { name: 'Undo' });
+    act(() => undo.focus());
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+  });
+
+  it('explains a date rejected when saving', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    vi.spyOn(applications, 'setStatus').mockRejectedValue(
+      new applications.ValidationError({ appliedAt: "The date applied can't be in the future." }),
+    );
+    const error = vi.spyOn(console, 'error');
+    const user = userEvent.setup();
+    await renderList();
+    await user.click(chipFor('Acme'));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        "Couldn't change the status of Acme: The date applied can't be in the future.",
+      ),
+    );
+    expect(error).not.toHaveBeenCalled();
   });
 
   it('works from the detail view too', async () => {

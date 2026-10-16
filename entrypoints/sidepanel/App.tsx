@@ -11,6 +11,7 @@ import {
   restoreApplication,
   setStatus,
   undoStatusChange,
+  ValidationError,
 } from '@/lib/applications';
 import { STATUS_LABELS } from '@/lib/status';
 import type { StatusPick } from '@/components/StatusChip';
@@ -135,12 +136,19 @@ export default function App() {
           label: 'Undo',
           onAction: () => {
             undoStatusChange(change).then(
-              (undone) =>
+              (undone) => {
                 announce(
                   undone
                     ? `${application.company} is back to ${STATUS_LABELS[change.before.status]}.`
                     : `Couldn't undo: ${application.company} changed since.`,
-                ),
+                );
+                // The toast's Undo button had focus and is gone: return to the row.
+                if (viewRef.current.name === 'list') {
+                  setFocusTarget({ kind: 'row', id: application.id });
+                } else {
+                  heading.current?.focus();
+                }
+              },
               (error: unknown) => {
                 console.error('Undo status change failed', error);
                 announce("Couldn't undo the status change.");
@@ -150,6 +158,13 @@ export default function App() {
         },
       });
     } catch (error) {
+      // A date rejected when saving (e.g. the clock passed midnight after the prompt) is expected.
+      if (error instanceof ValidationError) {
+        announce(
+          `Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'}`,
+        );
+        return;
+      }
       if (!(error instanceof NotFoundError)) console.error('setStatus failed', error);
       announce(`Couldn't change the status of ${application.company}.`);
     }
