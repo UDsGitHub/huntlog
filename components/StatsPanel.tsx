@@ -80,7 +80,13 @@ export function StatsPanel() {
   const today = useToday();
   const settings = useSettings();
   // Settings → First day of the week, else the locale's (spec §4.7). Undefined while loading.
-  const weekStartsOn = settings && effectiveWeekStart(settings);
+  const loaded = settings !== undefined;
+  const chosen = settings?.weekStartsOn;
+  // Memoized on the choice alone: other settings changing don't redo the locale lookup.
+  const weekStartsOn = useMemo(
+    () => (loaded ? effectiveWeekStart({ weekStartsOn: chosen }) : undefined),
+    [loaded, chosen],
+  );
   // The tab stays mounted while hidden, and every write elsewhere reloads `apps`: only recount
   // when something the numbers depend on changed.
   const result = useMemo(() => {

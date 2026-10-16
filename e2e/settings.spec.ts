@@ -14,7 +14,8 @@ test('the first day of the week from Settings moves Stats live', async ({ sessio
   const setWeekStart = (weekStartsOn?: 0 | 1 | 6) =>
     session.serviceWorker.evaluate(async (value) => {
       const api = (globalThis as unknown as { chrome: typeof browser }).chrome;
-      await api.storage.local.set({ settings: { theme: 'system', weekStartsOn: value } });
+      if (value === undefined) await api.storage.local.remove('settings.weekStartsOn');
+      else await api.storage.local.set({ 'settings.weekStartsOn': value });
     }, weekStartsOn);
 
   await setWeekStart(1);

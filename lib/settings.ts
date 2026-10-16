@@ -1,7 +1,5 @@
 import { localeWeekStart, type WeekStart } from './locale';
 
-/** `chrome.storage.local` key for the user's settings (spec §4.8, §6). */
-export const SETTINGS_KEY = 'settings';
 export const SETTINGS_SCHEMA_VERSION = 1;
 
 export const THEMES = ['system', 'light', 'dark'] as const;
@@ -22,13 +20,28 @@ export interface Settings {
   schemaVersion: number;
 }
 
-/**
- * A change to the settings. A field present with `undefined` clears it (e.g. turns the goal
- * off); a field left out is kept.
- */
-export type SettingsPatch = Partial<Pick<Settings, 'weeklyGoal' | 'weekStartsOn' | 'theme'>>;
+type Field = 'weeklyGoal' | 'weekStartsOn' | 'theme';
+const FIELDS: readonly Field[] = ['weeklyGoal', 'weekStartsOn', 'theme'];
 
-export const DEFAULT_SETTINGS: Settings = Object.freeze({
+/**
+ * Each setting has its own `chrome.storage.local` key (spec §4.8, §6). A change writes only its
+ * own keys and never reads first, so two windows changing different settings at once can't undo
+ * each other, and a failed read can't turn into a write of defaults.
+ */
+export const SETTINGS_KEYS: Readonly<Record<Field, string>> = {
+  weeklyGoal: 'settings.weeklyGoal',
+  weekStartsOn: 'settings.weekStartsOn',
+  theme: 'settings.theme',
+};
+const ALL_KEYS = FIELDS.map((field) => SETTINGS_KEYS[field]);
+
+/**
+ * A change to the settings. A field present with `undefined` clears it back to its default (e.g.
+ * turns the goal off); a field left out is kept.
+ */
+export type SettingsPatch = Partial<Pick<Settings, Field>>;
+
+export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   theme: 'system',
   schemaVersion: SETTINGS_SCHEMA_VERSION,
 });
@@ -50,6 +63,12 @@ function isTheme(value: unknown): value is Theme {
   return (THEMES as readonly unknown[]).includes(value);
 }
 
+const VALID: Record<Field, (value: unknown) => boolean> = {
+  weeklyGoal: isWeeklyGoal,
+  weekStartsOn: isWeekStart,
+  theme: isTheme,
+};
+
 /** Keeps only well-formed values; anything else (old shapes, hand edits) falls back to defaults. */
 export function parseSettings(raw: unknown): Settings {
   const settings: Settings = { ...DEFAULT_SETTINGS };
@@ -69,11 +88,17 @@ export function effectiveWeekStart(
   return settings.weekStartsOn ?? localeWeekStart(locale);
 }
 
+async function readStored(): Promise<Settings> {
+  const stored = await browser.storage.local.get(ALL_KEYS);
+  return parseSettings(
+    Object.fromEntries(FIELDS.map((field) => [field, stored[SETTINGS_KEYS[field]]])),
+  );
+}
+
 /** Never throws: without storage, everything is at its default. */
 export async function readSettings(): Promise<Settings> {
   try {
-    const stored = await browser.storage.local.get(SETTINGS_KEY);
-    return parseSettings(stored[SETTINGS_KEY]);
+    return await readStored();
   } catch (error) {
     console.error('Reading settings failed', error);
     return { ...DEFAULT_SETTINGS };
@@ -82,48 +107,62 @@ export async function readSettings(): Promise<Settings> {
 
 let writes: Promise<unknown> = Promise.resolve();
 
-/** Runs read-modify-write steps one at a time, so overlapping changes can't undo each other. */
-function enqueue(next: (current: Settings) => Settings): Promise<Settings> {
-  const write = writes.then(async () => {
-    const settings = parseSettings(next(await readSettings()));
-    await browser.storage.local.set({ [SETTINGS_KEY]: settings });
-    return settings;
-  });
+/** Runs this window's writes in order, so the last change made is the one that's kept. */
+function enqueue(write: () => Promise<void>): Promise<void> {
+  const next = writes.then(write);
   // A failed write mustn't block the ones after it.
-  writes = write.catch(() => undefined);
-  return write;
+  writes = next.catch(() => undefined);
+  return next;
 }
 
 /**
- * Applies a change and returns the saved settings. Invalid values are dropped rather than
- * stored (callers validate input first). Rejects if storage fails, so the UI can say so.
+ * Applies a change. Rejects if storage fails, so the UI can say so, and throws on an invalid
+ * value: callers validate input first (e.g. with `isWeeklyGoal`).
  */
-export function updateSettings(patch: SettingsPatch): Promise<Settings> {
-  return enqueue((current) => {
-    const next: Record<string, unknown> = { ...current };
-    for (const [key, value] of Object.entries(patch)) {
-      if (value === undefined) delete next[key];
-      else next[key] = value;
-    }
-    return next as unknown as Settings;
+export function updateSettings(patch: SettingsPatch): Promise<void> {
+  const set: Record<string, unknown> = {};
+  const remove: string[] = [];
+  for (const [field, value] of Object.entries(patch) as [Field, unknown][]) {
+    if (!FIELDS.includes(field)) continue;
+    if (value === undefined) remove.push(SETTINGS_KEYS[field]);
+    else if (VALID[field](value)) set[SETTINGS_KEYS[field]] = value;
+    else throw new TypeError(`Invalid ${field}: ${String(value)}`);
+  }
+  return enqueue(async () => {
+    if (Object.keys(set).length) await browser.storage.local.set(set);
+    if (remove.length) await browser.storage.local.remove(remove);
   });
 }
 
 /** Puts every setting back to its default (spec §4.8 Reset settings). Rejects if storage fails. */
-export function resetSettings(): Promise<Settings> {
-  return enqueue(() => ({ ...DEFAULT_SETTINGS }));
+export function resetSettings(): Promise<void> {
+  return enqueue(() => browser.storage.local.remove(ALL_KEYS));
 }
 
 /**
- * Calls `listener` with the new settings whenever they change, in this window or another one
- * (spec §4.8: changes apply in every open window). Returns the unsubscribe function.
+ * Calls `listener` with the full, current settings whenever any of them changes, in this window
+ * or another one (spec §4.8: changes apply in every open window). Each change re-reads them all,
+ * and only the latest read is reported, so a slow read can't report older settings last. A read
+ * that fails reports nothing.
+ * Returns the unsubscribe function.
  */
 export function onSettingsChanged(listener: (settings: Settings) => void): () => void {
-  const handle = (changes: Record<string, { newValue?: unknown }>, area: string) => {
-    if (area === 'local' && SETTINGS_KEY in changes) {
-      listener(parseSettings(changes[SETTINGS_KEY]!.newValue));
-    }
+  let latest = 0;
+  let active = true;
+  const handle = (changes: Record<string, unknown>, area: string) => {
+    if (area !== 'local' || !ALL_KEYS.some((key) => key in changes)) return;
+    const read = ++latest;
+    // A failed read reports nothing, rather than defaults that were never chosen.
+    readStored().then(
+      (settings) => {
+        if (active && read === latest) listener(settings);
+      },
+      (error: unknown) => console.error('Reading settings failed', error),
+    );
   };
   browser.storage.onChanged.addListener(handle);
-  return () => browser.storage.onChanged.removeListener(handle);
+  return () => {
+    active = false;
+    browser.storage.onChanged.removeListener(handle);
+  };
 }
