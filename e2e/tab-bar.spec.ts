@@ -9,7 +9,15 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
 
   await page.getByRole('tab', { name: 'Resumes' }).click();
   await expect(page.getByRole('tabpanel', { name: 'Resumes' })).toContainText('No resumes yet.');
+  // With real CSS, the hidden panel must not render (its flex classes mustn't beat [hidden]).
+  await expect(page.getByText(/No applications yet/)).toBeHidden();
+  await expect(page.getByRole('button', { name: '+ Add application' })).toBeHidden();
   await expectNoHorizontalScroll(page);
+
+  // Tab from the tab bar reaches the Resumes panel, skipping the hidden Applications panel.
+  await page.getByRole('tab', { name: 'Resumes' }).focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('tabpanel', { name: 'Resumes' })).toBeFocused();
 
   await page.getByRole('tab', { name: 'Resumes' }).focus();
   await page.keyboard.press('ArrowLeft');

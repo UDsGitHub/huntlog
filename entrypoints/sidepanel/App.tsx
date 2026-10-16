@@ -4,7 +4,7 @@ import { ApplicationForm, readFailedMessage } from '@/components/ApplicationForm
 import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
-import { TabBar, type Tab } from '@/components/TabBar';
+import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
 import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
 import {
@@ -23,6 +23,7 @@ import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib
 import type { Application } from '@/lib/types';
 
 type TabId = 'applications' | 'resumes';
+const TAB_PREFIX = 'section';
 const TABS: Tab<TabId>[] = [
   { id: 'applications', label: 'Applications' },
   { id: 'resumes', label: 'Resumes' },
@@ -44,6 +45,12 @@ export default function App() {
   // Each tab keeps its own state while the other is shown: switching back to Applications
   // returns to the same list or detail view.
   const [tab, setTab] = useState<TabId>('applications');
+  // Readable from async handlers (toast actions), like viewRef.
+  const tabRef = useRef(tab);
+  const selectTab = useCallback((next: TabId) => {
+    tabRef.current = next;
+    setTab(next);
+  }, []);
   const [view, setView] = useState<View>({ name: 'list' });
   // The view on screen, readable from async handlers. Every navigation creates a new object, so
   // a handler can tell whether the view it belongs to is still showing (see isCurrent).
@@ -69,16 +76,19 @@ export default function App() {
   }, []);
 
   function navigate(next: View) {
-    // Applications views live in the Applications tab; anything navigating there (a capture
-    // arriving while Resumes is showing) switches to it.
-    setTab('applications');
     // Leaving Edit some other way than its own Save/Cancel (e.g. View existing): a capture that
     // waited for the edit mustn't be lost, nor linger to hijack a later edit.
     if (deferredCapture.current && viewRef.current.name === 'edit' && next.name !== 'add') {
       deferredCapture.current = false;
       showToast({
         message: 'Your captured job is ready.',
-        action: { label: 'Open', onAction: () => navigate({ name: 'add' }) },
+        action: {
+          label: 'Open',
+          onAction: () => {
+            selectTab('applications');
+            navigate({ name: 'add' });
+          },
+        },
       });
     }
     viewRef.current = next;
@@ -104,6 +114,8 @@ export default function App() {
       showToast({ message: 'Job captured. It opens when you finish editing.' });
       return;
     }
+    // A capture opens its form on the Applications tab, whichever tab is showing.
+    selectTab('applications');
     navigate({ name: 'add' });
   });
 
@@ -127,6 +139,8 @@ export default function App() {
           restoreApplication(application.id).then(
             () => {
               announce(`Restored ${application.company}.`);
+              // Show what was restored, even if the user moved to another tab meanwhile.
+              selectTab('applications');
               if (viewRef.current.name === 'list') {
                 setFocusTarget({ kind: 'row', id: application.id, awaitRow: true });
               }
@@ -159,7 +173,9 @@ export default function App() {
                     ? `${application.company} is back to ${STATUS_LABELS[change.before.status]}.`
                     : `Couldn't undo: ${application.company} changed since.`,
                 );
-                // The toast's Undo button had focus and is gone: return to the row.
+                // The toast's Undo button had focus and is gone: return to the row, on the
+                // Applications tab even if the user moved to another meanwhile.
+                selectTab('applications');
                 if (viewRef.current.name === 'list') {
                   setFocusTarget({ kind: 'row', id: application.id });
                 } else {
@@ -192,8 +208,13 @@ export default function App() {
     // The toast's button had focus and is gone; put focus somewhere sensible. After Undo, the
     // restored row takes it once the restore finishes.
     if (reason !== 'dismiss') return;
-    if (viewRef.current.name === 'list') setFocusTarget({ kind: 'add' });
-    else heading.current?.focus();
+    if (tabRef.current !== 'applications') {
+      document.getElementById(tabId(TAB_PREFIX, tabRef.current))?.focus();
+    } else if (viewRef.current.name === 'list') {
+      setFocusTarget({ kind: 'add' });
+    } else {
+      heading.current?.focus();
+    }
   }
 
   const clearFocusTarget = useCallback(() => setFocusTarget(null), []);
@@ -215,15 +236,15 @@ export default function App() {
         <TabBar
           tabs={TABS}
           selected={tab}
-          onSelect={setTab}
-          idPrefix="panel"
+          onSelect={selectTab}
+          idPrefix={TAB_PREFIX}
           label="Job Log sections"
         />
       )}
       <div
         role={inForm ? undefined : 'tabpanel'}
-        id="panel-panel-applications"
-        aria-labelledby={inForm ? undefined : 'panel-tab-applications'}
+        id={panelId(TAB_PREFIX, 'applications')}
+        aria-labelledby={inForm ? undefined : tabId(TAB_PREFIX, 'applications')}
         hidden={tab !== 'applications'}
         className="flex min-w-0 flex-col gap-4"
       >
@@ -323,11 +344,18 @@ export default function App() {
           </section>
         )}
       </div>
-      {tab === 'resumes' && (
-        <div role="tabpanel" id="panel-panel-resumes" aria-labelledby="panel-tab-resumes">
-          <ResumesPanel />
-        </div>
-      )}
+      {/* Mounted while hidden, like Applications, so the tab keeps its state. Focusable itself:
+          until it has controls, Tab from the tab bar must still reach its content. */}
+      <div
+        role="tabpanel"
+        id={panelId(TAB_PREFIX, 'resumes')}
+        aria-labelledby={tabId(TAB_PREFIX, 'resumes')}
+        tabIndex={0}
+        hidden={inForm || tab !== 'resumes'}
+        className="focus:outline-2 focus:outline-indigo-600"
+      >
+        <ResumesPanel />
+      </div>
       <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>
   );

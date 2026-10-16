@@ -99,4 +99,63 @@ describe('Tab bar', () => {
     expect(await screen.findByRole('heading', { name: 'Add application' })).toBeVisible();
     await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
   });
+
+  it('leaves modified arrow keys alone', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    act(() => tab('Applications').focus());
+    await user.keyboard('{Meta>}{ArrowRight}{/Meta}{Alt>}{ArrowRight}{/Alt}');
+    expect(tab('Applications')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('keeps the Resumes panel mounted and focusable', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    const panel = document.getElementById(tab('Resumes').getAttribute('aria-controls')!)!;
+    expect(panel).toHaveAttribute('hidden');
+    await user.click(tab('Resumes'));
+    expect(panel).not.toHaveAttribute('hidden');
+    // Focusable itself; that Tab really reaches it is checked in real Chrome (e2e/tab-bar.spec.ts),
+    // since happy-dom has no CSS and lets Tab into the hidden Applications panel.
+    expect(panel).toHaveAttribute('tabindex', '0');
+  });
+
+  it('Undo of a status change from another tab switches back and focuses the row', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    render(<App />);
+    const row = await screen.findByRole('button', { name: /^Acme/ });
+    await user.click(within(row.parentElement!).getByRole('button', { name: /^Status: / }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(tab('Resumes'));
+    await user.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(tab('Applications')).toHaveAttribute('aria-selected', 'true'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+  });
+
+  it('Undo of a delete from another tab switches back and focuses the restored row', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(tab('Resumes'));
+    await user.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+    expect(tab('Applications')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('Dismissing a toast on another tab focuses that tab, not the hidden list', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(tab('Resumes'));
+    await user.click(await screen.findByRole('button', { name: 'Dismiss' }));
+    expect(tab('Resumes')).toHaveFocus();
+    expect(tab('Resumes')).toHaveAttribute('aria-selected', 'true');
+  });
 });

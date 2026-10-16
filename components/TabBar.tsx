@@ -1,5 +1,9 @@
 import { useRef, type KeyboardEvent } from 'react';
 
+/** Element ids for a tab and its panel; App and TabBar must agree, so both use these. */
+export const tabId = (prefix: string, id: string) => `${prefix}-tab-${id}`;
+export const panelId = (prefix: string, id: string) => `${prefix}-panel-${id}`;
+
 export interface Tab<Id extends string> {
   id: Id;
   label: string;
@@ -8,7 +12,7 @@ export interface Tab<Id extends string> {
 /**
  * The panel's top tab bar (spec §3): an ARIA tablist with roving focus. Arrow keys, Home and End
  * move between tabs and select them (selection follows focus; switching is instant). Each tab
- * controls the panel with id `${idPrefix}-panel-${tab.id}`.
+ * controls the panel with id `panelId(idPrefix, tab.id)`.
  */
 export function TabBar<Id extends string>({
   tabs,
@@ -26,6 +30,8 @@ export function TabBar<Id extends string>({
   const buttons = useRef(new Map<Id, HTMLButtonElement>());
 
   function onKeyDown(event: KeyboardEvent) {
+    // Leave modified keys (e.g. Cmd+ArrowLeft) to the browser and assistive tech.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const index = tabs.findIndex((tab) => tab.id === selected);
     const to =
       event.key === 'ArrowRight'
@@ -62,9 +68,9 @@ export function TabBar<Id extends string>({
             }}
             type="button"
             role="tab"
-            id={`${idPrefix}-tab-${tab.id}`}
+            id={tabId(idPrefix, tab.id)}
             aria-selected={active}
-            aria-controls={`${idPrefix}-panel-${tab.id}`}
+            aria-controls={panelId(idPrefix, tab.id)}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(tab.id)}
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium focus:outline-2 focus:outline-indigo-600 ${
