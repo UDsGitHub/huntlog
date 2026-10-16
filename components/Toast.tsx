@@ -5,21 +5,38 @@ export const TOAST_DURATION_MS = 5000;
 /** Why a toast closed: it timed out, the user dismissed it, or the user took its action. */
 export type DismissReason = 'timeout' | 'dismiss' | 'action';
 
+/** Every way a toast goes: the DismissReasons, or replaced by a newer toast. */
+export type CloseReason = DismissReason | 'replaced';
+
 export interface ToastData {
   id: number;
   message: string;
   action?: { label: string; onAction: () => void };
+  /**
+   * Runs exactly once when this toast goes, however it goes, e.g. to finalize what its Undo
+   * could have reverted. (If the panel closes first it never runs; callers clean up at startup.)
+   */
+  onClose?: (reason: CloseReason) => void;
 }
 
 /** One toast at a time: showing a new one replaces the old (and its Undo). */
 export function useToast() {
   const [toast, setToast] = useState<ToastData | null>(null);
+  const current = useRef<ToastData | null>(null);
   const nextId = useRef(0);
   const show = useCallback((data: Omit<ToastData, 'id'>) => {
+    const previous = current.current;
     nextId.current += 1;
-    setToast({ ...data, id: nextId.current });
+    current.current = { ...data, id: nextId.current };
+    setToast(current.current);
+    previous?.onClose?.('replaced');
   }, []);
-  const dismiss = useCallback(() => setToast(null), []);
+  const dismiss = useCallback((reason: DismissReason = 'dismiss') => {
+    const previous = current.current;
+    current.current = null;
+    setToast(null);
+    previous?.onClose?.(reason);
+  }, []);
   return { toast, show, dismiss };
 }
 

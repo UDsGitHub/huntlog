@@ -18,6 +18,7 @@ import {
 import { STATUS_LABELS } from '@/lib/status';
 import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
+import { purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
 import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
@@ -67,6 +68,13 @@ export default function App() {
   // Remembered source and work mode for the next manual Add (spec §4.2).
   // undefined until loaded: the Add form reads them once, on mount, so it waits for them.
   const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
+  // Files of resumes deleted in a session that closed before their Undo toast ended (spec §4.6).
+  useEffect(() => {
+    purgeDeletedResumeData({ olderThanMs: RESUME_STARTUP_PURGE_MS }).catch((error: unknown) =>
+      console.error('Removing deleted resume files failed', error),
+    );
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void readFormDefaults().then((defaults) => !cancelled && setFormDefaults(defaults));
@@ -204,7 +212,7 @@ export default function App() {
   }
 
   function handleToastDismiss(reason: DismissReason) {
-    dismissToast();
+    dismissToast(reason);
     // The toast's button had focus and is gone; put focus somewhere sensible. After Undo, the
     // restored row takes it once the restore finishes.
     if (reason !== 'dismiss') return;
@@ -354,7 +362,7 @@ export default function App() {
         hidden={inForm || tab !== 'resumes'}
         className="focus:outline-2 focus:outline-indigo-600"
       >
-        <ResumesPanel />
+        <ResumesPanel showToast={showToast} announce={announce} />
       </div>
       <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>

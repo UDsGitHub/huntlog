@@ -16,7 +16,9 @@ function Harness() {
   useEffect(() => {
     showToast = show;
   }, [show]);
-  return <Toast toast={toast} onDismiss={(reason) => (dismissReasons.push(reason), dismiss())} />;
+  return (
+    <Toast toast={toast} onDismiss={(reason) => (dismissReasons.push(reason), dismiss(reason))} />
+  );
 }
 
 function show(data: Omit<ToastData, 'id'>) {
@@ -105,5 +107,20 @@ describe('Toast', () => {
     show({ message: 'Second' });
     act(() => vi.advanceTimersByTime(TOAST_DURATION_MS));
     expect(screen.queryByText('Second')).toBeNull();
+  });
+
+  it('runs onClose exactly once, with how the toast went', () => {
+    const closes: string[] = [];
+    const onClose = (reason: string) => closes.push(reason);
+    render(<Harness />);
+    show({ message: 'One', onClose });
+    act(() => vi.advanceTimersByTime(TOAST_DURATION_MS));
+    show({ message: 'Two', onClose });
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    show({ message: 'Three', onClose, action: { label: 'Undo', onAction: () => {} } });
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    show({ message: 'Four', onClose });
+    show({ message: 'Five' });
+    expect(closes).toEqual(['timeout', 'dismiss', 'action', 'replaced']);
   });
 });
