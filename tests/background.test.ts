@@ -122,7 +122,7 @@ describe('background startup', () => {
       expect.any(Function),
     );
     expect(api.contextMenus.create).toHaveBeenCalledWith(
-      { id: LINK_MENU_ID, title: 'Add job to Job Log', contexts: ['link'] },
+      { id: LINK_MENU_ID, title: 'Add linked job to Job Log', contexts: ['link'] },
       expect.any(Function),
     );
   });
@@ -239,6 +239,42 @@ describe('handleCapture fallbacks', () => {
     api.scripting.executeScript.mockResolvedValue(results);
     await handleCapture('page', tab());
     expect(await storedDraft()).toMatchObject({ readFailed: true, url: tab().url });
+  });
+
+  it.each([['about:srcdoc'], ['blob:https://jobs.example.test/abc'], [42]])(
+    'uses the tab URL when the extractor returns the non-web URL %j',
+    async (url) => {
+      api.scripting.executeScript.mockResolvedValue([
+        { frameId: 0, result: { url, title: 'Job' } },
+      ]);
+      await handleCapture('page', tab());
+      expect(await storedDraft()).toMatchObject({ url: tab().url, title: 'Job' });
+    },
+  );
+
+  it('keeps the newer draft when an older capture in the same window finishes last', async () => {
+    let finishSlow!: (value: unknown) => void;
+    api.scripting.executeScript
+      .mockImplementationOnce(() => new Promise((resolve) => (finishSlow = resolve)))
+      .mockResolvedValueOnce([
+        { frameId: 0, result: { url: 'https://jobs.example.test/posting/2', title: 'Newer' } },
+      ]);
+
+    const slow = handleCapture('command', tab());
+    await handleCapture('page', tab({ id: 8, url: 'https://jobs.example.test/posting/2' }));
+    finishSlow([{ frameId: 0, result: { url: tab().url, title: 'Older' } }]);
+    await slow;
+
+    expect(await storedDraft()).toMatchObject({ title: 'Newer' });
+  });
+
+  it('does not let a capture in one window cancel a capture in another', async () => {
+    await Promise.all([
+      handleCapture('page', tab({ windowId: 3 })),
+      handleCapture('page', tab({ windowId: 4 })),
+    ]);
+    expect(await storedDraft(3)).toBeDefined();
+    expect(await storedDraft(4)).toBeDefined();
   });
 
   it('uses the tab URL when the extractor returns a title but no URL', async () => {

@@ -47,16 +47,29 @@ export async function clickToolbarIcon(userDataDir: string, extensionId: string,
     ws.onopen = resolve;
     ws.onerror = reject;
   });
+  // One listener settles calls by id; closing the socket rejects anything still pending.
+  const pending = new Map<
+    number,
+    { method: string; resolve: (r: unknown) => void; reject: (e: Error) => void }
+  >();
+  ws.addEventListener('message', (event) => {
+    const reply = JSON.parse(String(event.data));
+    const call = pending.get(reply.id);
+    if (!call) return;
+    pending.delete(reply.id);
+    if (reply.error) call.reject(new Error(`${call.method}: ${reply.error.message}`));
+    else call.resolve(reply.result);
+  });
+  ws.addEventListener('close', () => {
+    for (const call of pending.values())
+      call.reject(new Error(`${call.method}: CDP socket closed`));
+    pending.clear();
+  });
   let nextId = 0;
   const call = <T>(method: string, params: object) =>
     new Promise<T>((resolve, reject) => {
       const id = ++nextId;
-      ws.addEventListener('message', (event) => {
-        const reply = JSON.parse(String(event.data));
-        if (reply.id !== id) return;
-        if (reply.error) reject(new Error(`${method}: ${reply.error.message}`));
-        else resolve(reply.result as T);
-      });
+      pending.set(id, { method, resolve: resolve as (r: unknown) => void, reject });
       ws.send(JSON.stringify({ id, method, params }));
     });
   try {

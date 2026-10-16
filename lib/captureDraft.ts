@@ -31,11 +31,12 @@ export function draftKey(windowId: number): string {
 export function sanitizeUrl(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   const trimmed = raw.trim();
+  // Cheap pre-check before parsing; the real limit applies to the percent-encoded href below.
   if (!trimmed || trimmed.length > MAX_URL_LENGTH) return undefined;
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
-    if (!parsed.hostname) return undefined;
+    if (!parsed.hostname || parsed.href.length > MAX_URL_LENGTH) return undefined;
     return parsed.href;
   } catch {
     return undefined;
@@ -47,8 +48,10 @@ export function sanitizeTitle(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   const collapsed = raw.replace(/\s+/g, ' ').trim();
   if (!collapsed) return undefined;
-  return collapsed.length > MAX_TITLE_LENGTH
-    ? collapsed.slice(0, MAX_TITLE_LENGTH).trimEnd()
+  // Cut by code point so an emoji at the boundary isn't split into a lone surrogate.
+  const codePoints = Array.from(collapsed);
+  return codePoints.length > MAX_TITLE_LENGTH
+    ? codePoints.slice(0, MAX_TITLE_LENGTH).join('').trimEnd()
     : collapsed;
 }
 

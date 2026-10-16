@@ -46,6 +46,8 @@ describe('sanitizeUrl', () => {
     ['about:blank'],
     ['not a url'],
     [`https://example.com/${'a'.repeat(3000)}`],
+    // Short as typed, but over the limit once percent-encoded.
+    [`https://example.com/${'職'.repeat(1000)}`],
   ])('drops %j', (input) => {
     expect(sanitizeUrl(input)).toBeUndefined();
   });
@@ -63,6 +65,13 @@ describe('sanitizeTitle', () => {
   it('caps very long titles', () => {
     const title = sanitizeTitle('x'.repeat(100_000));
     expect(title).toHaveLength(MAX_TITLE_LENGTH);
+  });
+
+  it('never splits an emoji at the length cap', () => {
+    const title = sanitizeTitle(`${'x'.repeat(MAX_TITLE_LENGTH - 1)}🚀🚀`)!;
+    expect(Array.from(title)).toHaveLength(MAX_TITLE_LENGTH);
+    expect(title.endsWith('🚀')).toBe(true);
+    expect(title.isWellFormed()).toBe(true);
   });
 
   it('keeps unicode', () => {

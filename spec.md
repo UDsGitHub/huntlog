@@ -41,7 +41,7 @@ A Chrome extension that helps job seekers log every application they send, remem
 | Surface                     | Purpose                                                                                             |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
 | **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. Bottom or top tab bar. |
-| **Context menu**            | "Add job to Job Log" on any page (reads the page), and on links (captures only the link URL).       |
+| **Context menu**            | "Add job to Job Log" on any page (reads the page), and "Add linked job to Job Log" on links (captures only the link URL). |
 | **Keyboard shortcut**       | `Alt+Shift+J` (user-configurable) works the same as the page context-menu item.                     |
 | **Toolbar icon**            | Opens the side panel (`openPanelOnActionClick`).                                                    |
 
@@ -60,7 +60,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 4. The side panel shows the Add form prefilled with the draft. Prefilled fields get a subtle "auto-filled, please check" hint.
 5. The user reviews the fields, picks a resume, and saves. If a duplicate is detected, a warning appears (§4.5).
 
-**From a link:** right-clicking a job link (for example in a search results list) and choosing "Add job to Job Log" captures only `linkUrl`, with no page read. The form opens with the link filled in and the other fields blank.
+**From a link:** right-clicking a job link (for example in a search results list) and choosing "Add linked job to Job Log" captures only `linkUrl`, with no page read. The form opens with the link filled in and the other fields blank.
 
 ### 4.2 Add application: manual
 
@@ -240,10 +240,11 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 **Verified Chrome behavior** (M1, Chrome for Testing via Playwright with the production build; see `e2e/page-access.spec.ts`):
 
 - Without a user gesture, `scripting.executeScript` on a normal page fails with "Cannot access contents of the page". The extension has no ambient page access.
+- A click on a button inside the side panel is a user activation in the panel only. It does **not** grant `activeTab`, so the panel still can't read any tab.
 - Clicking the toolbar icon while `openPanelOnActionClick` is on opens the side panel but does **not** grant `activeTab`. The toolbar icon therefore can't prefill; capture goes through the context menu or shortcut.
 - Once a gesture grants `activeTab`, the serialized extractor runs in the tab and returns its URL and title.
 - `chrome://` pages stay unreadable even with `activeTab`, so the form falls back to blank.
-- `sidePanel.open()` from the context-menu and command handlers, and the requirement to call it before any `await`: Playwright can't click native context menus or send browser-level shortcuts, so these are covered by unit tests (`tests/background.test.ts`) and a manual check on the production build.
+- **Not yet verified in a real browser:** that `sidePanel.open()` works from the context-menu and command handlers, and that it must be called before any `await`. Playwright can't click native context menus or send browser-level shortcuts. The call order is enforced by unit tests (`tests/background.test.ts`); a manual check on the production build is still pending (M1).
 
 **Known limitation:** a button *inside* the side panel does not grant `activeTab`, so the blank manual form cannot read the current tab. Page prefill happens only through the context menu or the shortcut, and the side panel's empty state should explain this ("Tip: right-click any job posting → Add job to Job Log").
 

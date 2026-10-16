@@ -1,13 +1,25 @@
 import type { Browser } from 'wxt/browser';
-import { createDraft, draftKey, type CaptureDraft, type CaptureSource } from '@/lib/captureDraft';
+import {
+  createDraft,
+  draftKey,
+  sanitizeUrl,
+  type CaptureDraft,
+  type CaptureSource,
+} from '@/lib/captureDraft';
 import { extractPage } from '@/lib/extract';
 
 export const MENU_TITLE = 'Add job to Job Log';
+// Distinct from the page item: right-clicking a link inside selected text shows both.
+export const LINK_MENU_TITLE = 'Add linked job to Job Log';
 export const PAGE_MENU_ID = 'add-job-page';
 export const LINK_MENU_ID = 'add-job-link';
 export const ADD_JOB_COMMAND = 'add-job';
 
 type Tab = Browser.tabs.Tab;
+
+/** Latest capture per window, so a slow page read can't overwrite a newer capture's draft. */
+const latestCapture = new Map<number, number>();
+let captureSeq = 0;
 
 /**
  * Handles a capture gesture (context menu or keyboard command), which grants `activeTab`.
@@ -23,9 +35,15 @@ export async function handleCapture(source: CaptureSource, tab?: Tab, linkUrl?: 
     return;
   }
   const opened = openPanel(windowId);
+  const seq = ++captureSeq;
+  latestCapture.set(windowId, seq);
 
   const draft =
     source === 'link' ? createDraft('link', { url: linkUrl }) : await readPage(source, tab!);
+  if (latestCapture.get(windowId) !== seq) {
+    await opened;
+    return;
+  }
   try {
     await browser.storage.session.set({ [draftKey(windowId)]: draft });
   } catch (error) {
@@ -56,7 +74,7 @@ async function readPage(source: CaptureSource, tab: Tab): Promise<CaptureDraft> 
       const page: unknown = results?.[0]?.result;
       if (page && typeof page === 'object') {
         const { url, title } = page as Record<string, unknown>;
-        return createDraft(source, { url: url ?? tab.url, title });
+        return createDraft(source, { url: sanitizeUrl(url) ?? tab.url, title });
       }
     } catch (error) {
       console.warn("Couldn't read the page; opening a blank form", error);
@@ -77,7 +95,7 @@ function createMenus() {
     reportError,
   );
   browser.contextMenus.create(
-    { id: LINK_MENU_ID, title: MENU_TITLE, contexts: ['link'] },
+    { id: LINK_MENU_ID, title: LINK_MENU_TITLE, contexts: ['link'] },
     reportError,
   );
 }

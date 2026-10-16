@@ -37,7 +37,7 @@ function runExtractor(serviceWorker: Worker) {
   })()`);
 }
 
-test('without a user gesture the extension cannot read the page (spec §8 c)', async ({
+test('without a user gesture the extension has no page access', async ({
   session,
 }) => {
   const page = await session.context.newPage();
@@ -46,6 +46,46 @@ test('without a user gesture the extension cannot read the page (spec §8 c)', a
     ok: false,
     error: expect.stringContaining('Cannot access contents of the page'),
   });
+});
+
+test('a click inside the side panel does not grant page access (spec §8 c)', async ({
+  session,
+}) => {
+  const job = await session.context.newPage();
+  await openTab(job, JOB_URL);
+  const panel = await session.context.newPage();
+  await panel.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
+
+  // A button in the panel's own document, so the click is a real user activation there.
+  // Without the `tabs` permission the panel can't see tab URLs, so it tries every other tab.
+  await panel.evaluate(() => {
+    const button = document.createElement('button');
+    button.textContent = 'Read other tabs';
+    button.onclick = async () => {
+      const self = await chrome.tabs.getCurrent();
+      const others = (await chrome.tabs.query({})).filter((t) => t.id !== self?.id);
+      const results = await Promise.all(
+        others.map((t) =>
+          chrome.scripting
+            .executeScript({ target: { tabId: t.id! }, func: () => document.title })
+            .then(
+              () => 'read',
+              (error: unknown) => String(error),
+            ),
+        ),
+      );
+      button.dataset.result = JSON.stringify(results);
+    };
+    document.body.append(button);
+  });
+  const button = panel.getByRole('button', { name: 'Read other tabs' });
+  await button.click();
+
+  await expect(button).toHaveAttribute('data-result', /.+/);
+  const results: string[] = JSON.parse((await button.getAttribute('data-result'))!);
+  expect(results.length).toBeGreaterThanOrEqual(2); // the job tab and the initial blank tab
+  expect(results).not.toContain('read');
+  expect(results.some((r) => r.includes('Cannot access contents of the page'))).toBe(true);
 });
 
 test('the toolbar icon opens the panel but grants no page access', async ({
