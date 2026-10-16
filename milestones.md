@@ -4,12 +4,12 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 
 ---
 
-## M0 — Walking skeleton
+## M0 — Walking skeleton ✅ (v0.0.0)
 **Slice:** Click the toolbar icon → side panel opens → type a URL and company → Save → the job appears in a list and survives a browser restart.
 
 - Scaffold WXT + React + TS (strict) + Tailwind, plus ESLint/Prettier, Vitest and Playwright.
 - `background.ts`: `sidePanel.setPanelBehavior({ openPanelOnActionClick: true })`.
-- `lib/db.ts`: Dexie v1 schema with an `applications` table holding `id`, `url`, `company`, `status='applied'`, `appliedAt`, timestamps and `deletedAt`.
+- `lib/db.ts`: Dexie v1 schema with an `applications` table holding `id`, `url`, `company`, `status='applied'`, `statusHistory` (written from M0 so M3 needs no backfill), `appliedAt`, timestamps and `deletedAt`.
 - Side panel: a minimal form with the two required fields, and a plain list underneath.
 - Manifest contains only `sidePanel` and `storage`.
 - **Tests:** a db unit test using `fake-indexeddb`. A Playwright smoke test loads the built extension, opens the side panel page, adds a job and sees it listed.

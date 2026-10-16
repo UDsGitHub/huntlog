@@ -8,7 +8,7 @@ Job Log is a Manifest V3 Chrome extension for tracking job applications, built w
 
 ## Commands
 
-- `npm run dev`: WXT dev mode. It launches Chrome with the unpacked extension and hot reload. Dev builds add their own permissions; only the production manifest counts for spec §8.
+- `npm run dev`: WXT dev mode. It launches Chrome (via the `web-ext` dev dependency) with the unpacked extension and hot reload. Dev builds add their own permissions; only the production manifest counts for spec §8.
 - `npm run build`: production build to `.output/chrome-mv3/`.
 - `npm run zip`: Chrome Web Store upload zip in `.output/`.
 - `npx vitest run`: all unit and component tests (`lib/`, `components/`, `tests/`).
@@ -37,7 +37,7 @@ Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside
 **`lib/extract.ts` must be fully self-contained.** `executeScript` serializes the function, so it cannot reference imports or outer-scope variables. It must never throw, and it returns partial data (sources tried in order: JSON-LD `JobPosting` → microdata → OG/meta → heuristics, including ATS hostname patterns). Generic extraction only: no per-site scrapers in v1.
 
 **Data invariants (spec §5):**
-- UUID IDs, ISO timestamps, and soft deletes (`deletedAt`). Every query must filter out soft-deleted rows. These fields exist to make future cloud sync possible, so keep them on new tables.
+- UUID IDs, ISO timestamps, and soft deletes (`deletedAt`). Every query must filter out soft-deleted rows. Reads and writes go through `lib/applications.ts`, not straight to `db` from components, so the filter lives in one place. `deletedAt` isn't indexed (Dexie skips `undefined`), so filter it with `.filter()`. These fields exist to make future cloud sync possible, so keep them on new tables.
 - `statusHistory` is append-only (dates are editable). Stats use the *first* entry into a status, so never rewrite history when the status changes.
 - The status list is a fixed union of 9 values. Do not make it configurable.
 - `urlNormalized` (`lib/normalizeUrl.ts`) drives duplicate detection. It strips tracking params but keeps job-ID params such as `currentJobId`, `jk`, `gh_jid`.

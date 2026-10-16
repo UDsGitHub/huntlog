@@ -1,0 +1,64 @@
+import type { Page } from '@playwright/test';
+import { expect, launchExtension, test } from './fixtures';
+
+const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
+
+async function addJob(page: Page, url: string, company: string) {
+  await page.getByLabel('Job posting URL').fill(url);
+  await page.getByLabel('Company').fill(company);
+  await page.getByRole('button', { name: 'Save' }).click();
+}
+
+// M0 slice: open the panel, add a job, see it listed, and it survives a browser restart.
+test('a saved job is listed and survives a browser restart', async ({ userDataDir }) => {
+  const first = await launchExtension(userDataDir);
+  const page = await first.context.newPage();
+  await page.goto(panelUrl(first.extensionId));
+  await expect(page.getByText(/No applications yet/)).toBeVisible();
+
+  await addJob(page, 'https://boards.greenhouse.io/acme/jobs/123', 'Acme');
+  const list = page.getByRole('list', { name: 'Applications' });
+  await expect(list).toContainText('Acme');
+  await expect(list).toContainText('https://boards.greenhouse.io/acme/jobs/123');
+  await first.context.close();
+
+  const second = await launchExtension(userDataDir);
+  try {
+    const reopened = await second.context.newPage();
+    await reopened.goto(panelUrl(second.extensionId));
+    await expect(reopened.getByRole('list', { name: 'Applications' })).toContainText('Acme');
+  } finally {
+    await second.context.close();
+  }
+});
+
+test('works with the keyboard alone', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Job posting URL')).toBeFocused();
+  await page.keyboard.type('example.com/jobs/7');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('Keyboard Co');
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Keyboard Co');
+  await expect(page.getByLabel('Job posting URL')).toBeFocused();
+});
+
+test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(panelUrl(session.extensionId));
+
+  await page.getByRole('button', { name: 'Save' }).click(); // validation errors visible too
+  await addJob(page, `https://example.com/${'a'.repeat(300)}`, `Company${'X'.repeat(120)}`);
+  await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();
+
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+});
