@@ -3,11 +3,13 @@
  * `storage.session` (spec §4.1). Each window has its own side panel, so drafts are keyed by window.
  */
 
-export type CaptureSource = 'page' | 'link' | 'command';
+/** Which gesture made the capture. Not called `source`: that's an application field. */
+export type CaptureGesture = 'page' | 'link' | 'command';
 
 export interface CaptureDraft {
-  v: 1;
-  source: CaptureSource;
+  /** v2 renamed `source` to `gesture`. A v1 draft left over from an update is just dropped. */
+  v: 2;
+  gesture: CaptureGesture;
   url?: string;
   title?: string;
   capturedAt: string; // ISO 8601 UTC
@@ -21,7 +23,7 @@ export const DRAFT_MAX_AGE_MS = 5 * 60 * 1000;
 export const MAX_URL_LENGTH = 2048;
 export const MAX_TITLE_LENGTH = 300;
 
-const SOURCES: readonly CaptureSource[] = ['page', 'link', 'command'];
+const GESTURES: readonly CaptureGesture[] = ['page', 'link', 'command'];
 
 export function draftKey(windowId: number): string {
   return `${DRAFT_KEY_PREFIX}${windowId}`;
@@ -56,11 +58,11 @@ export function sanitizeTitle(raw: unknown): string | undefined {
 }
 
 export function createDraft(
-  source: CaptureSource,
+  gesture: CaptureGesture,
   fields: { url?: unknown; title?: unknown; readFailed?: boolean },
   now: Date = new Date(),
 ): CaptureDraft {
-  const draft: CaptureDraft = { v: 1, source, capturedAt: now.toISOString() };
+  const draft: CaptureDraft = { v: 2, gesture, capturedAt: now.toISOString() };
   const url = sanitizeUrl(fields.url);
   const title = sanitizeTitle(fields.title);
   if (url) draft.url = url;
@@ -73,11 +75,13 @@ export function createDraft(
 export function parseDraft(raw: unknown): CaptureDraft | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
-  if (r.v !== 1) return null;
-  if (typeof r.source !== 'string' || !SOURCES.includes(r.source as CaptureSource)) return null;
+  if (r.v !== 2) return null;
+  if (typeof r.gesture !== 'string' || !GESTURES.includes(r.gesture as CaptureGesture)) {
+    return null;
+  }
   if (typeof r.capturedAt !== 'string' || Number.isNaN(Date.parse(r.capturedAt))) return null;
   return {
-    ...createDraft(r.source as CaptureSource, {
+    ...createDraft(r.gesture as CaptureGesture, {
       url: r.url,
       title: r.title,
       readFailed: r.readFailed === true,
@@ -89,17 +93,4 @@ export function parseDraft(raw: unknown): CaptureDraft | null {
 /** Fresh means captured within the last 5 minutes. A future timestamp (clock skew) counts as fresh. */
 export function isFresh(draft: CaptureDraft, now: Date = new Date()): boolean {
   return now.getTime() - Date.parse(draft.capturedAt) < DRAFT_MAX_AGE_MS;
-}
-
-/**
- * The application fields under the form's More details that a capture filled. Listed
- * explicitly, never by matching property names: the draft's own `source` records which gesture
- * made it (page, link or command), not the application's Source field.
- *
- * None yet: captures fill only the URL and title. M8's extractor adds location, work mode and
- * salary here, and More details then opens for them so their "Auto-filled" hints are seen.
- */
-export function capturedDetailFields(draft: CaptureDraft): string[] {
-  void draft;
-  return [];
 }

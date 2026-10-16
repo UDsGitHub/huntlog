@@ -151,8 +151,8 @@ describe('capture gestures', () => {
 
     await vi.waitFor(async () =>
       expect(await storedDraft()).toEqual({
-        v: 1,
-        source: 'page',
+        v: 2,
+        gesture: 'page',
         url: 'https://jobs.example.test/posting/1',
         title: 'Engineer at Acme',
         capturedAt: expect.any(String),
@@ -169,7 +169,7 @@ describe('capture gestures', () => {
     api.commands.onCommand.fire(ADD_JOB_COMMAND, tab());
     expect(api.sidePanel.open).toHaveBeenCalledWith({ windowId: 3 });
     await vi.waitFor(async () =>
-      expect(await storedDraft()).toMatchObject({ source: 'command', title: 'Engineer at Acme' }),
+      expect(await storedDraft()).toMatchObject({ gesture: 'command', title: 'Engineer at Acme' }),
     );
   });
 
@@ -188,8 +188,8 @@ describe('capture gestures', () => {
     expect(api.sidePanel.open).toHaveBeenCalledWith({ windowId: 3 });
     await vi.waitFor(async () =>
       expect(await storedDraft()).toEqual({
-        v: 1,
-        source: 'link',
+        v: 2,
+        gesture: 'link',
         url: 'https://jobs.example.test/posting/99',
         capturedAt: expect.any(String),
       }),
@@ -201,7 +201,11 @@ describe('capture gestures', () => {
     'drops a non-web link URL %j',
     async (linkUrl) => {
       await handleCapture('link', tab(), linkUrl);
-      expect(await storedDraft()).toEqual({ v: 1, source: 'link', capturedAt: expect.any(String) });
+      expect(await storedDraft()).toEqual({
+        v: 2,
+        gesture: 'link',
+        capturedAt: expect.any(String),
+      });
     },
   );
 });
@@ -211,8 +215,8 @@ describe('handleCapture fallbacks', () => {
     api.scripting.executeScript.mockRejectedValue(new Error('Cannot access contents of the page'));
     await expect(handleCapture('page', tab())).resolves.toBeUndefined();
     expect(await storedDraft()).toEqual({
-      v: 1,
-      source: 'page',
+      v: 2,
+      gesture: 'page',
       url: 'https://jobs.example.test/posting/1',
       readFailed: true,
       capturedAt: expect.any(String),
@@ -223,8 +227,8 @@ describe('handleCapture fallbacks', () => {
     api.scripting.executeScript.mockRejectedValue(new Error('Cannot access a chrome:// URL'));
     await handleCapture('command', tab({ url: 'chrome://settings' }));
     expect(await storedDraft()).toEqual({
-      v: 1,
-      source: 'command',
+      v: 2,
+      gesture: 'command',
       readFailed: true,
       capturedAt: expect.any(String),
     });

@@ -22,7 +22,6 @@ import {
   type DuplicateMatch,
 } from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
-import { capturedDetailFields } from '@/lib/captureDraft';
 import type { FormDefaults } from '@/lib/formDefaults';
 import {
   ACTIVE_STATUSES,
@@ -130,11 +129,13 @@ export function ApplicationForm({
           notes: '',
         },
   );
-  // More details opens on its own in Edit when a field inside has a value, and after a capture
-  // that filled one (none yet; see capturedDetailFields). Errors inside open it too (save()).
+  // More details opens on its own in Edit when a field inside has a value. Errors inside open
+  // it too (save()).
   const [detailsOpen, setDetailsOpen] = useState(() => {
     if (application) return DETAIL_VALUE_FIELDS.some((field) => application[field] !== undefined);
-    return draft ? capturedDetailFields(draft).length > 0 : false;
+    // Captures fill only URL and title, both above More details. M8's extractor adds location,
+    // work mode and salary: then open it for those, so their "Auto-filled" hints are seen.
+    return false;
   });
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});

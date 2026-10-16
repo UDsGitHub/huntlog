@@ -91,17 +91,19 @@ describe('capture prefill', () => {
     expect(screen.queryByRole('form')).toBeNull();
   });
 
-  it.each([['garbage'], [{ v: 1, source: 'page' }], [{ v: 9 }]])(
-    'survives a malformed draft %j',
-    async (raw) => {
-      await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: raw });
-      render(<App />);
+  it.each([
+    ['garbage'],
+    [{ v: 2, gesture: 'page' }],
+    [{ v: 1, source: 'page', capturedAt: new Date().toISOString() }],
+    [{ v: 9 }],
+  ])('survives a malformed draft %j', async (raw) => {
+    await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: raw });
+    render(<App />);
 
-      await waitFor(async () => expect(await stored()).toBeUndefined());
-      expect(screen.queryByRole('form')).toBeNull();
-      expect(screen.getByText(/No applications yet/)).toBeInTheDocument();
-    },
-  );
+    await waitFor(async () => expect(await stored()).toBeUndefined());
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(screen.getByText(/No applications yet/)).toBeInTheDocument();
+  });
 
   it('does not prefill an unsafe URL even if one reaches storage', async () => {
     await fakeBrowser.storage.session.set({

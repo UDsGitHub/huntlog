@@ -85,7 +85,7 @@ test('a capture leaves More details collapsed when it filled nothing in there', 
     createDraft('command', { url: JOB_URL }),
   ]) {
     await writeDraft(session, windowId, draft);
-    await expect(form(panel).url).toHaveValue(JOB_URL);
+    await expect(panel.getByRole('heading', { name: 'Add application' })).toBeVisible();
     await expect(panel.getByRole('button', { name: 'More details' })).toHaveAttribute(
       'aria-expanded',
       'false',

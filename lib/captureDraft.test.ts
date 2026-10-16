@@ -7,7 +7,6 @@ import {
   parseDraft,
   sanitizeTitle,
   sanitizeUrl,
-  capturedDetailFields,
 } from './captureDraft';
 
 const now = new Date('2026-10-15T12:00:00.000Z');
@@ -83,8 +82,8 @@ describe('sanitizeTitle', () => {
 describe('createDraft', () => {
   it('builds a versioned draft with only the valid fields', () => {
     expect(createDraft('page', { url: 'https://a.com/j', title: ' Job ' }, now)).toEqual({
-      v: 1,
-      source: 'page',
+      v: 2,
+      gesture: 'page',
       url: 'https://a.com/j',
       title: 'Job',
       capturedAt: '2026-10-15T12:00:00.000Z',
@@ -93,13 +92,13 @@ describe('createDraft', () => {
 
   it('omits invalid fields instead of storing them', () => {
     const draft = createDraft('link', { url: 'javascript:alert(1)', title: 7 }, now);
-    expect(draft).toEqual({ v: 1, source: 'link', capturedAt: now.toISOString() });
+    expect(draft).toEqual({ v: 2, gesture: 'link', capturedAt: now.toISOString() });
   });
 
   it('marks failed page reads', () => {
     expect(createDraft('command', { url: 'chrome://newtab', readFailed: true }, now)).toEqual({
-      v: 1,
-      source: 'command',
+      v: 2,
+      gesture: 'command',
       capturedAt: now.toISOString(),
       readFailed: true,
     });
@@ -108,8 +107,8 @@ describe('createDraft', () => {
 
 describe('parseDraft', () => {
   const valid = {
-    v: 1,
-    source: 'page',
+    v: 2,
+    gesture: 'page',
     url: 'https://a.com/',
     title: 'T',
     capturedAt: now.toISOString(),
@@ -118,8 +117,8 @@ describe('parseDraft', () => {
   it('round-trips a valid draft', () => {
     expect(parseDraft(valid)).toEqual(valid);
     expect(parseDraft(createDraft('link', { url: 'https://a.com/' }, now))).toEqual({
-      v: 1,
-      source: 'link',
+      v: 2,
+      gesture: 'link',
       url: 'https://a.com/',
       capturedAt: now.toISOString(),
     });
@@ -130,9 +129,9 @@ describe('parseDraft', () => {
     [undefined],
     ['captureDraft'],
     [[]],
-    [{ ...valid, v: 2 }],
+    [{ ...valid, v: 1 }],
     [{ ...valid, v: undefined }],
-    [{ ...valid, source: 'tab' }],
+    [{ ...valid, gesture: 'tab' }],
     [{ ...valid, capturedAt: 'yesterday' }],
     [{ ...valid, capturedAt: undefined }],
   ])('rejects %j', (input) => {
@@ -142,7 +141,7 @@ describe('parseDraft', () => {
   it('strips fields that would be unsafe to prefill', () => {
     expect(
       parseDraft({ ...valid, url: 'javascript:alert(1)', title: { evil: true }, extra: 'x' }),
-    ).toEqual({ v: 1, source: 'page', capturedAt: now.toISOString() });
+    ).toEqual({ v: 2, gesture: 'page', capturedAt: now.toISOString() });
   });
 
   it('keeps readFailed only when it is exactly true', () => {
@@ -163,15 +162,4 @@ describe('isFresh', () => {
   ])('%s → %s', (_label, ageMs, expected) => {
     expect(isFresh(at(ageMs), now)).toBe(expected);
   });
-});
-
-describe('capturedDetailFields', () => {
-  it.each([['page'], ['link'], ['command']] as const)(
-    "doesn't mistake a %s draft's gesture source for the Source field",
-    (source) => {
-      expect(
-        capturedDetailFields(createDraft(source, { url: 'https://a.com/', title: 'T' })),
-      ).toEqual([]);
-    },
-  );
 });
