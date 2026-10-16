@@ -127,6 +127,7 @@ describe('Add application form', () => {
     await db.applications.add({
       id: 'x',
       url: 'javascript:alert(1)',
+      urlNormalized: 'javascript:alert(1)',
       company: 'Imported',
       status: 'applied',
       statusHistory: [],

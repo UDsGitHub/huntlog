@@ -1,4 +1,5 @@
 import { db as defaultDb, type JobLogDB } from './db';
+import { companyTitleKey, derivedFields } from './dedupe';
 import { sanitizeTitle } from './captureDraft';
 import { todayLocal } from './dates';
 import type { Application } from './types';
@@ -74,6 +75,11 @@ export async function addApplication(
     url: values.url,
     company: values.company,
     ...(values.title && { title: values.title }),
+    // Also enforced by the db hooks; set here so the returned object matches what's stored.
+    urlNormalized: derivedFields(values).urlNormalized,
+    ...(companyTitleKey(values.company, values.title) && {
+      companyTitleKey: companyTitleKey(values.company, values.title),
+    }),
     status: 'applied',
     statusHistory: [{ status: 'applied', at }],
     appliedAt: todayLocal(now),
@@ -91,4 +97,28 @@ export function listApplications(database: JobLogDB = defaultDb): Promise<Applic
     .reverse()
     .filter((a) => !a.deletedAt)
     .toArray();
+}
+
+/**
+ * Live applications that look like the same job: same normalized URL, or same company + title.
+ * Pass validated values (what would be stored, e.g. with https:// already added), not raw input.
+ * Excludes soft-deleted rows and `excludeId` (the record being edited). Newest first.
+ */
+export async function findDuplicates(
+  input: { url: string; company: string; title?: string },
+  { excludeId }: { excludeId?: string } = {},
+  database: JobLogDB = defaultDb,
+): Promise<Application[]> {
+  const { urlNormalized, companyTitleKey: key } = derivedFields(input);
+  const [byUrl, byTitle] = await Promise.all([
+    database.applications.where('urlNormalized').equals(urlNormalized).toArray(),
+    key ? database.applications.where('companyTitleKey').equals(key).toArray() : [],
+  ]);
+  const unique = new Map<string, Application>();
+  for (const app of [...byUrl, ...byTitle]) {
+    if (!app.deletedAt && app.id !== excludeId) unique.set(app.id, app);
+  }
+  return [...unique.values()].sort((a, b) =>
+    a.updatedAt === b.updatedAt ? 0 : a.updatedAt < b.updatedAt ? 1 : -1,
+  );
 }
