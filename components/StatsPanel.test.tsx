@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import * as applications from '@/lib/applications';
@@ -74,14 +74,14 @@ describe('Stats tab', () => {
     expect(card(panel, 'Applied')).toHaveTextContent('4');
     expect(card(panel, 'Interviews')).toHaveTextContent('1');
     expect(card(panel, 'Offers')).toHaveTextContent('0');
-    expect(card(panel, /Response rate/)).toHaveTextContent('2 of 4 applied');
+    expect(card(panel, /Response rate/)).toHaveTextContent('2 of 4 heard back');
     expect(card(panel, /Response rate/)).toHaveTextContent('50%');
     expect(card(panel, /Interview rate/)).toHaveTextContent('25%');
 
     await user.selectOptions(within(panel).getByLabelText('Range'), 'This month');
     expect(panel).toHaveTextContent('Oct 1, 2026 – Oct 31, 2026');
     expect(card(panel, 'Applied')).toHaveTextContent('5');
-    expect(card(panel, /Response rate/)).toHaveTextContent('2 of 5 applied');
+    expect(card(panel, /Response rate/)).toHaveTextContent('2 of 5 heard back');
   });
 
   it('shows a dash, not 0%, when nothing was applied in the range', async () => {
@@ -111,13 +111,54 @@ describe('Stats tab', () => {
     expect(card(panel, 'Applied')).toHaveTextContent('2');
 
     await user.clear(from);
-    expect(within(panel).getByText('Enter both dates.')).toBeInTheDocument();
+    // Only the field that's wrong is flagged, with its own message.
+    expect(from).toHaveAccessibleDescription('Enter a date.');
     expect(from).toHaveAttribute('aria-invalid', 'true');
+    expect(to).not.toHaveAttribute('aria-invalid');
     expect(within(panel).queryByText('Applied', { selector: 'dt' })).toBeNull();
 
     await user.type(from, '2026-09-01');
     expect(card(panel, 'Applied')).toHaveTextContent('3');
     expect(from).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('says what is wrong with a typed date', async () => {
+    await applied('2026-10-10');
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    await user.selectOptions(within(panel).getByLabelText('Range'), 'Custom');
+    const to = within(panel).getByLabelText('To');
+    expect(to).toHaveAttribute('min', '1970-01-01');
+    await user.clear(to);
+    await user.type(to, '2026-10-20');
+    expect(to).toHaveAccessibleDescription("This date can't be in the future.");
+    await user.clear(to);
+    await user.type(to, '1969-12-31');
+    expect(to).toHaveAccessibleDescription('Enter a valid date.');
+  });
+
+  it('refills a half-cleared custom range when Custom is picked again', async () => {
+    await applied('2026-10-10');
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    const range = within(panel).getByLabelText('Range');
+    await user.selectOptions(range, 'Custom');
+    await user.clear(within(panel).getByLabelText('From'));
+    await user.selectOptions(range, 'This week');
+    await user.selectOptions(range, 'Custom');
+    expect(within(panel).getByLabelText('From')).toHaveValue('2026-09-17');
+    expect(within(panel).getByLabelText('From')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('moves on to the new day when the panel is shown again after midnight', async () => {
+    await applied('2026-10-17'); // Saturday: this week until the week turns
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    expect(panel).toHaveTextContent('Oct 11, 2026 – Oct 17, 2026');
+    vi.setSystemTime(new Date(2026, 9, 18, 9)); // Sunday: a new week
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(panel).toHaveTextContent('Oct 18, 2026 – Oct 24, 2026');
+    expect(card(panel, 'Applied')).toHaveTextContent('0');
   });
 
   it('keeps the range while another tab shows', async () => {

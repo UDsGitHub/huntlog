@@ -1,9 +1,11 @@
-import { formatLocalDate, formatTimestampDate, todayLocal } from './dates';
+import { formatLocalDate, formatTimestampDate, msUntilNextDay, todayLocal } from './dates';
 
 describe('todayLocal', () => {
   const originalTz = process.env.TZ;
   afterEach(() => {
-    process.env.TZ = originalTz;
+    // Assigning undefined would store the string "undefined" (read as UTC), not unset it.
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
   });
 
   it('formats as zero-padded YYYY-MM-DD', () => {
@@ -21,6 +23,27 @@ describe('todayLocal', () => {
     process.env.TZ = 'Asia/Tokyo';
     // 00:30 in Tokyo on Oct 16 is still Oct 15 in UTC.
     expect(todayLocal(new Date('2026-10-15T15:30:00Z'))).toBe('2026-10-16');
+  });
+});
+
+describe('msUntilNextDay', () => {
+  const originalTz = process.env.TZ;
+  afterEach(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+  const HOUR = 3_600_000;
+
+  it('counts to the next local midnight', () => {
+    process.env.TZ = 'America/New_York';
+    expect(msUntilNextDay(new Date(2026, 9, 16, 23, 30))).toBe(HOUR / 2);
+    expect(msUntilNextDay(new Date(2026, 9, 16, 0, 0))).toBe(24 * HOUR);
+  });
+
+  it('follows a DST day: 23 hours in spring, 25 in autumn', () => {
+    process.env.TZ = 'America/New_York';
+    expect(msUntilNextDay(new Date(2026, 2, 8, 0, 0))).toBe(23 * HOUR);
+    expect(msUntilNextDay(new Date(2026, 10, 1, 0, 0))).toBe(25 * HOUR);
   });
 });
 

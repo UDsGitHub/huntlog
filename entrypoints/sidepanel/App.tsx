@@ -358,9 +358,7 @@ export default function App() {
         role="tabpanel"
         id={panelId(TAB_PREFIX, 'stats')}
         aria-labelledby={tabId(TAB_PREFIX, 'stats')}
-        tabIndex={0}
         hidden={inForm || tab !== 'stats'}
-        className="focus:outline-2 focus:outline-indigo-600"
       >
         <ErrorBoundary
           fallback={

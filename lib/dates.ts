@@ -6,6 +6,12 @@ export function todayLocal(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Milliseconds from `now` to the next local midnight (a DST day is 23 or 25 hours long). */
+export function msUntilNextDay(now: Date = new Date()): number {
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
 /**
  * A YYYY-MM-DD string as a local Date (midnight), or undefined unless it's a real calendar date
  * (rejects 2026-02-30). Never `new Date('YYYY-MM-DD')`: that parses as UTC.

@@ -38,14 +38,14 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await expect(value(/^Interviews$/)).toHaveText('1');
   await expect(value(/^Offers$/)).toHaveText('0');
   await expect(value(/^Response rate/)).toHaveText('50%');
-  await expect(card(/^Response rate/)).toContainText('1 of 2 applied');
+  await expect(card(/^Response rate/)).toContainText('1 of 2 heard back');
   await expect(numbers).toHaveCount(5);
   await expectNoHorizontalScroll(page);
 
   await stats.getByLabel('Range').selectOption({ label: 'This month' });
   await expect(stats).toContainText('Oct 1, 2026 – Oct 31, 2026');
   await expect(value(/^Applied$/)).toHaveText('3');
-  await expect(card(/^Response rate/)).toContainText('1 of 3 applied');
+  await expect(card(/^Response rate/)).toContainText('1 of 3 heard back');
   await expect(value(/^Response rate/)).toHaveText('33%');
   await expectNoHorizontalScroll(page);
 
