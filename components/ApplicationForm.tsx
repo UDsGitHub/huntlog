@@ -17,13 +17,17 @@ import {
 } from '@/lib/applicationInput';
 import {
   addApplication,
+  findDuplicates,
   NotFoundError,
   updateApplication,
   ValidationError,
 } from '@/lib/applications';
+import { validateApplication } from '@/lib/applicationInput';
+import { normalizeUrl } from '@/lib/normalizeUrl';
 import { todayLocal } from '@/lib/dates';
 import { defaultCurrency, knownCurrencies, numberSeparators } from '@/lib/locale';
 import type { Application } from '@/lib/types';
+import { DuplicateWarning } from './DuplicateWarning';
 import type { CapturePrefill } from './useCaptureDraft';
 
 interface Props {
@@ -33,6 +37,8 @@ interface Props {
   application?: Application;
   onSaved: (application: Application) => void;
   onCancel: () => void;
+  /** "View existing" in the duplicate warning: leave this form for that application. */
+  onViewExisting: (id: string) => void;
 }
 
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
@@ -76,7 +82,13 @@ function formValuesFrom(app: Application): FormValues {
   };
 }
 
-export function ApplicationForm({ prefill, application, onSaved, onCancel }: Props) {
+export function ApplicationForm({
+  prefill,
+  application,
+  onSaved,
+  onCancel,
+  onViewExisting,
+}: Props) {
   // Without React's colons, the ids are valid in CSS selectors too (happy-dom resolves `list` that way).
   const id = useId().replace(/:/g, '');
   const draft = application ? undefined : prefill?.draft;
@@ -104,6 +116,9 @@ export function ApplicationForm({ prefill, application, onSaved, onCancel }: Pro
   const saving = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const fieldRefs = useRef<Partial<Record<InputField, HTMLElement | null>>>({});
+  const [duplicates, setDuplicates] = useState<{ matches: Application[]; url: string } | null>(
+    null,
+  );
   const currencies = useMemo(() => knownCurrencies(), []);
 
   // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
@@ -118,31 +133,59 @@ export function ApplicationForm({ prefill, application, onSaved, onCancel }: Pro
     title: Boolean(draft?.title) && values.title === draft?.title,
   };
 
-  const set = (field: keyof FormValues) => (value: string) =>
+  const set = (field: keyof FormValues) => (value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
+    // The warning is about what was submitted; changing what it matched on clears it.
+    if (field === 'url' || field === 'company' || field === 'title') setDuplicates(null);
+  };
   const register = (field: InputField) => (element: HTMLElement | null) => {
     fieldRefs.current[field] = element;
   };
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    await save({ allowDuplicate: false });
+  }
+
+  async function save({ allowDuplicate }: { allowDuplicate: boolean }) {
     if (saving.current) return;
-    setErrors({});
+    const result = validateApplication(values, undefined, undefined, {
+      appliedAtRequired: !application || application.status !== 'saved',
+    });
+    setErrors(result.errors);
     setSaveError(null);
+    if (!result.values) {
+      setDuplicates(null);
+      const first = FIELD_ORDER.find((field) => result.errors[field]);
+      if (first) fieldRefs.current[first]?.focus();
+      return;
+    }
+    // A missing date would mean "default to today" to storage; an empty string means cleared.
+    const validated = { ...result.values, appliedAt: result.values.appliedAt ?? '' };
     saving.current = true;
     setIsSaving(true);
     try {
-      // Saving validates once and reports field errors through ValidationError.
+      if (!allowDuplicate) {
+        const matches = await findDuplicates(validated, { excludeId: application?.id });
+        if (matches.length > 0) {
+          setDuplicates({ matches, url: normalizeUrl(validated.url) });
+          saving.current = false;
+          setIsSaving(false);
+          return;
+        }
+      }
+      // Already validated; saving re-checks the normalized values, which can't newly fail
+      // (the only time-dependent rule, "not in the future", only gets looser).
       onSaved(
-        await (application ? updateApplication(application.id, values) : addApplication(values)),
+        await (application
+          ? updateApplication(application.id, validated)
+          : addApplication(validated)),
       );
     } catch (error) {
       saving.current = false;
       setIsSaving(false);
       if (error instanceof ValidationError) {
         setErrors(error.fields);
-        const first = FIELD_ORDER.find((field) => error.fields[field]);
-        if (first) fieldRefs.current[first]?.focus();
         return;
       }
       if (error instanceof NotFoundError) {
@@ -350,6 +393,14 @@ export function ApplicationForm({ prefill, application, onSaved, onCancel }: Pro
           {message('notes')}
         </Field>
       </fieldset>
+      {duplicates && (
+        <DuplicateWarning
+          matches={duplicates.matches}
+          urlNormalized={duplicates.url}
+          onViewExisting={onViewExisting}
+          onSaveAnyway={() => void save({ allowDuplicate: true })}
+        />
+      )}
       {saveError && (
         <p role="alert" className="text-xs text-red-700">
           {saveError}
