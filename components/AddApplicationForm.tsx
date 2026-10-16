@@ -1,10 +1,25 @@
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { addApplication, validateNewApplication, type FieldErrors } from '@/lib/applications';
+import type { CapturePrefill } from './useCaptureDraft';
 
-export function AddApplicationForm() {
+interface Props {
+  /** A captured page or link. The form is remounted per capture (keyed by nonce), so it's read once. */
+  prefill?: CapturePrefill | null;
+}
+
+type HintField = 'url' | 'title';
+
+export function AddApplicationForm({ prefill }: Props) {
   const id = useId();
-  const [url, setUrl] = useState('');
+  const draft = prefill?.draft;
+  const [url, setUrl] = useState(draft?.url ?? '');
   const [company, setCompany] = useState('');
+  const [title, setTitle] = useState(draft?.title ?? '');
+  const [hints, setHints] = useState<Record<HintField, boolean>>({
+    url: Boolean(draft?.url),
+    title: Boolean(draft?.title),
+  });
+  const [readFailed, setReadFailed] = useState(Boolean(draft?.readFailed));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const saving = useRef(false);
@@ -12,17 +27,22 @@ export function AddApplicationForm() {
   const urlRef = useRef<HTMLInputElement>(null);
   const companyRef = useRef<HTMLInputElement>(null);
 
+  // A capture leaves Company as the only empty required field, so start there.
+  useEffect(() => {
+    if (prefill) companyRef.current?.focus();
+  }, [prefill]);
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (saving.current) return;
-    const result = validateNewApplication({ url, company });
+    const result = validateNewApplication({ url, company, title });
     setErrors(result.errors);
     setSaveError(null);
     if (!result.values) {
       (result.errors.url ? urlRef : companyRef).current?.focus();
       return;
     }
-    const submitted = { url, company };
+    const submitted = { url, company, title };
     saving.current = true;
     setIsSaving(true);
     try {
@@ -30,6 +50,9 @@ export function AddApplicationForm() {
       // Only clear what is unchanged: the user may already be typing the next job.
       setUrl((current) => (current === submitted.url ? '' : current));
       setCompany((current) => (current === submitted.company ? '' : current));
+      setTitle((current) => (current === submitted.title ? '' : current));
+      setHints({ url: false, title: false });
+      setReadFailed(false);
       if (
         urlRef.current?.value === submitted.url &&
         companyRef.current?.value === submitted.company
@@ -45,10 +68,14 @@ export function AddApplicationForm() {
     }
   }
 
+  const describedBy = (...ids: (string | false | undefined)[]) =>
+    ids.filter(Boolean).join(' ') || undefined;
+
   const field = 'flex flex-col gap-1';
   const input =
     'w-full min-w-0 rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-2 focus:outline-indigo-600 aria-invalid:border-red-700';
   const errorText = 'text-xs text-red-700';
+  const hintText = 'text-xs text-slate-600';
 
   return (
     <form
@@ -57,6 +84,11 @@ export function AddApplicationForm() {
       aria-label="Add application"
       className="flex flex-col gap-3"
     >
+      {readFailed && (
+        <p role="status" className="text-sm text-slate-700">
+          Couldn't read this page, so fill in the details below.
+        </p>
+      )}
       <div className={field}>
         <label htmlFor={`${id}-url`} className="text-sm font-medium">
           Job posting URL
@@ -69,11 +101,22 @@ export function AddApplicationForm() {
           inputMode="url"
           autoComplete="off"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => {
+            setUrl(e.target.value);
+            setHints((h) => ({ ...h, url: false }));
+          }}
           aria-invalid={errors.url ? true : undefined}
-          aria-describedby={errors.url ? `${id}-url-error` : undefined}
+          aria-describedby={describedBy(
+            hints.url && `${id}-url-hint`,
+            errors.url && `${id}-url-error`,
+          )}
           className={input}
         />
+        {hints.url && (
+          <p id={`${id}-url-hint`} className={hintText}>
+            Auto-filled, please check
+          </p>
+        )}
         {errors.url && (
           <p id={`${id}-url-error`} className={errorText}>
             {errors.url}
@@ -99,6 +142,29 @@ export function AddApplicationForm() {
         {errors.company && (
           <p id={`${id}-company-error`} className={errorText}>
             {errors.company}
+          </p>
+        )}
+      </div>
+      <div className={field}>
+        <label htmlFor={`${id}-title`} className="text-sm font-medium">
+          Job title <span className="font-normal text-slate-600">(optional)</span>
+        </label>
+        <input
+          id={`${id}-title`}
+          name="title"
+          type="text"
+          autoComplete="off"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setHints((h) => ({ ...h, title: false }));
+          }}
+          aria-describedby={hints.title ? `${id}-title-hint` : undefined}
+          className={input}
+        />
+        {hints.title && (
+          <p id={`${id}-title-hint`} className={hintText}>
+            Auto-filled, please check
           </p>
         )}
       </div>
