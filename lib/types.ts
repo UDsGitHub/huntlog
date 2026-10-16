@@ -10,6 +10,9 @@ export type Status =
   | 'withdrawn'
   | 'ghosted';
 
+export type WorkMode = 'remote' | 'hybrid' | 'onsite';
+export type SalaryPeriod = 'year' | 'month' | 'hour';
+
 export interface StatusHistoryEntry {
   status: Status;
   at: string; // ISO 8601 UTC
@@ -28,6 +31,14 @@ export interface Application {
   status: Status;
   statusHistory: StatusHistoryEntry[]; // append-only
   appliedAt?: string; // YYYY-MM-DD, local date
+  location?: string;
+  workMode?: WorkMode;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string; // ISO 4217; stored only with a salary
+  salaryPeriod?: SalaryPeriod;
+  source?: string; // free text with suggestions
+  notes?: string; // plain text, shown with line breaks
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
