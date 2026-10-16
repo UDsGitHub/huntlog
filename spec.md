@@ -244,7 +244,7 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 - Clicking the toolbar icon while `openPanelOnActionClick` is on opens the side panel but does **not** grant `activeTab`. The toolbar icon therefore can't prefill; capture goes through the context menu or shortcut.
 - Once a gesture grants `activeTab`, the serialized extractor runs in the tab and returns its URL and title.
 - `chrome://` pages stay unreadable even with `activeTab`, so the form falls back to blank.
-- **Not yet verified in a real browser:** that `sidePanel.open()` works from the context-menu and command handlers, and that it must be called before any `await`. Playwright can't click native context menus or send browser-level shortcuts. The call order is enforced by unit tests (`tests/background.test.ts`); a manual check on the production build is still pending (M1).
+- `sidePanel.open()` works from the page and link context-menu handlers and from the `Alt+Shift+J` command handler. The panel opens with the capture prefilled, and restricted pages fall back as described in §4.1. Verified manually by the owner on the production build (M1, 2026-10-16). Chrome documents that `open()` must run while the gesture is active, so it is called before any `await`. Unit tests (`tests/background.test.ts`) enforce that order; the manual check didn't test a broken order.
 
 **Known limitation:** a button *inside* the side panel does not grant `activeTab`, so the blank manual form cannot read the current tab. Page prefill happens only through the context menu or the shortcut, and the side panel's empty state should explain this ("Tip: right-click any job posting → Add job to Job Log").
 
