@@ -4,7 +4,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
-  retries: process.env.CI ? 1 : 0,
+  // No retries: a flaky extension launch should fail CI, not hide behind a rerun.
+  retries: 0,
   workers: 1,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { trace: 'retain-on-failure' },

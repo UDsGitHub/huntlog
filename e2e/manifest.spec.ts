@@ -6,6 +6,7 @@ import { EXTENSION_PATH, expect, test } from './fixtures';
 test('production manifest has only the M0 permissions', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8'));
   expect(manifest.manifest_version).toBe(3);
+  expect(manifest.minimum_chrome_version).toBe('116');
   expect([...manifest.permissions].sort()).toEqual(['sidePanel', 'storage']);
   expect(manifest.host_permissions).toBeUndefined();
   expect(manifest.optional_permissions).toBeUndefined();

@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -20,7 +27,16 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx vitest run
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: failure()

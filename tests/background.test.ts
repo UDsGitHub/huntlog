@@ -2,8 +2,16 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 import background from '../entrypoints/background';
 
 describe('background', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     fakeBrowser.reset();
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (fakeBrowser as { sidePanel?: unknown }).sidePanel;
   });
 
   it('makes the toolbar icon open the side panel', () => {
@@ -20,12 +28,17 @@ describe('background', () => {
     Object.assign(fakeBrowser, {
       sidePanel: { setPanelBehavior: vi.fn().mockRejectedValue(error) },
     });
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(() => background.main()).not.toThrow();
     await vi.waitFor(() =>
       expect(consoleError).toHaveBeenCalledWith('setPanelBehavior failed', error),
     );
-    consoleError.mockRestore();
+  });
+
+  it('logs instead of throwing when the sidePanel API is missing', async () => {
+    expect(() => background.main()).not.toThrow();
+    await vi.waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith('setPanelBehavior failed', expect.any(TypeError)),
+    );
   });
 });

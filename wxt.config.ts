@@ -9,7 +9,8 @@ export default defineConfig({
   }),
   manifest: {
     name: 'Job Log',
-    description: 'Track the job applications you submit.',
+    // sidePanel API landed in 114, setPanelBehavior in 116.
+    minimum_chrome_version: '116',
     permissions: ['sidePanel', 'storage'],
     action: {
       default_title: 'Open Job Log',

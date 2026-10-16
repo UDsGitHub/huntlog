@@ -4,27 +4,19 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 // Local-first: the extension must never talk to the network (CLAUDE.md, spec §8).
+const NETWORK_APIS = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'];
+const NETWORK_MESSAGE = 'No network calls: Job Log is local-only.';
 const networkBan = {
   'no-restricted-globals': [
     'error',
-    { name: 'fetch', message: 'No network calls: Job Log is local-only.' },
-    { name: 'XMLHttpRequest', message: 'No network calls: Job Log is local-only.' },
-    { name: 'WebSocket', message: 'No network calls: Job Log is local-only.' },
-    { name: 'EventSource', message: 'No network calls: Job Log is local-only.' },
+    ...NETWORK_APIS.map((name) => ({ name, message: NETWORK_MESSAGE })),
   ],
   'no-restricted-properties': [
     'error',
-    { object: 'window', property: 'fetch', message: 'No network calls: Job Log is local-only.' },
-    {
-      object: 'globalThis',
-      property: 'fetch',
-      message: 'No network calls: Job Log is local-only.',
-    },
-    {
-      object: 'navigator',
-      property: 'sendBeacon',
-      message: 'No network calls: Job Log is local-only.',
-    },
+    ...['window', 'self', 'globalThis'].flatMap((object) =>
+      NETWORK_APIS.map((property) => ({ object, property, message: NETWORK_MESSAGE })),
+    ),
+    { object: 'navigator', property: 'sendBeacon', message: NETWORK_MESSAGE },
   ],
 };
 
@@ -42,7 +34,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx,js,jsx,mjs}'],
     ignores: ['e2e/**'],
     languageOptions: { globals: { ...globals.browser } },
     plugins: { 'react-hooks': reactHooks },
