@@ -5,20 +5,18 @@ import { formatTimestampDate } from '@/lib/dates';
 import { formatBytes } from '@/lib/format';
 import { openResume, opensInViewer } from '@/lib/openResume';
 import {
-  addResume,
-  defaultResumeName,
   deleteResume,
   formatLabel,
   listResumes,
   purgeDeletedResumeData,
   restoreResume,
-  RESUME_ACCEPT,
   ResumeValidationError,
   setResumeArchived,
   updateResume,
   type ResumeErrors,
 } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
+import { ResumeUpload } from './ResumeUpload';
 import type { ToastData } from './Toast';
 
 interface Props {
@@ -103,7 +101,7 @@ export function ResumesPanel({ showToast, announce }: Props) {
       >
         Resumes
       </h2>
-      <UploadForm announce={announce} />
+      <ResumeUpload variant="panel" onUploaded={(resume) => announce(`Uploaded ${resume.name}.`)} />
 
       {active.length === 0 && archived.length === 0 ? (
         <p className="text-sm text-slate-600">
@@ -143,135 +141,6 @@ export function ResumesPanel({ showToast, announce }: Props) {
         </div>
       )}
     </section>
-  );
-}
-
-/** Upload: pick a file, name it (suggested from the file name), optional note. */
-function UploadForm({ announce }: { announce: (message: string) => void }) {
-  const id = useId();
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [name, setName] = useState('');
-  // A typed name is kept; a suggested one follows the file picked.
-  const [nameTyped, setNameTyped] = useState(false);
-  const [note, setNote] = useState('');
-  const [errors, setErrors] = useState<ResumeErrors>({});
-  const [saving, setSaving] = useState(false);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (saving) return;
-    if (!file) {
-      setErrors({ file: 'Choose a file to upload.' });
-      fileInput.current?.focus();
-      return;
-    }
-    setSaving(true);
-    try {
-      const resume = await addResume(file, { name, note });
-      announce(`Uploaded ${resume.name}.`);
-      setFile(null);
-      setName('');
-      setNameTyped(false);
-      setNote('');
-      setErrors({});
-      if (fileInput.current) fileInput.current.value = '';
-    } catch (error) {
-      if (error instanceof ResumeValidationError) {
-        setErrors(error.fields);
-        if (error.fields.file) fileInput.current?.focus();
-      } else {
-        console.error('addResume failed', error);
-        setErrors({ file: "Couldn't save this file. Please try again." });
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const described = (field: keyof ResumeErrors) =>
-    errors[field]
-      ? { 'aria-invalid': true as const, 'aria-describedby': `${id}-${field}-error` }
-      : {};
-  const errorText = (field: keyof ResumeErrors) =>
-    errors[field] && (
-      <p id={`${id}-${field}-error`} className="text-xs text-red-700">
-        {errors[field]}
-      </p>
-    );
-
-  return (
-    <form
-      onSubmit={submit}
-      noValidate
-      aria-label="Upload a resume"
-      aria-busy={saving || undefined}
-      className="flex min-w-0 flex-col gap-2 rounded border border-slate-200 p-3"
-    >
-      <div className="flex min-w-0 flex-col gap-1">
-        <label htmlFor={`${id}-file`} className="text-sm font-medium">
-          Resume file
-        </label>
-        <input
-          ref={fileInput}
-          id={`${id}-file`}
-          type="file"
-          accept={RESUME_ACCEPT}
-          onChange={(event) => {
-            const picked = event.target.files?.[0] ?? null;
-            setFile(picked);
-            setErrors({});
-            if (picked && !nameTyped) setName(defaultResumeName(picked.name));
-          }}
-          className="w-full min-w-0 text-sm"
-          {...described('file')}
-        />
-        <p className="text-xs text-slate-600">PDF, DOCX, DOC, TXT or RTF, up to 10 MB.</p>
-        {errorText('file')}
-      </div>
-      <div className="flex min-w-0 flex-col gap-1">
-        <label htmlFor={`${id}-name`} className="text-sm font-medium">
-          Name
-        </label>
-        <input
-          id={`${id}-name`}
-          type="text"
-          autoComplete="off"
-          placeholder="e.g. Backend v3"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            // Clearing the name hands it back to the suggestion.
-            setNameTyped(event.target.value.trim() !== '');
-          }}
-          className={input}
-          {...described('name')}
-        />
-        {errorText('name')}
-      </div>
-      <div className="flex min-w-0 flex-col gap-1">
-        <label htmlFor={`${id}-note`} className="text-sm font-medium">
-          Note <span className="font-normal text-slate-600">(optional)</span>
-        </label>
-        <input
-          id={`${id}-note`}
-          type="text"
-          autoComplete="off"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          className={input}
-          {...described('note')}
-        />
-        {errorText('note')}
-      </div>
-      <button
-        type="submit"
-        aria-disabled={saving || undefined}
-        className="self-start rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-      >
-        {saving ? 'Uploading…' : 'Upload'}
-      </button>
-    </form>
   );
 }
 

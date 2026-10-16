@@ -50,7 +50,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - List filters (All / Active / Closed / any single status), search, and sort (§4.4).
 - **Tests:** status transitions and history, the `appliedAt` prompt (Set date, Skip, Withdrawn, existing date), undo, filter/search logic, More details auto-opening, the sticky bar at 320px, currency order, and remembered defaults applying to manual adds but not to captures or Edit.
 
-## M4 — Resume library
+## M4 — Resume library ✅ (v0.4.0)
 **Slice:** Upload "Backend v3.pdf" → pick it on an application → open it later from that application.
 
 - Add `unlimitedStorage`. Add a `resumes` table storing the file Blob (Dexie migration).

@@ -6,6 +6,8 @@ import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
 import { formatSalary } from '@/lib/format';
 import { StatusChip, type StatusPick } from './StatusChip';
 import { StatusTimeline } from './StatusTimeline';
+import { getResume } from '@/lib/resumes';
+import { openResume, opensInViewer } from '@/lib/openResume';
 import type { Application } from '@/lib/types';
 
 interface Props {
@@ -106,6 +108,11 @@ export function ApplicationDetail({
           <StatusChip application={app} align="start" onPick={(pick) => onStatusPick(app, pick)} />
         </Row>
         {app.appliedAt && <Row label="Date applied">{formatLocalDate(app.appliedAt)}</Row>}
+        {app.resumeId && (
+          <Row label="Resume">
+            <ResumeLink resumeId={app.resumeId} snapshot={app.resumeNameSnapshot} />
+          </Row>
+        )}
         {app.location && <Row label="Location">{app.location}</Row>}
         {app.workMode && <Row label="Work mode">{WORK_MODE_LABELS[app.workMode]}</Row>}
         {salary && <Row label="Salary">{salary}</Row>}
@@ -146,5 +153,40 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <dt className="text-slate-600">{label}</dt>
       <dd className="min-w-0 break-words">{children}</dd>
     </>
+  );
+}
+
+/**
+ * The linked resume's current name with Open (PDF) or Download, or its snapshot name when the
+ * resume itself is gone (spec §4.6). Archived resumes still open from here.
+ */
+function ResumeLink({ resumeId, snapshot }: { resumeId: string; snapshot?: string }) {
+  const resume = useLiveQuery(async () => (await getResume(resumeId)) ?? null, [resumeId]);
+  const [failed, setFailed] = useState(false);
+  if (resume === undefined) return null;
+  if (resume === null) {
+    return <span>{snapshot ?? 'Resume'} (file not available)</span>;
+  }
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="min-w-0 break-words">{resume.name}</span>
+      <button
+        type="button"
+        onClick={() =>
+          void openResume(resume).then(
+            (opened) => setFailed(!opened),
+            (error: unknown) => {
+              console.error('openResume failed', error);
+              setFailed(true);
+            },
+          )
+        }
+        className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+      >
+        {opensInViewer(resume) ? 'Open' : 'Download'}
+        <span className="sr-only"> resume {resume.name}</span>
+      </button>
+      {failed && <span className="text-xs text-slate-600">The file isn't available.</span>}
+    </span>
   );
 }

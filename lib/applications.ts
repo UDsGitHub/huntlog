@@ -27,18 +27,22 @@ export function safeHref(url: string): string | undefined {
   }
 }
 
+/**
+ * Adds an application without the duplicate check. Goes through saveApplication, so every add
+ * follows the same rules (validation, resume link and its name snapshot).
+ */
 export async function addApplication(
   input: ApplicationInput,
   database: JobLogDB = defaultDb,
   now: Date = new Date(),
 ): Promise<Application> {
-  const { values, errors } = validateApplication(input, now);
-  if (!values) throw new ValidationError(errors);
-  return insertValidated(values, database, now);
+  const result = await saveApplication(input, { allowDuplicate: true }, database, now);
+  if (!('saved' in result)) throw new Error('unreachable: duplicates were allowed');
+  return result.saved;
 }
 
 async function insertValidated(
-  values: ApplicationValues,
+  values: ApplicationValues & ResumeLink,
   database: JobLogDB,
   now: Date,
 ): Promise<Application> {
@@ -117,6 +121,8 @@ const OPTIONAL_FIELDS = [
   'source',
   'notes',
   'appliedAt',
+  'resumeId',
+  'resumeNameSnapshot',
 ] as const;
 
 /** A live (not soft-deleted) application, or undefined. */
@@ -185,11 +191,16 @@ export async function saveApplication(
   const outcome = await database.transaction(
     'rw',
     database.applications,
+    database.resumes,
     async (): Promise<Outcome> => {
       const current = id === undefined ? undefined : await getApplication(id, database);
       if (id !== undefined && !current) return { kind: 'notFound' };
       const { values, errors } = validateApplication(input, now, undefined, { current });
       if (!values) return { kind: 'invalid', errors };
+      // In an edit, leaving resumeId out means "unchanged" (as for status); '' clears it.
+      const chosen = input.resumeId === undefined ? current?.resumeId : values.resumeId;
+      const link = await resumeLink(chosen, current, database);
+      if ('error' in link) return { kind: 'invalid', errors: { resumeId: link.error } };
 
       const derived = derivedFields(values);
       const unchanged =
@@ -209,8 +220,8 @@ export async function saveApplication(
         }
       }
       const application = current
-        ? await writeUpdate(current, values, database, now)
-        : await insertValidated(values, database, now);
+        ? await writeUpdate(current, { ...values, ...link }, database, now)
+        : await insertValidated({ ...values, ...link }, database, now);
       return { kind: 'saved', application };
     },
   );
@@ -226,10 +237,35 @@ export async function saveApplication(
   }
 }
 
+type ResumeLink = { resumeId?: string; resumeNameSnapshot?: string };
+
+/**
+ * The resume fields to store (spec §4.6): the chosen resume's id and its name at the moment it's
+ * linked. An edit that keeps the same resume keeps its snapshot, even if that resume has since
+ * been archived or deleted (that's what the snapshot is for). A newly chosen resume must be
+ * available: live and not archived, as the picker offers. Reads `resumes` directly, inside
+ * saveApplication's transaction (lib/resumes.ts imports this module, so it can't be imported).
+ */
+async function resumeLink(
+  resumeId: string | undefined,
+  current: Application | undefined,
+  database: JobLogDB,
+): Promise<ResumeLink | { error: string }> {
+  if (!resumeId) return {};
+  if (current?.resumeId === resumeId) {
+    return { resumeId, resumeNameSnapshot: current.resumeNameSnapshot };
+  }
+  const resume = await database.resumes.get(resumeId);
+  if (!resume || resume.deletedAt || resume.archived) {
+    return { error: "That resume isn't available any more. Choose another." };
+  }
+  return { resumeId, resumeNameSnapshot: resume.name };
+}
+
 /** Writes an edit inside saveApplication's transaction. */
 async function writeUpdate(
   current: Application,
-  values: ApplicationValues,
+  values: ApplicationValues & ResumeLink,
   database: JobLogDB,
   now: Date,
 ): Promise<Application> {
