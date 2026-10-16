@@ -22,6 +22,7 @@ import {
   type DuplicateMatch,
 } from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
+import { capturedDetailFields } from '@/lib/captureDraft';
 import type { FormDefaults } from '@/lib/formDefaults';
 import {
   ACTIVE_STATUSES,
@@ -130,11 +131,10 @@ export function ApplicationForm({
         },
   );
   // More details opens on its own in Edit when a field inside has a value, and after a capture
-  // that filled one (M8 captures more than URL and title). Errors inside open it too (save()).
+  // that filled one (none yet; see capturedDetailFields). Errors inside open it too (save()).
   const [detailsOpen, setDetailsOpen] = useState(() => {
     if (application) return DETAIL_VALUE_FIELDS.some((field) => application[field] !== undefined);
-    const captured = draft as Record<string, unknown> | undefined;
-    return DETAIL_VALUE_FIELDS.some((field) => captured?.[field] !== undefined);
+    return draft ? capturedDetailFields(draft).length > 0 : false;
   });
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});

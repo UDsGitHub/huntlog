@@ -90,3 +90,16 @@ export function parseDraft(raw: unknown): CaptureDraft | null {
 export function isFresh(draft: CaptureDraft, now: Date = new Date()): boolean {
   return now.getTime() - Date.parse(draft.capturedAt) < DRAFT_MAX_AGE_MS;
 }
+
+/**
+ * The application fields under the form's More details that a capture filled. Listed
+ * explicitly, never by matching property names: the draft's own `source` records which gesture
+ * made it (page, link or command), not the application's Source field.
+ *
+ * None yet: captures fill only the URL and title. M8's extractor adds location, work mode and
+ * salary here, and More details then opens for them so their "Auto-filled" hints are seen.
+ */
+export function capturedDetailFields(draft: CaptureDraft): string[] {
+  void draft;
+  return [];
+}

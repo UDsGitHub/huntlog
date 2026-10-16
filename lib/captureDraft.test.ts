@@ -7,6 +7,7 @@ import {
   parseDraft,
   sanitizeTitle,
   sanitizeUrl,
+  capturedDetailFields,
 } from './captureDraft';
 
 const now = new Date('2026-10-15T12:00:00.000Z');
@@ -162,4 +163,15 @@ describe('isFresh', () => {
   ])('%s → %s', (_label, ageMs, expected) => {
     expect(isFresh(at(ageMs), now)).toBe(expected);
   });
+});
+
+describe('capturedDetailFields', () => {
+  it.each([['page'], ['link'], ['command']] as const)(
+    "doesn't mistake a %s draft's gesture source for the Source field",
+    (source) => {
+      expect(
+        capturedDetailFields(createDraft(source, { url: 'https://a.com/', title: 'T' })),
+      ).toEqual([]);
+    },
+  );
 });
