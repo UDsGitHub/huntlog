@@ -277,3 +277,47 @@ describe('validateApplication', () => {
     expect(valuesOf({ appliedAt: '2026-10-15' }).appliedAt).toBe('2026-10-15');
   });
 });
+
+describe('status and Date applied', () => {
+  it('accepts each status and rejects anything else', () => {
+    expect(valuesOf({ status: 'offer' }).status).toBe('offer');
+    expect(errorsOf({ status: 'pending' })).toEqual({ status: 'Choose a status.' });
+  });
+
+  it.each([['saved'], ['withdrawn']])(
+    'makes Date applied optional for %s, with no default',
+    (status) => {
+      expect(valuesOf({ status })).not.toHaveProperty('appliedAt');
+      expect(valuesOf({ status, appliedAt: '' })).not.toHaveProperty('appliedAt');
+      expect(valuesOf({ status, appliedAt: '2026-10-01' }).appliedAt).toBe('2026-10-01');
+    },
+  );
+
+  it.each([['applied'], ['interviewing'], ['rejected'], ['ghosted']])(
+    'requires Date applied for %s, defaulting to today',
+    (status) => {
+      expect(valuesOf({ status }).appliedAt).toBe('2026-10-15');
+      expect(errorsOf({ status, appliedAt: '' })).toEqual({
+        appliedAt: 'Enter the date you applied.',
+      });
+    },
+  );
+
+  it('uses the stored status when the input has none', () => {
+    const { values } = validateApplication({ ...base, appliedAt: '' }, now, 'en-US', {
+      current: { status: 'saved' },
+    });
+    expect(values).not.toBeNull();
+  });
+
+  it("doesn't require a date in an edit of a job stored without one (Skip)", () => {
+    const skipped = validateApplication({ ...base, appliedAt: '' }, now, 'en-US', {
+      current: { status: 'screening' },
+    });
+    expect(skipped.errors).toEqual({});
+    const dated = validateApplication({ ...base, appliedAt: '' }, now, 'en-US', {
+      current: { status: 'screening', appliedAt: '2026-10-01' },
+    });
+    expect(dated.errors).toEqual({ appliedAt: 'Enter the date you applied.' });
+  });
+});

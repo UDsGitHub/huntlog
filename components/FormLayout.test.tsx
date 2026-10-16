@@ -81,7 +81,9 @@ describe('More details', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByLabelText('Job posting URL')).toHaveFocus());
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText('Minimum')).toHaveAccessibleDescription(/Enter a number/);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Minimum')).toHaveAccessibleDescription(/Enter a number/),
+    );
   });
 
   it('publishes the sticky bar height so the toast and focus scrolling keep clear', async () => {
@@ -97,7 +99,7 @@ describe('More details', () => {
     const user = userEvent.setup();
     await openAdd(user);
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByLabelText('Job posting URL')).toHaveFocus();
+    await waitFor(() => expect(screen.getByLabelText('Job posting URL')).toHaveFocus());
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -150,7 +152,9 @@ describe('Currency picker', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     expect(screen.getByLabelText('Currency')).toHaveValue('XYZ');
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByLabelText('Currency')).toHaveAccessibleDescription(/Choose a currency/);
+    await waitFor(() =>
+      expect(screen.getByLabelText('Currency')).toHaveAccessibleDescription(/Choose a currency/),
+    );
   });
 
   it('lists the locale default and USD, EUR, GBP first', async () => {

@@ -1,7 +1,8 @@
 import { sanitizeTitle } from './captureDraft';
 import { todayLocal } from './dates';
 import { defaultCurrency, isKnownCurrency, numberSeparators } from './locale';
-import type { SalaryPeriod, WorkMode } from './types';
+import { appliedAtOptional, isStatus } from './status';
+import type { SalaryPeriod, Status, WorkMode } from './types';
 
 export const WORK_MODE_LABELS: Record<WorkMode, string> = {
   remote: 'Remote',
@@ -42,7 +43,12 @@ export interface ApplicationInput {
   salaryPeriod?: string;
   source?: string;
   notes?: string;
-  /** YYYY-MM-DD local date. Defaults to today when omitted; an empty string is an error. */
+  /** One of the 9 statuses. Omitted: Applied for a new application, unchanged for an edit. */
+  status?: string;
+  /**
+   * YYYY-MM-DD local date. Omitted: today, unless the status doesn't need one. An empty string
+   * means none, which is an error unless the status is Saved or Withdrawn.
+   */
   appliedAt?: string;
 }
 
@@ -59,6 +65,7 @@ export interface ApplicationValues {
   salaryPeriod?: SalaryPeriod;
   source?: string;
   notes?: string;
+  status?: Status;
   appliedAt?: string;
 }
 
@@ -108,7 +115,7 @@ export function parseSalary(raw: string | number | undefined, locale?: string): 
   return Number(match[2] ? `${whole}.${match[2]}` : whole);
 }
 
-function isValidLocalDate(value: string): boolean {
+export function isValidLocalDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;
   const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
@@ -131,17 +138,26 @@ function optionalText(
 
 export interface ValidateOptions {
   /**
-   * Date applied is required once a job is applied for (spec §5), but optional for a Saved
-   * job. Defaults to required.
+   * The stored application when editing. Its status is used when the input has none (new
+   * applications: Applied). And a job that has no Date applied (the user chose Skip when asked)
+   * isn't made to get one by an unrelated edit.
    */
-  appliedAtRequired?: boolean;
+  current?: { status: Status; appliedAt?: string };
+}
+
+/** Error message for a Date applied, or undefined if it's a real local date not in the future. */
+export function checkAppliedAt(value: string, now: Date = new Date()): string | undefined {
+  if (!isValidLocalDate(value)) return 'Enter a valid date.';
+  // YYYY-MM-DD strings compare in date order.
+  if (value > todayLocal(now)) return "The date applied can't be in the future.";
+  return undefined;
 }
 
 export function validateApplication(
   input: ApplicationInput,
   now: Date = new Date(),
   locale?: string,
-  { appliedAtRequired = true }: ValidateOptions = {},
+  { current }: ValidateOptions = {},
 ): { values: ApplicationValues | null; errors: FieldErrors } {
   const errors: FieldErrors = {};
   const out: Partial<ApplicationValues> = {};
@@ -218,14 +234,24 @@ export function validateApplication(
     }
   }
 
-  const appliedAt = input.appliedAt === undefined ? todayLocal(now) : input.appliedAt.trim();
+  let status: Status = current?.status ?? 'applied';
+  if (input.status !== undefined && input.status !== '') {
+    if (isStatus(input.status)) status = out.status = input.status;
+    else errors.status = 'Choose a status.';
+  }
+
+  // Date applied is required once an application was sent (spec §5): not for Saved or Withdrawn,
+  // and not in an edit of a job stored without one.
+  const optional = appliedAtOptional(status) || (current !== undefined && !current.appliedAt);
+  const appliedAt =
+    input.appliedAt === undefined ? (optional ? '' : todayLocal(now)) : input.appliedAt.trim();
   if (!appliedAt) {
-    if (appliedAtRequired) errors.appliedAt = 'Enter the date you applied.';
-  } else if (!isValidLocalDate(appliedAt)) errors.appliedAt = 'Enter a valid date.';
-  // YYYY-MM-DD strings compare in date order.
-  else if (appliedAt > todayLocal(now))
-    errors.appliedAt = "The date applied can't be in the future.";
-  else out.appliedAt = appliedAt;
+    if (!optional) errors.appliedAt = 'Enter the date you applied.';
+  } else {
+    const error = checkAppliedAt(appliedAt, now);
+    if (error) errors.appliedAt = error;
+    else out.appliedAt = appliedAt;
+  }
 
   if (Object.keys(errors).length > 0) return { values: null, errors };
   return { values: out as ApplicationValues, errors };

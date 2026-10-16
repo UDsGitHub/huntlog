@@ -125,7 +125,9 @@ describe('Add view', () => {
     await user.clear(field('Date applied'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(field('Job posting URL')).toHaveAccessibleDescription('Enter the job posting URL.');
+    await waitFor(() =>
+      expect(field('Job posting URL')).toHaveAccessibleDescription('Enter the job posting URL.'),
+    );
     expect(field('Company')).toHaveAccessibleDescription('Enter the company name.');
     expect(field('Date applied')).toHaveAccessibleDescription('Enter the date you applied.');
     expect(field('Maximum')).toHaveAccessibleDescription('Maximum must be at least the minimum.');
@@ -141,7 +143,7 @@ describe('Add view', () => {
     await user.type(field('Company'), 'Acme');
     await user.type(field('Minimum'), 'lots');
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(field('Minimum')).toHaveFocus();
+    await waitFor(() => expect(field('Minimum')).toHaveFocus());
     expect(field('Minimum')).toHaveAccessibleDescription('Enter a number, like 85,000.');
   });
 
@@ -151,8 +153,10 @@ describe('Add view', () => {
     await user.type(field('Job posting URL'), 'javascript:alert(1)');
     await user.type(field('Company'), 'Acme');
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(field('Job posting URL')).toHaveAccessibleDescription(
-      'Enter a valid web address (http or https).',
+    await waitFor(() =>
+      expect(field('Job posting URL')).toHaveAccessibleDescription(
+        'Enter a valid web address (http or https).',
+      ),
     );
     expect(await db.applications.count()).toBe(0);
   });
