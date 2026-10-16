@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as applications from '@/lib/applications';
 import { addApplication, softDeleteApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
@@ -223,5 +224,71 @@ describe('Delete', () => {
     await user.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
     expect((await db.applications.get(app.id))?.deletedAt).toBeDefined();
+  });
+});
+
+describe('focus after the review fixes', () => {
+  it('Undo puts focus on the restored row; Dismiss puts it on + Add application', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+
+    await user.click(screen.getByRole('button', { name: /^Acme/ }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: 'Dismiss' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+    );
+  });
+
+  it("doesn't replay an old row focus when the list shows again later", async () => {
+    await seed();
+    await addApplication({ url: 'https://beta.com/1', company: 'Beta' });
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('button', { name: '← Back to applications' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+
+    const focused: string[] = [];
+    document.addEventListener('focusin', (e) =>
+      focused.push((e.target as HTMLElement).textContent ?? ''),
+    );
+    await user.click(screen.getByRole('button', { name: '+ Add application' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+    );
+    expect(focused.some((text) => text.startsWith('Acme'))).toBe(false);
+  });
+
+  it('falls back to the heading when returning from an edit of a deleted row', async () => {
+    const app = await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await act(async () => {
+      await softDeleteApplication(app.id);
+    });
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(
+      await screen.findByRole('heading', { name: "This application isn't available" }),
+    ).toHaveFocus();
+  });
+
+  it('offers a way back when the row to edit is already gone', async () => {
+    const app = await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    vi.spyOn(applications, 'getApplication').mockResolvedValueOnce(undefined);
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const back = await screen.findByRole('button', { name: '← Back' });
+    expect(back).toHaveFocus();
+    expect(screen.getByText("This application isn't available any more.")).toBeInTheDocument();
+    await user.click(back);
+    expect(await screen.findByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
+    expect(app.id).toBeTruthy();
   });
 });

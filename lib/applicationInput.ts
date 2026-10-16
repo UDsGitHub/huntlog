@@ -59,7 +59,7 @@ export interface ApplicationValues {
   salaryPeriod?: SalaryPeriod;
   source?: string;
   notes?: string;
-  appliedAt: string;
+  appliedAt?: string;
 }
 
 export type InputField = Exclude<keyof ApplicationInput, 'title'>;
@@ -129,10 +129,19 @@ function optionalText(
   return { value };
 }
 
+export interface ValidateOptions {
+  /**
+   * Date applied is required once a job is applied for (spec §5), but optional for a Saved
+   * job. Defaults to required.
+   */
+  appliedAtRequired?: boolean;
+}
+
 export function validateApplication(
   input: ApplicationInput,
   now: Date = new Date(),
   locale?: string,
+  { appliedAtRequired = true }: ValidateOptions = {},
 ): { values: ApplicationValues | null; errors: FieldErrors } {
   const errors: FieldErrors = {};
   const out: Partial<ApplicationValues> = {};
@@ -210,8 +219,9 @@ export function validateApplication(
   }
 
   const appliedAt = input.appliedAt === undefined ? todayLocal(now) : input.appliedAt.trim();
-  if (!appliedAt) errors.appliedAt = 'Enter the date you applied.';
-  else if (!isValidLocalDate(appliedAt)) errors.appliedAt = 'Enter a valid date.';
+  if (!appliedAt) {
+    if (appliedAtRequired) errors.appliedAt = 'Enter the date you applied.';
+  } else if (!isValidLocalDate(appliedAt)) errors.appliedAt = 'Enter a valid date.';
   // YYYY-MM-DD strings compare in date order.
   else if (appliedAt > todayLocal(now))
     errors.appliedAt = "The date applied can't be in the future.";

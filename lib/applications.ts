@@ -106,6 +106,7 @@ const OPTIONAL_FIELDS = [
   'salaryPeriod',
   'source',
   'notes',
+  'appliedAt',
 ] as const;
 
 /** A live (not soft-deleted) application, or undefined. */
@@ -127,7 +128,11 @@ export async function updateApplication(
   database: JobLogDB = defaultDb,
   now: Date = new Date(),
 ): Promise<Application> {
-  const { values, errors } = validateApplication(input, now);
+  const current = await getApplication(id, database);
+  if (!current) throw new NotFoundError(id);
+  const { values, errors } = validateApplication(input, now, undefined, {
+    appliedAtRequired: current.status !== 'saved',
+  });
   if (!values) throw new ValidationError(errors);
   // Dexie wraps errors thrown inside a transaction, so "not found" comes out as undefined.
   const updated = await database.transaction('rw', database.applications, async () => {

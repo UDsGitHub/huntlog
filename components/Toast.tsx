@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const TOAST_DURATION_MS = 5000;
 
+/** Why a toast closed: it timed out, the user dismissed it, or the user took its action. */
+export type DismissReason = 'timeout' | 'dismiss' | 'action';
+
 export interface ToastData {
   id: number;
   message: string;
@@ -31,7 +34,7 @@ export function Toast({
   duration = TOAST_DURATION_MS,
 }: {
   toast: ToastData | null;
-  onDismiss: () => void;
+  onDismiss: (reason: DismissReason) => void;
   duration?: number;
 }) {
   return (
@@ -53,7 +56,7 @@ function ToastCard({
   duration,
 }: {
   toast: ToastData;
-  onDismiss: () => void;
+  onDismiss: (reason: DismissReason) => void;
   duration: number;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -62,7 +65,7 @@ function ToastCard({
 
   useEffect(() => {
     if (paused) return;
-    const timer = setTimeout(onDismiss, duration);
+    const timer = setTimeout(() => onDismiss('timeout'), duration);
     return () => clearTimeout(timer);
   }, [paused, duration, onDismiss]);
 
@@ -82,7 +85,7 @@ function ToastCard({
           type="button"
           onClick={() => {
             toast.action!.onAction();
-            onDismiss();
+            onDismiss('action');
           }}
           className="rounded px-2 py-1 font-semibold text-indigo-200 underline hover:text-white focus:outline-2 focus:outline-white"
         >
@@ -91,7 +94,7 @@ function ToastCard({
       )}
       <button
         type="button"
-        onClick={onDismiss}
+        onClick={() => onDismiss('dismiss')}
         aria-label="Dismiss"
         className="rounded px-1.5 py-1 text-slate-300 hover:text-white focus:outline-2 focus:outline-white"
       >

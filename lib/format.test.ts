@@ -23,7 +23,17 @@ describe('formatSalary', () => {
       'en-US',
       'From $45.50 per hour',
     ],
-    [{ salaryMin: 100 }, 'en-US', 'From $100'],
+    [{ salaryMin: 100 }, 'en-US', 'From 100'],
+    [
+      { salaryMin: 85000, salaryCurrency: undefined, salaryPeriod: 'year' },
+      'de-DE',
+      'From 85.000 per year',
+    ],
+    [
+      { salaryMin: 45.5, salaryMax: 50, salaryCurrency: 'USD', salaryPeriod: 'hour' },
+      'en-US',
+      '$45.50–$50.00 per hour',
+    ],
   ] as const)('%j in %s → %s', (app, locale, expected) => {
     expect(formatSalary(app, locale)).toBe(expected);
   });

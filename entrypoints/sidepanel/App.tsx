@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ApplicationDetail } from '@/components/ApplicationDetail';
 import { ApplicationForm, readFailedMessage } from '@/components/ApplicationForm';
-import { ApplicationList, type FocusRequest } from '@/components/ApplicationList';
+import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Toast, useToast } from '@/components/Toast';
+import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
 import { getApplication, NotFoundError, restoreApplication } from '@/lib/applications';
 import type { CaptureDraft } from '@/lib/captureDraft';
@@ -15,67 +15,76 @@ type View =
   | { name: 'detail'; id: string; focus: 'heading' | 'edit' }
   | { name: 'edit'; id: string };
 
+/**
+ * Where focus goes when the list shows again (spec §10). Cleared once used. `awaitRow`: the row
+ * is about to appear (just restored), so wait for it instead of falling back to + Add.
+ */
+type FocusTarget = { kind: 'add' } | { kind: 'row'; id: string; awaitRow?: boolean };
+
 export default function App() {
   const [view, setView] = useState<View>({ name: 'list' });
+  // The view on screen, readable from async handlers. Every navigation creates a new object, so
+  // a handler can tell whether the view it belongs to is still showing (see isCurrent).
+  const viewRef = useRef(view);
   // Each opening of the Add view gets a fresh form.
   const [formSession, setFormSession] = useState(0);
   const [announcement, setAnnouncement] = useState({ text: '', count: 0 });
-  // Bumped when a view closes, so focus returns to the list (spec §10): to the row the user
-  // came from, or to + Add application.
-  const [returnFocus, setReturnFocus] = useState(0);
-  const [rowFocus, setRowFocus] = useState<FocusRequest>({ n: 0 });
-  const addButton = useRef<HTMLButtonElement>(null);
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
+  // A capture that arrived while an edit was open; it opens once the edit closes.
+  const deferredCapture = useRef(false);
+  const heading = useRef<HTMLHeadingElement>(null);
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
-  const { prefill, consume } = useCaptureDraft((capture) => {
-    setView({ name: 'add' });
-    announce(captureAnnouncement(capture.draft));
-  });
-  const formKey = `${formSession}-${prefill?.nonce ?? 0}`;
-  // A form's save can finish after a newer capture replaced that form; it must not close the
-  // new one. Handlers compare their own key with the form currently on screen.
-  const currentFormKey = useRef(formKey);
-  useEffect(() => {
-    currentFormKey.current = formKey;
-  });
+  function navigate(next: View) {
+    viewRef.current = next;
+    setView(next);
+  }
+
+  /**
+   * Async work (a save, a delete) may finish after the user has moved on, e.g. a capture opened
+   * the Add view meanwhile. Only the view that started the work may navigate away from itself.
+   */
+  const isCurrent = (v: View) => viewRef.current === v;
 
   function announce(text: string) {
     setAnnouncement(({ count }) => ({ text, count: count + 1 }));
   }
 
-  useEffect(() => {
-    if (returnFocus > 0) addButton.current?.focus();
-  }, [returnFocus]);
+  const { prefill, consume } = useCaptureDraft((capture) => {
+    announce(captureAnnouncement(capture.draft));
+    // Replacing an Add form is expected (spec §4.1); throwing away unsaved edits is not.
+    if (viewRef.current.name === 'edit') {
+      deferredCapture.current = true;
+      showToast({ message: 'Job captured. It opens when you finish editing.' });
+      return;
+    }
+    navigate({ name: 'add' });
+  });
 
   function openAdd() {
     setFormSession((n) => n + 1);
-    setView({ name: 'add' });
+    navigate({ name: 'add' });
   }
 
-  function closeForm(key: string) {
-    if (key !== currentFormKey.current) return;
-    consume();
-    setView({ name: 'list' });
-    setReturnFocus((n) => n + 1);
+  function toList(focus: FocusTarget) {
+    navigate({ name: 'list' });
+    setFocusTarget(focus);
   }
 
-  function backToList(rowId: string) {
-    setView({ name: 'list' });
-    setRowFocus(({ n }) => ({ n: n + 1, rowId }));
-  }
-
-  const focusAddButton = useCallback(() => setReturnFocus((n) => n + 1), []);
-
-  function handleDeleted(application: Application) {
-    setView({ name: 'list' });
-    setReturnFocus((n) => n + 1);
+  function handleDeleted(from: View, application: Application) {
+    if (isCurrent(from)) toList({ kind: 'add' });
     showToast({
       message: `Deleted ${application.company}.`,
       action: {
         label: 'Undo',
         onAction: () => {
           restoreApplication(application.id).then(
-            () => announce(`Restored ${application.company}.`),
+            () => {
+              announce(`Restored ${application.company}.`);
+              if (viewRef.current.name === 'list') {
+                setFocusTarget({ kind: 'row', id: application.id, awaitRow: true });
+              }
+            },
             (error: unknown) => {
               if (!(error instanceof NotFoundError)) console.error('Undo delete failed', error);
               announce("Couldn't undo the delete.");
@@ -86,30 +95,51 @@ export default function App() {
     });
   }
 
+  function handleToastDismiss(reason: DismissReason) {
+    dismissToast();
+    // The toast's button had focus and is gone; put focus somewhere sensible. After Undo, the
+    // restored row takes it once the restore finishes.
+    if (reason !== 'dismiss') return;
+    if (viewRef.current.name === 'list') setFocusTarget({ kind: 'add' });
+    else heading.current?.focus();
+  }
+
+  const clearFocusTarget = useCallback(() => setFocusTarget(null), []);
+  const focusAddInstead = useCallback(() => setFocusTarget({ kind: 'add' }), []);
+
   return (
     <main className="flex flex-col gap-4 p-4">
-      <h1 className="text-lg font-semibold">Job Log</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+        Job Log
+      </h1>
       {/* One live region for the whole panel, mounted before anything is announced. */}
       <p role="status" className="sr-only">
         {/* A zero-width space alternates so a repeated message still changes the region. */}
         {announcement.text}
-        {announcement.count % 2 ? '\u200b' : ''}
+        {announcement.count % 2 ? '​' : ''}
       </p>
       {view.name === 'detail' ? (
         <ApplicationDetail
           key={view.id}
           id={view.id}
           initialFocus={view.focus}
-          onBack={() => backToList(view.id)}
-          onEdit={() => setView({ name: 'edit', id: view.id })}
-          onDeleted={handleDeleted}
+          onBack={() => toList({ kind: 'row', id: view.id })}
+          onEdit={() => navigate({ name: 'edit', id: view.id })}
+          onDeleted={(application) => handleDeleted(view, application)}
         />
       ) : view.name === 'edit' ? (
         <EditView
           id={view.id}
           onDone={(saved) => {
             if (saved) announce('Saved changes.');
-            setView({ name: 'detail', id: view.id, focus: 'edit' });
+            if (!isCurrent(view)) return;
+            // This handler may come from the render where Save was pressed, before the capture
+            // arrived, so it checks the ref rather than `prefill`.
+            if (deferredCapture.current) {
+              deferredCapture.current = false;
+              return navigate({ name: 'add' });
+            }
+            navigate({ name: 'detail', id: view.id, focus: 'edit' });
           }}
         />
       ) : view.name === 'add' ? (
@@ -119,13 +149,18 @@ export default function App() {
           </h2>
           {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
           <ApplicationForm
-            key={formKey}
+            key={`${formSession}-${prefill?.nonce ?? 0}`}
             prefill={prefill}
             onSaved={(application) => {
               announce(`Saved ${application.company}.`);
-              closeForm(formKey);
+              if (!isCurrent(view)) return;
+              consume();
+              toList({ kind: 'add' });
             }}
-            onCancel={() => closeForm(formKey)}
+            onCancel={() => {
+              consume();
+              toList({ kind: 'add' });
+            }}
           />
         </section>
       ) : (
@@ -134,14 +169,11 @@ export default function App() {
             <h2 id="applications-heading" className="text-base font-semibold">
               Applications
             </h2>
-            <button
-              ref={addButton}
-              type="button"
+            <AddButton
+              focus={focusTarget?.kind === 'add'}
+              onFocused={clearFocusTarget}
               onClick={openAdd}
-              className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
-            >
-              + Add application
-            </button>
+            />
           </div>
           <ErrorBoundary
             fallback={
@@ -151,15 +183,44 @@ export default function App() {
             }
           >
             <ApplicationList
-              onOpen={(id) => setView({ name: 'detail', id, focus: 'heading' })}
-              focusRequest={rowFocus}
-              onFocusMissing={focusAddButton}
+              onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
+              focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
+              awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
+              onRowFocused={clearFocusTarget}
+              onRowMissing={focusAddInstead}
             />
           </ErrorBoundary>
         </section>
       )}
-      <Toast toast={toast} onDismiss={dismissToast} />
+      <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>
+  );
+}
+
+function AddButton({
+  focus,
+  onFocused,
+  onClick,
+}: {
+  focus: boolean;
+  onFocused: () => void;
+  onClick: () => void;
+}) {
+  const button = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    if (!focus) return;
+    button.current?.focus();
+    onFocused();
+  }, [focus, onFocused]);
+  return (
+    <button
+      ref={button}
+      type="button"
+      onClick={onClick}
+      className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+    >
+      + Add application
+    </button>
   );
 }
 
@@ -167,6 +228,7 @@ function EditView({ id, onDone }: { id: string; onDone: (saved: boolean) => void
   // Loaded once, not live: if the row is deleted in another window, the form stays (so typed
   // changes aren't lost) and Save explains why it can't save.
   const [application, setApplication] = useState<Application | null | undefined>(undefined);
+  const back = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let cancelled = false;
     getApplication(id).then(
@@ -180,6 +242,10 @@ function EditView({ id, onDone }: { id: string; onDone: (saved: boolean) => void
       cancelled = true;
     };
   }, [id]);
+  useLayoutEffect(() => {
+    if (application === null) back.current?.focus();
+  }, [application]);
+
   if (application === undefined) return null;
   return (
     <section aria-labelledby="edit-heading" className="flex flex-col gap-3">
@@ -194,7 +260,17 @@ function EditView({ id, onDone }: { id: string; onDone: (saved: boolean) => void
           onCancel={() => onDone(false)}
         />
       ) : (
-        <p className="text-sm text-slate-700">This application isn't available any more.</p>
+        <>
+          <p className="text-sm text-slate-700">This application isn't available any more.</p>
+          <button
+            ref={back}
+            type="button"
+            onClick={() => onDone(false)}
+            className="self-start rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
+          >
+            ← Back
+          </button>
+        </>
       )}
     </section>
   );

@@ -267,6 +267,30 @@ describe('updateApplication', () => {
   });
 });
 
+describe('updateApplication and Date applied', () => {
+  it('requires a date applied for an applied job', async () => {
+    const app = await addApplication({ url: 'https://a.com/1', company: 'Acme' }, db);
+    const error = await updateApplication(
+      app.id,
+      { url: app.url, company: 'Acme', appliedAt: '' },
+      db,
+    ).catch((e: unknown) => e);
+    expect((error as ValidationError).fields).toEqual({ appliedAt: 'Enter the date you applied.' });
+  });
+
+  it('lets a saved job be edited without a date applied, and clears it', async () => {
+    const app = await addApplication({ url: 'https://a.com/1', company: 'Acme' }, db);
+    await db.applications.update(app.id, { status: 'saved' });
+    const updated = await updateApplication(
+      app.id,
+      { url: app.url, company: 'Acme Corp', appliedAt: '' },
+      db,
+    );
+    expect(updated.company).toBe('Acme Corp');
+    expect(updated).not.toHaveProperty('appliedAt');
+  });
+});
+
 describe('soft delete and restore', () => {
   it('hides a deleted row and brings it back with a newer updatedAt', async () => {
     const app = await addApplication(

@@ -39,7 +39,8 @@ export function ApplicationDetail({ id, initialFocus, onBack, onEdit, onDeleted 
 
   useLayoutEffect(() => {
     if (!loaded) return;
-    (initialFocus === 'edit' ? editButton : heading).current?.focus();
+    // Fall back to the heading when there's no Edit button (the row is gone).
+    (initialFocus === 'edit' && editButton.current ? editButton : heading).current?.focus();
   }, [loaded, initialFocus]);
 
   const back = (

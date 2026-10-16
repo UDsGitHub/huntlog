@@ -3,33 +3,39 @@ import { useLayoutEffect, useRef } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { listApplications, safeHref } from '@/lib/applications';
 
-export interface FocusRequest {
-  /** Increments for each request, so the same row can be focused again. */
-  n: number;
-  rowId?: string;
-}
-
 interface Props {
   onOpen: (id: string) => void;
-  /** Focus this row's button once the list has loaded (focus returning from its detail view). */
-  focusRequest?: FocusRequest;
-  /** Called when the requested row isn't in the list any more. */
-  onFocusMissing?: () => void;
+  /** Focus this row once the list has loaded (focus returning from its detail view). */
+  focusRowId?: string;
+  onRowFocused?: () => void;
+  /** The row is about to appear (just restored): keep waiting for it while it's missing. */
+  awaitRow?: boolean;
+  /** The requested row isn't in the list any more (deleted meanwhile). */
+  onRowMissing?: () => void;
 }
 
-export function ApplicationList({ onOpen, focusRequest, onFocusMissing }: Props) {
+export function ApplicationList({
+  onOpen,
+  focusRowId,
+  onRowFocused,
+  awaitRow,
+  onRowMissing,
+}: Props) {
   const applications = useLiveQuery(() => listApplications(), []);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
-  const handled = useRef(0);
-  const loaded = applications !== undefined;
 
+  // The request is cleared by the parent once handled, so a remount never replays it.
+  // Re-runs as the live list changes, so an awaited row is focused as soon as it shows up.
   useLayoutEffect(() => {
-    if (!loaded || !focusRequest?.rowId || focusRequest.n === handled.current) return;
-    handled.current = focusRequest.n;
-    const row = rowButtons.current.get(focusRequest.rowId);
-    if (row) row.focus();
-    else onFocusMissing?.();
-  }, [loaded, focusRequest, onFocusMissing]);
+    if (!applications || !focusRowId) return;
+    const row = rowButtons.current.get(focusRowId);
+    if (row) {
+      row.focus();
+      onRowFocused?.();
+    } else if (!awaitRow) {
+      onRowMissing?.();
+    }
+  }, [applications, focusRowId, awaitRow, onRowFocused, onRowMissing]);
 
   if (!applications) return null;
   if (applications.length === 0) {

@@ -301,6 +301,73 @@ describe('capture prefill', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Saved First.');
   });
 
+  describe('captures during other views', () => {
+    async function seedAndOpenDetail(user: ReturnType<typeof userEvent.setup>) {
+      await applications.addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+      render(<App />);
+      await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
+      await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+      await screen.findByRole('heading', { level: 2, name: 'Acme' });
+    }
+
+    it('waits for an open edit instead of discarding it, then opens the capture', async () => {
+      const user = userEvent.setup();
+      await seedAndOpenDetail(user);
+      await user.click(screen.getByRole('button', { name: 'Edit' }));
+      await user.type(screen.getByLabelText(/Notes/), 'half-written');
+
+      await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+
+      expect(
+        await screen.findByText('Job captured. It opens when you finish editing.'),
+      ).toBeVisible();
+      expect(screen.getByRole('form', { name: 'Edit application' })).toBeInTheDocument();
+      expect(screen.getByLabelText(/Notes/)).toHaveValue('half-written');
+
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect(await screen.findByRole('heading', { name: 'Add application' })).toBeInTheDocument();
+      await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+      expect((await db.applications.toArray())[0]?.notes).toBe('half-written');
+    });
+
+    it('an edit save that finishes after a capture does not close the Add form', async () => {
+      let finish!: () => void;
+      const real = applications.updateApplication;
+      vi.spyOn(applications, 'updateApplication').mockImplementationOnce(async (...args) => {
+        await new Promise<void>((resolve) => (finish = resolve));
+        return real(...args);
+      });
+      const user = userEvent.setup();
+      await seedAndOpenDetail(user);
+      await user.click(screen.getByRole('button', { name: 'Edit' }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      // The capture arrives mid-save; the edit is already being written, so nothing is lost.
+      await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+      await act(async () => finish());
+      expect(await screen.findByRole('heading', { name: 'Add application' })).toBeInTheDocument();
+      await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+    });
+
+    it('a delete that finishes after a capture does not close the Add form', async () => {
+      let finish!: () => void;
+      const real = applications.softDeleteApplication;
+      vi.spyOn(applications, 'softDeleteApplication').mockImplementationOnce(async (...args) => {
+        await new Promise<void>((resolve) => (finish = resolve));
+        return real(...args);
+      });
+      const user = userEvent.setup();
+      await seedAndOpenDetail(user);
+      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+      await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+      await act(async () => finish());
+
+      expect(await screen.findByText('Deleted Acme.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Add application' })).toBeInTheDocument();
+      expect(fields().title).toHaveValue('Senior Engineer at Acme');
+    });
+  });
+
   it('Cancel after a capture returns to the list and drops the capture', async () => {
     const user = userEvent.setup();
     await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });

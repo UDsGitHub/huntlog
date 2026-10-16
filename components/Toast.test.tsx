@@ -7,12 +7,16 @@ afterEach(() => vi.useRealTimers());
 
 /** Harness: shows whatever toast it's given and exposes show() to the test. */
 let showToast: (data: Omit<ToastData, 'id'>) => void;
+let dismissReasons: string[] = [];
+beforeEach(() => {
+  dismissReasons = [];
+});
 function Harness() {
   const { toast, show, dismiss } = useToast();
   useEffect(() => {
     showToast = show;
   }, [show]);
-  return <Toast toast={toast} onDismiss={dismiss} />;
+  return <Toast toast={toast} onDismiss={(reason) => (dismissReasons.push(reason), dismiss())} />;
 }
 
 function show(data: Omit<ToastData, 'id'>) {
@@ -44,11 +48,16 @@ describe('Toast', () => {
     expect(screen.queryByText('Deleted Acme.')).toBeNull();
   });
 
-  it('can be dismissed', () => {
+  it('can be dismissed, and reports why each toast closed', () => {
     render(<Harness />);
     show({ message: 'Saved.' });
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByText('Saved.')).toBeNull();
+    show({ message: 'Deleted.', action: { label: 'Undo', onAction: () => {} } });
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    show({ message: 'Later.' });
+    act(() => vi.advanceTimersByTime(TOAST_DURATION_MS));
+    expect(dismissReasons).toEqual(['dismiss', 'action', 'timeout']);
   });
 
   it('pauses while hovered and restarts the full time when the pointer leaves', () => {
