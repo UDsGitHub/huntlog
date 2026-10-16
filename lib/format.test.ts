@@ -1,4 +1,4 @@
-import { formatSalary } from './format';
+import { formatBytes, formatSalary } from './format';
 
 describe('formatSalary', () => {
   it.each([
@@ -47,5 +47,18 @@ describe('formatSalary', () => {
     expect(
       formatSalary({ salaryMin: 1000, salaryCurrency: 'DOLLARS', salaryPeriod: 'year' }, 'en-US'),
     ).toBe('From DOLLARS 1,000 per year');
+  });
+});
+
+describe('formatBytes', () => {
+  it.each([
+    [1, '1 byte'],
+    [512, '512 bytes'],
+    [1024, '1 kB'],
+    [245_760, '240 kB'],
+    [1_258_291, '1.2 MB'],
+    [10 * 1024 * 1024, '10 MB'],
+  ])('%d → %s', (bytes, expected) => {
+    expect(formatBytes(bytes, 'en-US')).toBe(expected);
   });
 });

@@ -43,3 +43,20 @@ export function formatSalary(
         : `Up to ${money(max!)}`;
   return salaryPeriod ? `${range} per ${PERIOD_LABELS[salaryPeriod]}` : range;
 }
+
+/** "240 KB", "1.2 MB": a file size for display, in the user's locale. */
+export function formatBytes(bytes: number, locale?: string): string {
+  const units = ['byte', 'kilobyte', 'megabyte'] as const;
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit: units[unit],
+    unitDisplay: unit === 0 ? 'long' : 'short',
+    maximumFractionDigits: unit === 2 ? 1 : 0,
+  }).format(value);
+}
