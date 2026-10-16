@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { listApplications, safeHref } from '@/lib/applications';
+import { listResumes } from '@/lib/resumes';
 import { formatLocalDate } from '@/lib/dates';
 import { DEFAULT_QUERY, queryApplications, rankOf, type ListQuery } from '@/lib/listQuery';
 import type { Application } from '@/lib/types';
@@ -34,6 +35,11 @@ export function ApplicationList({
   onRowMissing,
 }: Props) {
   const applications = useLiveQuery(() => listApplications(), []);
+  // Current resume names (renames show everywhere); the snapshot covers a resume that's gone.
+  const resumeNames = useLiveQuery(
+    async () => new Map((await listResumes()).map((resume) => [resume.id, resume.name])),
+    [],
+  );
   // While the list is on screen, a status change (which bumps `updatedAt`, and may stop the row
   // matching a status filter) mustn't move or hide the row under the pointer. Order and
   // membership are frozen per query; they refresh when the query changes or the list is shown
@@ -138,6 +144,11 @@ export function ApplicationList({
                 title={app.title}
                 url={app.url}
                 appliedAt={app.appliedAt}
+                resumeName={
+                  app.resumeId
+                    ? (resumeNames?.get(app.resumeId) ?? app.resumeNameSnapshot)
+                    : undefined
+                }
               />
             </li>
           ))}
@@ -174,11 +185,13 @@ function RowMeta({
   title,
   url,
   appliedAt,
+  resumeName,
 }: {
   company: string;
   title?: string;
   url: string;
   appliedAt?: string;
+  resumeName?: string;
 }) {
   const href = safeHref(url);
   if (!appliedAt && !href && !url) return null;
@@ -187,6 +200,12 @@ function RowMeta({
   return (
     <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
       {appliedAt && <span className="shrink-0">Applied {formatLocalDate(appliedAt)}</span>}
+      {resumeName && (
+        <span className="min-w-0 truncate" title={`Resume: ${resumeName}`}>
+          <span className="sr-only">Resume: </span>
+          {resumeName}
+        </span>
+      )}
       {href ? (
         <a
           href={href}

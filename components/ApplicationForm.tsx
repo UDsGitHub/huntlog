@@ -33,6 +33,7 @@ import {
 import { defaultCurrency, numberSeparators, orderedCurrencies } from '@/lib/locale';
 import type { Application } from '@/lib/types';
 import { DuplicateWarning } from './DuplicateWarning';
+import { ResumeField } from './ResumeField';
 import { useStickyBar } from './Toast';
 import type { CapturePrefill } from './useCaptureDraft';
 
@@ -52,7 +53,7 @@ interface Props {
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
 
 /** Fields above More details, in screen order (title has no validation of its own). */
-const MAIN_FIELDS: InputField[] = ['url', 'company', 'status', 'appliedAt'];
+const MAIN_FIELDS: InputField[] = ['url', 'company', 'status', 'appliedAt', 'resumeId'];
 /** Fields under More details (spec §4.2), in screen order. */
 const DETAIL_FIELDS: InputField[] = [
   'location',
@@ -87,6 +88,7 @@ function formValuesFrom(app: Application): FormValues {
     location: app.location ?? '',
     workMode: app.workMode ?? '',
     status: app.status,
+    resumeId: app.resumeId ?? '',
     appliedAt: app.appliedAt ?? '',
     salaryMin: number(app.salaryMin),
     salaryMax: number(app.salaryMax),
@@ -120,6 +122,7 @@ export function ApplicationForm({
           // fills just what it captured.
           workMode: (!draft && defaults?.workMode) || '',
           status: 'applied',
+          resumeId: '',
           appliedAt: todayLocal(),
           salaryMin: '',
           salaryMax: '',
@@ -354,6 +357,19 @@ export function ApplicationForm({
             {message('appliedAt')}
           </Field>
         </div>
+
+        <ResumeField
+          id={`${id}-resumeId`}
+          value={values.resumeId}
+          onChange={(resumeId) => set('resumeId')(resumeId)}
+          linked={
+            application?.resumeId
+              ? { resumeId: application.resumeId, snapshot: application.resumeNameSnapshot }
+              : undefined
+          }
+          error={errors.resumeId}
+          selectRef={register('resumeId') as (element: HTMLSelectElement | null) => void}
+        />
 
         <div className="flex min-w-0 flex-col gap-1">
           <button
