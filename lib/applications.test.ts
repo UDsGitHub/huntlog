@@ -103,6 +103,19 @@ describe('addApplication', () => {
     expect((await db.applications.get(app.id))?.title).toBe('Senior Engineer');
   });
 
+  it('normalizes a typed title like a captured one', async () => {
+    const app = await addApplication(
+      {
+        url: 'https://example.com',
+        company: 'Acme',
+        title: 'Senior\n\n  Engineer' + ' x'.repeat(500),
+      },
+      db,
+    );
+    expect(app.title).toMatch(/^Senior Engineer x/);
+    expect(app.title!.length).toBeLessThanOrEqual(300);
+  });
+
   it.each([[undefined], [''], ['   \t']])('omits a blank title %j', async (title) => {
     const app = await addApplication({ url: 'https://example.com', company: 'Acme', title }, db);
     expect(await db.applications.get(app.id)).not.toHaveProperty('title');

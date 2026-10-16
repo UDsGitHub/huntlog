@@ -1,4 +1,5 @@
 import { db as defaultDb, type JobLogDB } from './db';
+import { sanitizeTitle } from './captureDraft';
 import { todayLocal } from './dates';
 import type { Application } from './types';
 
@@ -54,7 +55,8 @@ export function validateNewApplication(input: NewApplicationInput): {
   if (!input.url.trim()) errors.url = 'Enter the job posting URL.';
   else if (!url) errors.url = 'Enter a valid web address (http or https).';
   if (!company) errors.company = 'Enter the company name.';
-  const title = input.title?.trim() || undefined;
+  // Same normalization as a captured title, so typed and captured titles compare alike.
+  const title = sanitizeTitle(input.title);
   if (url && company) return { values: { url, company, ...(title && { title }) }, errors };
   return { values: null, errors };
 }

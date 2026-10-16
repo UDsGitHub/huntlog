@@ -18,7 +18,6 @@ export function useCaptureDraft(): CapturePrefill | null {
     let cancelled = false;
     let key: string | null = null;
     let lastConsumed: string | null = null;
-    let nonce = 0;
 
     async function consume(raw: unknown) {
       if (!key || raw === undefined || raw === null) return;
@@ -33,7 +32,9 @@ export function useCaptureDraft(): CapturePrefill | null {
       }
       const draft = parseDraft(raw);
       if (!draft || !isFresh(draft) || cancelled) return;
-      setPrefill({ draft, nonce: ++nonce });
+      // Derive from the previous state: a re-run of this effect (StrictMode, hot reload) must not
+      // restart the count, or a repeated key would skip the form remount.
+      setPrefill((previous) => ({ draft, nonce: (previous?.nonce ?? 0) + 1 }));
     }
 
     const onChanged = (changes: Record<string, { newValue?: unknown }>) => {

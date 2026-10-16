@@ -136,6 +136,60 @@ describe('capture prefill', () => {
     expect(screen.queryByText(HINT)).toBeNull();
   });
 
+  it('focuses the URL field when no URL could be captured', async () => {
+    await fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('command', { url: 'chrome://settings', readFailed: true }),
+    });
+    render(<App />);
+    await screen.findByRole('status', { name: '' });
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Couldn't read/));
+    await waitFor(() => expect(fields().url).toHaveFocus());
+  });
+
+  it('says only the address was kept when the read failed on a web page', async () => {
+    await fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('page', {
+        url: 'https://chromewebstore.google.com/detail/x',
+        readFailed: true,
+      }),
+    });
+    render(<App />);
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      "Couldn't read this page, so only its address was filled in.",
+    );
+    expect(screen.queryByText(/fill in the details below/)).toBeNull();
+    expect(fields().url).toHaveValue('https://chromewebstore.google.com/detail/x');
+    expect(fields().url).toHaveAccessibleDescription(HINT);
+    await waitFor(() => expect(fields().company).toHaveFocus());
+  });
+
+  it('announces a capture through a live region that exists before it arrives', async () => {
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await waitFor(() => expect(fakeBrowser.windows.getCurrent).toHaveBeenCalled());
+    const status = screen.getByRole('status');
+    expect(status).toBeEmptyDOMElement();
+
+    await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+
+    await waitFor(() => expect(status).toHaveTextContent('Job captured.'));
+    expect(screen.getByRole('status')).toBe(status);
+  });
+
+  it('shows the hint again if the user restores the captured value', async () => {
+    const user = userEvent.setup();
+    await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });
+    render(<App />);
+    await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+    const { title } = fields();
+
+    await user.type(title, 'X');
+    expect(title).not.toHaveAccessibleDescription(HINT);
+    await user.type(title, '{Backspace}');
+    expect(title).toHaveAccessibleDescription(HINT);
+  });
+
   it('removes a hint once the user edits that field', async () => {
     const user = userEvent.setup();
     await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });
