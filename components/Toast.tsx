@@ -32,15 +32,18 @@ export function Toast({
   toast,
   onDismiss,
   duration = TOAST_DURATION_MS,
+  raised = false,
 }: {
   toast: ToastData | null;
   onDismiss: (reason: DismissReason) => void;
   duration?: number;
+  /** Sit higher, clear of a sticky bottom bar. */
+  raised?: boolean;
 }) {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 flex justify-center"
+      className={`pointer-events-none fixed inset-x-4 flex justify-center ${raised ? 'bottom-20' : 'bottom-4'}`}
     >
       {/* Keyed per toast, so pause state never carries over to the next one. */}
       {toast && (

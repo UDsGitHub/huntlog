@@ -7,6 +7,7 @@ import { Toast, useToast, type DismissReason } from '@/components/Toast';
 import { useCaptureDraft } from '@/components/useCaptureDraft';
 import { getApplication, NotFoundError, restoreApplication } from '@/lib/applications';
 import type { CaptureDraft } from '@/lib/captureDraft';
+import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
 type View =
@@ -34,6 +35,16 @@ export default function App() {
   const deferredCapture = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
+  // Remembered source and work mode for the next manual Add (spec §4.2).
+  // undefined until loaded: the Add form reads them once, on mount, so it waits for them.
+  const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    void readFormDefaults().then((defaults) => !cancelled && setFormDefaults(defaults));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function navigate(next: View) {
     // Leaving Edit some other way than its own Save/Cancel (e.g. View existing): a capture that
@@ -160,25 +171,30 @@ export default function App() {
             Add application
           </h2>
           {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
-          <ApplicationForm
-            key={`${formSession}-${prefill?.nonce ?? 0}`}
-            prefill={prefill}
-            onSaved={(application) => {
-              announce(`Saved ${application.company}.`);
-              if (!isCurrent(view)) return;
-              consume();
-              toList({ kind: 'add' });
-            }}
-            onCancel={() => {
-              consume();
-              toList({ kind: 'add' });
-            }}
-            onViewExisting={(id) => {
-              if (!isCurrent(view)) return;
-              consume();
-              navigate({ name: 'detail', id, focus: 'heading' });
-            }}
-          />
+          {formDefaults && (
+            <ApplicationForm
+              key={`${formSession}-${prefill?.nonce ?? 0}`}
+              prefill={prefill}
+              defaults={prefill ? undefined : formDefaults}
+              onSaved={(application) => {
+                announce(`Saved ${application.company}.`);
+                // Every new application, manual or captured, sets the next manual Add's defaults.
+                void rememberFormDefaults(application).then(setFormDefaults);
+                if (!isCurrent(view)) return;
+                consume();
+                toList({ kind: 'add' });
+              }}
+              onCancel={() => {
+                consume();
+                toList({ kind: 'add' });
+              }}
+              onViewExisting={(id) => {
+                if (!isCurrent(view)) return;
+                consume();
+                navigate({ name: 'detail', id, focus: 'heading' });
+              }}
+            />
+          )}
         </section>
       ) : (
         <section aria-labelledby="applications-heading" className="flex flex-col gap-2">
@@ -209,7 +225,12 @@ export default function App() {
           </ErrorBoundary>
         </section>
       )}
-      <Toast toast={toast} onDismiss={handleToastDismiss} />
+      {/* Above the forms' sticky Save bar, so the two never overlap. */}
+      <Toast
+        toast={toast}
+        onDismiss={handleToastDismiss}
+        raised={view.name === 'add' || view.name === 'edit'}
+      />
     </main>
   );
 }
