@@ -70,17 +70,27 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 **Slice:** Set a weekly goal of 10 → the Stats tab shows the goal progress ring at 3/10. Switch to dark mode.
 
 - A Settings tab using `chrome.storage.local`: weekly goal, first day of the week (feeds into `stats.ts`), and theme (System / Light / Dark).
-- "Delete all data" with typed confirmation.
-- A placeholder link to the privacy policy.
-- **UI polish pass** (requested by the owner after M4):
-  - Design tokens on `:root` for colors, spacing, radii and type, defined for both themes, so dark mode and later design changes happen in one place.
-  - Shared button, field, heading and section styles, replacing the class strings now repeated per component.
-  - A clearer resume uploader: a dashed drop zone ("Choose a file or drag it here") with a visible **Choose file…** button, the whole box clickable, drag and drop, and after picking the file's name, format and size with a **Change** button. Still one component for the Resumes tab and the inline upload.
-  - A screen-by-screen clarity review (list, Add, Detail, Edit, Resumes, Stats, Settings) at 320px in both themes, working through a running list of UI issues collected until then.
-- **Tests:** settings persist, and the goal and week start feed into the stats. The uploader works by click, keyboard and drop.
+- **Delete all data** (applications and resumes, typed confirmation; settings stay) and **Reset settings** (with an "Also delete all my data" checkbox that brings back the typed confirmation) (§4.8).
+- A placeholder link to the privacy policy (a bundled page; M9 writes the final text).
+- **UI redesign** (owner's screen-by-screen review, 2026-10-16; the decisions are in spec §3, §4 and §9):
+  - **Foundation:** the shadcn look, hand-built with nothing installed (no shadcn, Radix or helper packages, for bundle size). Design tokens on `:root` using shadcn's names, with a zinc neutral primary, light and dark sets, Geist bundled locally, and Lucide icons copied into one file. Shared button, field, badge and chip styles replace the class strings repeated per component. Buttons get the pointer cursor back (Tailwind v4 dropped it).
+  - **Shared pieces:** one bottom **Sheet** (a native `<dialog>`), animated toasts, and a floating action button. Every animation is instant under reduced motion.
+  - **Tabs:** a top tab bar with icons, where panels slide horizontally.
+  - **Applications:** a new row layout, search plus a filter sheet (sort, date range, several statuses at once), a **+ Add** button that floats, and status changes in a sheet.
+  - **Add/Edit** in a sheet: a new field order with required markers, a resume combobox, Source chips, Notes that grow, and an animated More details.
+  - **Detail** as a page that slides in, with a pencil and a ⋯ menu, the posting as a button showing its site, and a stepper timeline whose dates are edited explicitly.
+  - **Resumes:** an upload button that floats and opens a sheet with a drop zone, search, a ⋯ menu per row, rename in a sheet, and Archived as an accordion.
+  - **Stats:** range chips, the weekly goal ring, and charts restyled for both themes.
+- **Tests:** settings persist, and the goal and week start feed into the stats. Delete and reset each leave the other's data alone. The sheet, combobox and chips work by keyboard. The uploader works by click, keyboard and drop. Every screen fits 320px in both themes. A timeline date can be saved without leaving the field (regression: it used to save only on blur).
 
 ### After M6: owner design review
-Before M7 starts, the owner reviews the whole app and makes design decisions. Claude prepares a short list of open UI questions and screenshots of each screen at 320px in both themes, then applies the decisions (in M6 follow-up PRs) before starting M7.
+Before M7 starts, the owner reviews the whole app and makes design decisions. Claude prepares:
+- a short list of open UI questions, including where the weekly goal ring goes (top of Stats, or beside a large Applied number);
+- screenshots of each screen at 320px in both themes;
+- a **copy deck** of every user-facing string, factual and encouraging;
+- a **name shortlist** of about 8 names with a Web Store availability check (the icon follows the name).
+
+Claude then applies the decisions (in M6 follow-up PRs) before starting M7.
 
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
