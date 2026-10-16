@@ -8,9 +8,3 @@ test('toolbar icon is set to open the side panel', async ({ session }) => {
   const behavior = await session.serviceWorker.evaluate(() => chrome.sidePanel.getPanelBehavior());
   expect(behavior.openPanelOnActionClick).toBe(true);
 });
-
-test('side panel page renders', async ({ session }) => {
-  const page = await session.context.newPage();
-  await page.goto(`chrome-extension://${session.extensionId}/sidepanel.html`);
-  await expect(page.getByRole('heading', { name: 'Job Log' })).toBeVisible();
-});

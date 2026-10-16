@@ -183,7 +183,7 @@ interface Settings {
 }
 ```
 
-**Required fields:** `url` and `company`. A `resumeId` is strongly encouraged: the form shows a gentle prompt when it is empty, but it does not block saving.
+**Required fields:** `url` and `company`, both trimmed, and whitespace-only counts as empty. `url` must be `http:` or `https:`, and a URL typed without a scheme gets `https://`. `appliedAt` is the user's local calendar date, not the UTC date. A `resumeId` is strongly encouraged: the form shows a gentle prompt when it is empty, but it does not block saving.
 
 **Status rules:** any status can move to any other status (users make mistakes and processes vary). Choosing Applied when `appliedAt` is empty sets it to today.
 
