@@ -15,10 +15,14 @@ export interface StatusHistoryEntry {
   at: string; // ISO 8601 UTC
 }
 
-/** M0 subset of the spec §5 Application; later milestones add fields. */
+/** Spec §5 Application, without the resume fields (M4). */
 export interface Application {
   id: string;
   url: string;
+  /** `normalizeUrl(url)`, indexed for duplicate detection. Derived: recompute when `url` changes. */
+  urlNormalized: string;
+  /** `companyTitleKey(company, title)`, indexed; undefined without a title. Derived. */
+  companyTitleKey?: string;
   company: string;
   title?: string;
   status: Status;

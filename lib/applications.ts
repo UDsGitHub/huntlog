@@ -1,4 +1,5 @@
 import { db as defaultDb, type JobLogDB } from './db';
+import { derivedFields } from './dedupe';
 import { sanitizeTitle } from './captureDraft';
 import { todayLocal } from './dates';
 import type { Application } from './types';
@@ -74,6 +75,7 @@ export async function addApplication(
     url: values.url,
     company: values.company,
     ...(values.title && { title: values.title }),
+    ...definedOnly(derivedFields(values)),
     status: 'applied',
     statusHistory: [{ status: 'applied', at }],
     appliedAt: todayLocal(now),
@@ -91,4 +93,9 @@ export function listApplications(database: JobLogDB = defaultDb): Promise<Applic
     .reverse()
     .filter((a) => !a.deletedAt)
     .toArray();
+}
+
+/** Drops undefined values, so optional fields are absent rather than stored as undefined. */
+function definedOnly<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
 }

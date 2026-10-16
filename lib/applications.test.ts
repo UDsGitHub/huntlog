@@ -75,6 +75,7 @@ describe('addApplication', () => {
     expect(app).toEqual<Application>({
       id: expect.stringMatching(UUID_V4),
       url: 'https://example.com/jobs/1',
+      urlNormalized: 'https://example.com/jobs/1',
       company: 'Acme',
       status: 'applied',
       statusHistory: [{ status: 'applied', at: '2026-10-15T17:00:00.000Z' }],
@@ -93,6 +94,26 @@ describe('addApplication', () => {
     );
     expect(app.url).toBe('https://example.com/x');
     expect(app.company).toBe('Acme Corp');
+  });
+
+  it('stores the derived duplicate-detection fields', async () => {
+    const app = await addApplication(
+      {
+        url: 'http://Boards.greenhouse.io/acme/jobs/1/?gh_src=x&gh_jid=1',
+        company: ' ACME ',
+        title: 'Senior  Engineer',
+      },
+      db,
+    );
+    expect(await db.applications.get(app.id)).toMatchObject({
+      urlNormalized: 'https://boards.greenhouse.io/acme/jobs/1?gh_jid=1',
+      companyTitleKey: 'acme\u001fsenior engineer',
+    });
+  });
+
+  it('leaves out the company + title key when there is no title', async () => {
+    const app = await addApplication({ url: 'https://example.com', company: 'Acme' }, db);
+    expect(await db.applications.get(app.id)).not.toHaveProperty('companyTitleKey');
   });
 
   it('stores an optional title, trimmed', async () => {
