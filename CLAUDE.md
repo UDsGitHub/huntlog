@@ -31,7 +31,7 @@ Gotchas:
 **Capture flow spans three pieces:**
 1. `entrypoints/background.ts` handles the context-menu click or the keyboard command. That user gesture grants `activeTab`.
 2. The background script (`handleCapture`) first calls `chrome.sidePanel.open({ windowId })` synchronously inside the gesture handler, before any `await`, or Chrome rejects it. Then it runs `lib/extract.ts` in the tab via `chrome.scripting.executeScript({ func })` and writes the result through `lib/captureDraft.ts` to `chrome.storage.session` under `captureDraft:<windowId>`. On a restricted page it falls back to the tab URL only. If two captures in one window overlap, only the newest one writes its draft.
-3. The side panel (`entrypoints/sidepanel/`) reads and clears the draft, then opens the Add form prefilled.
+3. The side panel (`components/useCaptureDraft.ts`) reads and clears its own window's draft, both on load and on `storage.session` change (the panel can open before the draft exists), and ignores drafts older than 5 minutes. `App` remounts the Add form keyed by capture, so each capture replaces the form's contents and shows the "Auto-filled, please check" hints.
 
 Link context-menu clicks skip extraction and only pass `linkUrl`. Buttons inside the side panel do **not** grant `activeTab`, so the panel can't read the current tab itself.
 
