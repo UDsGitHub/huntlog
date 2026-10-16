@@ -1,5 +1,5 @@
-import { useId } from 'react';
-import { isStatusFilter, type ListQuery, type SortKey } from '@/lib/listQuery';
+import { useId, type Ref } from 'react';
+import { isSortKey, isStatusFilter, type ListQuery, type SortKey } from '@/lib/listQuery';
 import { ACTIVE_STATUSES, CLOSED_STATUSES, STATUS_LABELS } from '@/lib/status';
 
 const control =
@@ -15,11 +15,13 @@ const SORT_LABELS: Record<SortKey, string> = {
 export function ListControls({
   query,
   onChange,
+  searchRef,
 }: {
   query: ListQuery;
   onChange: (query: ListQuery) => void;
+  searchRef?: Ref<HTMLInputElement>;
 }) {
-  const id = useId().replace(/:/g, '');
+  const id = useId();
   return (
     <div role="search" aria-label="Find applications" className="flex min-w-0 flex-col gap-2">
       <div className="flex min-w-0 flex-col gap-1">
@@ -27,6 +29,7 @@ export function ListControls({
           Search
         </label>
         <input
+          ref={searchRef}
           id={`${id}-search`}
           type="search"
           autoComplete="off"
@@ -76,7 +79,9 @@ export function ListControls({
           <select
             id={`${id}-sort`}
             value={query.sort}
-            onChange={(event) => onChange({ ...query, sort: event.target.value as SortKey })}
+            onChange={(event) =>
+              isSortKey(event.target.value) && onChange({ ...query, sort: event.target.value })
+            }
             className={control}
           >
             {Object.entries(SORT_LABELS).map(([value, label]) => (

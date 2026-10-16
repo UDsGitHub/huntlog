@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { listApplications, safeHref } from '@/lib/applications';
 import { DEFAULT_QUERY, queryApplications, rankOf, type ListQuery } from '@/lib/listQuery';
@@ -33,19 +33,26 @@ export function ApplicationList({
   onRowMissing,
 }: Props) {
   const applications = useLiveQuery(() => listApplications(), []);
-  // Row order is frozen while the list is on screen, so a status change (which bumps
-  // `updatedAt`) doesn't move the row from under the pointer. It refreshes when the sort changes
-  // or the list is shown again; new rows appear at the top.
-  const [frozen, setFrozen] = useState<{ sort: ListQuery['sort']; ranks: Map<string, number> }>();
-  if (applications && frozen?.sort !== query.sort) {
-    setFrozen({
-      sort: query.sort,
-      ranks: rankOf(queryApplications(applications, { ...DEFAULT_QUERY, sort: query.sort })),
-    });
+  // While the list is on screen, a status change (which bumps `updatedAt`, and may stop the row
+  // matching a status filter) mustn't move or hide the row under the pointer. Order and
+  // membership are frozen per query; they refresh when the query changes or the list is shown
+  // again. New rows still appear, at the top.
+  const queryKey = JSON.stringify(query);
+  const [frozen, setFrozen] = useState<{
+    queryKey: string;
+    ranks: Map<string, number>;
+    shown: Set<string>;
+  }>();
+  if (applications && frozen?.queryKey !== queryKey) {
+    const fresh = queryApplications(applications, query);
+    setFrozen({ queryKey, ranks: rankOf(fresh), shown: new Set(fresh.map((app) => app.id)) });
   }
-  const visible = applications
-    ? queryApplications(applications, query, frozen?.sort === query.sort ? frozen.ranks : undefined)
-    : undefined;
+  const current = frozen?.queryKey === queryKey ? frozen : undefined;
+  const visible = useMemo(
+    () => applications && queryApplications(applications, query, current?.ranks, current?.shown),
+    [applications, query, current],
+  );
+  const search = useRef<HTMLInputElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
 
   // The request is cleared by the parent once handled, so a remount never replays it.
@@ -56,7 +63,8 @@ export function ApplicationList({
     if (row) {
       row.focus();
       onRowFocused?.();
-    } else if (!awaitRow) {
+    } else if (!awaitRow || applications.some((app) => app.id === focusRowId)) {
+      // Gone, or present but hidden by the search or filter: don't wait for it.
       onRowMissing?.();
     }
   }, [applications, focusRowId, awaitRow, onRowFocused, onRowMissing]);
@@ -74,7 +82,7 @@ export function ApplicationList({
   const filtered = visible.length !== applications.length;
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ListControls query={query} onChange={onQueryChange} />
+      <ListControls query={query} onChange={onQueryChange} searchRef={search} />
       {filtered && (
         <p className="text-xs text-slate-600">
           Showing {visible.length} of {applications.length}
@@ -85,7 +93,11 @@ export function ApplicationList({
           <p className="text-sm text-slate-600">No applications match.</p>
           <button
             type="button"
-            onClick={() => onQueryChange({ ...DEFAULT_QUERY, sort: query.sort })}
+            onClick={() => {
+              onQueryChange({ ...DEFAULT_QUERY, sort: query.sort });
+              // This button disappears with the empty state; keep focus in the controls.
+              search.current?.focus();
+            }}
             className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
           >
             Clear search and filter

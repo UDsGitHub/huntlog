@@ -1,6 +1,7 @@
 import {
   DEFAULT_QUERY,
   foldText,
+  isSortKey,
   isStatusFilter,
   queryApplications,
   rankOf,
@@ -49,13 +50,6 @@ describe('filter', () => {
 
   it.each(STATUSES)('a single status: %s', (status: Status) => {
     expect(queryApplications(all, q({ filter: status })).map((a) => a.status)).toEqual([status]);
-  });
-
-  it('never shows soft-deleted rows, whatever the filter', () => {
-    const rows = [app(), app({ deletedAt: '2026-10-20T00:00:00.000Z' })];
-    for (const filter of ['all', 'active', 'applied'] as const) {
-      expect(queryApplications(rows, q({ filter }))).toHaveLength(1);
-    }
   });
 
   it.each([
@@ -111,6 +105,11 @@ describe('search', () => {
   it('shows everything for empty or whitespace-only search', () => {
     expect(search('')).toHaveLength(4);
     expect(search('   \n ')).toHaveLength(4);
+  });
+
+  it('keeps non-Latin marks and symbols literal', () => {
+    expect(foldText('バ')).not.toBe(foldText('ハ'));
+    expect(foldText('a^b')).toBe('a^b');
   });
 
   it('copes with missing fields', () => {
@@ -187,9 +186,43 @@ describe('frozen order', () => {
     expect(ids(queryApplications(added, q(), frozen))).toEqual(['a4', 'a3', 'a2', 'a1']);
   });
 
-  it('still filters and hides deleted rows', () => {
+  it('orders rows new since the freeze newest first, whatever the sort', () => {
+    const rows = [app({ company: 'Mid' })];
+    const frozen = rankOf(rows);
+    const added = [
+      ...rows,
+      app({ company: 'Zeta', updatedAt: '2026-11-01T10:00:00.000Z' }),
+      app({ company: 'Acme', updatedAt: '2026-11-01T10:05:00.000Z' }),
+    ];
+    expect(queryApplications(added, q({ sort: 'company' }), frozen).map((a) => a.company)).toEqual([
+      'Acme',
+      'Zeta',
+      'Mid',
+    ]);
+  });
+
+  it('keeps showing a row whose status no longer matches the filter', () => {
+    const rows = [app(), app()];
+    const changed = [{ ...rows[0]!, status: 'screening' as const }, rows[1]!];
+    expect(ids(queryApplications(changed, q({ filter: 'applied' })))).toEqual(['a2']);
+    expect(
+      ids(queryApplications(changed, q({ filter: 'applied' }), undefined, new Set(['a1']))).sort(),
+    ).toEqual(['a1', 'a2']);
+  });
+
+  it('still filters', () => {
     const rows = [app(), app({ status: 'rejected' })];
     const frozen = rankOf(rows);
     expect(ids(queryApplications(rows, q({ filter: 'closed' }), frozen))).toEqual(['a2']);
   });
+});
+
+it.each([
+  ['activity', true],
+  ['applied', true],
+  ['company', true],
+  ['date', false],
+  [undefined, false],
+])('isSortKey(%j) → %s', (value, expected) => {
+  expect(isSortKey(value)).toBe(expected);
 });

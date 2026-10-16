@@ -13,15 +13,23 @@ export interface ListQuery {
 
 export const DEFAULT_QUERY: ListQuery = { filter: 'all', search: '', sort: 'activity' };
 
+export function isSortKey(value: unknown): value is SortKey {
+  return value === 'activity' || value === 'applied' || value === 'company';
+}
+
 export function isStatusFilter(value: unknown): value is StatusFilter {
   return value === 'all' || value === 'active' || value === 'closed' || isStatus(value);
 }
 
-/** Lowercase, accents removed ("Société" → "societe"), whitespace collapsed. */
+/**
+ * Lowercase, Latin accents removed ("Société" → "societe"), whitespace collapsed. Only the
+ * combining accents block is stripped: other marks carry meaning (Japanese ハ and バ differ only
+ * by a dakuten) and symbols like ^ stay literal.
+ */
 export function foldText(text: string): string {
   return text
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
@@ -63,20 +71,23 @@ function compare(a: Application, b: Application, sort: SortKey): number {
 }
 
 /**
- * Filters, searches and sorts (spec §4.4). Pure. Ties keep the input order.
+ * Filters, searches and sorts (spec §4.4). Pure. Takes live rows (`listApplications` already
+ * leaves out soft-deleted ones). Ties keep the input order.
  *
- * `frozen` keeps rows in place while the user works: a status change bumps `updatedAt`, and
- * under "Last activity" the row would jump to the top from under the pointer. Rows it ranks keep
- * their rank; rows it doesn't (new since) come first, newest first.
+ * While the user works, a status change shouldn't move or hide the row under the pointer:
+ * - `frozen`: rows it ranks keep their rank; rows it doesn't (new since) come first, newest
+ *   first.
+ * - `keep`: ids shown even if they no longer match (their status changed under a filter).
  */
 export function queryApplications(
   apps: Application[],
   query: ListQuery,
   frozen?: ReadonlyMap<string, number>,
+  keep?: ReadonlySet<string>,
 ): Application[] {
   const words = foldText(query.search).split(' ').filter(Boolean);
   const kept = apps.filter(
-    (app) => !app.deletedAt && matchesFilter(app, query.filter) && matchesSearch(app, words),
+    (app) => (matchesFilter(app, query.filter) && matchesSearch(app, words)) || keep?.has(app.id),
   );
   const rank = (app: Application) => frozen?.get(app.id);
   return kept
@@ -87,6 +98,10 @@ export function queryApplications(
         if (rx === undefined && ry !== undefined) return -1;
         if (ry === undefined && rx !== undefined) return 1;
         if (rx !== undefined && ry !== undefined && rx !== ry) return rx - ry;
+        // Both new since the freeze: newest first, whatever the sort.
+        if (rx === undefined && ry === undefined) {
+          return compare(x.app, y.app, 'activity') || x.index - y.index;
+        }
       }
       return compare(x.app, y.app, query.sort) || x.index - y.index;
     })

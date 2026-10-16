@@ -138,4 +138,49 @@ describe('List controls', () => {
     });
     await waitFor(() => expect(rows()[0]).toBe('Newco'));
   });
+
+  it('keeps a row whose status changes under a status filter, with focus on its chip', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await user.selectOptions(screen.getByLabelText('Show'), 'applied');
+    expect(rows()).toEqual(['Société Générale', 'Acme']);
+    const chip = within(screen.getByRole('button', { name: /^Acme/ }).parentElement!).getByRole(
+      'button',
+      { name: /^Status: / },
+    );
+    await user.click(chip);
+    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await waitFor(() => expect(chip).toHaveTextContent('Offer'));
+    expect(rows()).toEqual(['Société Générale', 'Acme']);
+    expect(chip).toHaveFocus();
+    // Changing the query refreshes membership.
+    await user.selectOptions(screen.getByLabelText('Show'), 'all');
+    await user.selectOptions(screen.getByLabelText('Show'), 'applied');
+    expect(rows()).toEqual(['Société Générale']);
+  });
+
+  it('keeps focus in the controls after Clear search and filter', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await user.type(screen.getByLabelText('Search'), 'nothing matches this');
+    await user.click(screen.getByRole('button', { name: 'Clear search and filter' }));
+    expect(screen.getByLabelText('Search')).toHaveFocus();
+  });
+
+  it("doesn't leave focus waiting for a restored row the search hides", async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await user.click(screen.getByRole('button', { name: /^Gamma/ }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.type(await screen.findByLabelText('Search'), 'acme');
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '+ Add application' })).toHaveFocus(),
+    );
+    await user.clear(screen.getByLabelText('Search'));
+    expect(screen.getByRole('button', { name: /^Gamma/ })).not.toHaveFocus();
+  });
 });
