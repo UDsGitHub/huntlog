@@ -36,6 +36,7 @@ import { DuplicateWarning } from './DuplicateWarning';
 import { ResumeField } from './ResumeField';
 import { useStickyBar } from './Toast';
 import type { CapturePrefill } from './useCaptureDraft';
+import { ChevronRightIcon } from './icons';
 
 interface Props {
   /** A captured page or link. The form is remounted per capture (keyed by nonce), so it's read once. */
@@ -72,8 +73,6 @@ const DETAIL_VALUE_FIELDS = DETAIL_FIELDS.filter(
   (field): field is Exclude<InputField, 'salaryCurrency' | 'salaryPeriod'> =>
     field !== 'salaryCurrency' && field !== 'salaryPeriod',
 );
-
-const input = 'field';
 
 /** Stored values shown as form text; salaries use the locale's decimal separator. */
 function formValuesFrom(app: Application): FormValues {
@@ -238,7 +237,7 @@ export function ApplicationForm({
       [hint && `${id}-${field}-hint`, errors[field] && `${id}-${field}-error`]
         .filter(Boolean)
         .join(' ') || undefined,
-    className: input,
+    className: 'field',
   });
 
   const message = (field: InputField, hint = false) => (
@@ -312,7 +311,7 @@ export function ApplicationForm({
             value={values.title}
             onChange={(e) => set('title')(e.target.value)}
             aria-describedby={hints.title ? `${id}-title-hint` : undefined}
-            className={input}
+            className="field"
           />
           {hints.title && <AutoFilledHint id={`${id}-title-hint`} />}
         </Field>
@@ -378,9 +377,11 @@ export function ApplicationForm({
             aria-expanded={detailsOpen}
             aria-controls={`${id}-details`}
             onClick={() => setDetailsOpen((open) => !open)}
-            className="flex items-center gap-1 self-start rounded-sm text-sm font-medium hover:underline focus-ring"
+            className="btn btn-outline btn-sm self-start"
           >
-            <span aria-hidden="true">{detailsOpen ? '▾' : '▸'}</span>
+            <ChevronRightIcon
+              className={`size-4 transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-90' : ''}`}
+            />
             More details
           </button>
           {!detailsOpen && detailsSummary && (

@@ -8,8 +8,6 @@ import {
 } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
 
-const input = 'field';
-
 interface Props {
   /**
    * `panel`: the Resumes tab's own form, with a note, resetting after each upload.
@@ -100,7 +98,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
   const fields = (
     <>
       <div className="flex min-w-0 flex-col gap-1">
-        <label htmlFor={`${id}-file`} className="text-sm font-medium">
+        <label htmlFor={`${id}-file`} className="field-label">
           Resume file
         </label>
         <input
@@ -123,7 +121,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
         {errorText('file')}
       </div>
       <div className="flex min-w-0 flex-col gap-1">
-        <label htmlFor={`${id}-name`} className="text-sm font-medium">
+        <label htmlFor={`${id}-name`} className="field-label">
           Name
         </label>
         <input
@@ -138,14 +136,14 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
             // Clearing the name hands it back to the suggestion.
             setNameTyped(event.target.value.trim() !== '');
           }}
-          className={input}
+          className="field"
           {...described('name')}
         />
         {errorText('name')}
       </div>
       {variant === 'panel' && (
         <div className="flex min-w-0 flex-col gap-1">
-          <label htmlFor={`${id}-note`} className="text-sm font-medium">
+          <label htmlFor={`${id}-note`} className="field-label">
             Note <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <input
@@ -155,7 +153,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel }: Props) {
             autoComplete="off"
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            className={input}
+            className="field"
             {...described('note')}
           />
           {errorText('note')}

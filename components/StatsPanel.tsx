@@ -22,8 +22,6 @@ import {
 import { ActivityChart, OutcomesBar } from './StatsCharts';
 import { useSettings } from './useSettings';
 
-const field = 'field';
-
 const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent' });
 
 /** "Oct 11 – Oct 17, 2026"-style text for a range, or one date when it's a single day. */
@@ -119,14 +117,14 @@ export function StatsPanel() {
 
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <label htmlFor={`${id}-range`} className="text-sm font-medium">
+          <label htmlFor={`${id}-range`} className="field-label">
             Range
           </label>
           <select
             id={`${id}-range`}
             value={kind}
             onChange={(event) => pickKind(event.target.value as RangeKind)}
-            className={field}
+            className="field"
           >
             {RANGE_KINDS.map((option) => (
               <option key={option} value={option}>
@@ -140,7 +138,7 @@ export function StatsPanel() {
             <legend className="sr-only">Custom range</legend>
             {(['from', 'to'] as const).map((end) => (
               <div key={end} className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor={`${id}-${end}`} className="text-sm font-medium">
+                <label htmlFor={`${id}-${end}`} className="field-label">
                   {end === 'from' ? 'From' : 'To'}
                 </label>
                 <input
@@ -152,7 +150,7 @@ export function StatsPanel() {
                   onChange={(event) => setCustom((c) => ({ ...c, [end]: event.target.value }))}
                   aria-invalid={errors[end] ? true : undefined}
                   aria-describedby={errors[end] ? `${id}-${end}-error` : undefined}
-                  className={field}
+                  className="field"
                 />
                 {errors[end] && (
                   <p id={`${id}-${end}-error`} className="field-error">

@@ -18,14 +18,12 @@ import {
 import type { Resume } from '@/lib/types';
 import { ResumeUpload } from './ResumeUpload';
 import type { ToastData } from './Toast';
+import { ChevronRightIcon } from './icons';
 
 interface Props {
   showToast: (toast: Omit<ToastData, 'id'>) => void;
   announce: (message: string) => void;
 }
-
-const input = 'field';
-const button = 'btn btn-outline btn-sm';
 
 /** The Resumes tab (spec §4.6): upload, list, rename, archive, delete with Undo, open. */
 export function ResumesPanel({ showToast, announce }: Props) {
@@ -121,9 +119,11 @@ export function ResumesPanel({ showToast, announce }: Props) {
             aria-expanded={showArchived}
             aria-controls={archivedId}
             onClick={() => setShowArchived((open) => !open)}
-            className="flex items-center gap-1 self-start rounded-sm text-sm font-medium hover:underline focus-ring"
+            className="btn btn-outline btn-sm self-start"
           >
-            <span aria-hidden="true">{showArchived ? '▾' : '▸'}</span>
+            <ChevronRightIcon
+              className={`size-4 transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-90' : ''}`}
+            />
             Archived ({archived.length})
           </button>
           <ul
@@ -221,7 +221,7 @@ function ResumeRow({
             onChange={(event) => setName(event.target.value)}
             aria-invalid={errors.name ? true : undefined}
             aria-describedby={errors.name ? `${id}-name-error` : undefined}
-            className={input}
+            className="field"
           />
           {errors.name && (
             <p id={`${id}-name-error`} className="field-error">
@@ -237,7 +237,7 @@ function ResumeRow({
             onChange={(event) => setNote(event.target.value)}
             aria-invalid={errors.note ? true : undefined}
             aria-describedby={errors.note ? `${id}-note-error` : undefined}
-            className={input}
+            className="field"
           />
           {errors.note && (
             <p id={`${id}-note-error`} className="field-error">
@@ -245,10 +245,10 @@ function ResumeRow({
             </p>
           )}
           <div className="flex gap-2">
-            <button type="submit" className={button}>
+            <button type="submit" className="btn btn-outline btn-sm">
               Save
             </button>
-            <button type="button" className={button} onClick={stopEditing}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={stopEditing}>
               Cancel
             </button>
           </div>
@@ -261,22 +261,31 @@ function ResumeRow({
             <span className="text-xs break-words text-muted-foreground">{resume.note}</span>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={button} onClick={() => void open()}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void open()}>
               {opensInViewer(resume) ? 'Open' : 'Download'}
               <span className="sr-only"> {resume.name}</span>
             </button>
-            <button ref={renameButton} type="button" className={button} onClick={startEditing}>
+            <button
+              ref={renameButton}
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={startEditing}
+            >
               Rename<span className="sr-only"> {resume.name}</span>
             </button>
             <button
               type="button"
-              className={button}
+              className="btn btn-outline btn-sm"
               onClick={() => void onSetArchived(resume, !resume.archived)}
             >
               {resume.archived ? 'Unarchive' : 'Archive'}
               <span className="sr-only"> {resume.name}</span>
             </button>
-            <button type="button" className={button} onClick={() => void onDelete(resume)}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => void onDelete(resume)}
+            >
               Delete<span className="sr-only"> {resume.name}</span>
             </button>
           </div>

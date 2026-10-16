@@ -20,8 +20,6 @@ interface Props {
   onStatusPick: (application: Application, pick: StatusPick) => void;
 }
 
-const button = 'btn btn-outline';
-
 export function ApplicationDetail({
   id,
   initialFocus,
@@ -44,7 +42,7 @@ export function ApplicationDetail({
   }, [loaded, initialFocus]);
 
   const back = (
-    <button type="button" onClick={onBack} className={`${button} self-start`}>
+    <button type="button" onClick={onBack} className={`btn btn-outline self-start`}>
       ← Back to applications
     </button>
   );
@@ -135,10 +133,10 @@ export function ApplicationDetail({
         </p>
       )}
       <div className="flex gap-2">
-        <button ref={editButton} type="button" onClick={onEdit} className={button}>
+        <button ref={editButton} type="button" onClick={onEdit} className="btn btn-outline">
           Edit
         </button>
-        <button type="button" onClick={handleDelete} className={button}>
+        <button type="button" onClick={handleDelete} className="btn btn-outline">
           Delete
         </button>
       </div>

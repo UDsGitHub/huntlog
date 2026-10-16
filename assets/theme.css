@@ -3,7 +3,7 @@
  * hand-written, with a light and a dark set. Pages set `data-theme` on <html> to the resolved
  * theme ('light' or 'dark') before their first paint (`lib/theme.ts`, `entrypoints/theme-init.ts`).
  *
- * Colors are hex so `lib/contrast.test.ts` can check every text/background pair for WCAG AA in
+ * Colors are hex so `tests/contrast.test.ts` can check every text/background pair for WCAG AA in
  * both themes. Change a value here and that test tells you if a pair stops passing.
  */
 
@@ -60,16 +60,20 @@
   --status-success-strong: #d1fae5;
   --status-success-strong-foreground: #064e3b;
 
-  /* One solid color per status: outcome segments and legend swatches. */
-  --status-saved: #7dd3fc;
-  --status-applied: #93c5fd;
-  --status-screening: #3b82f6;
-  --status-interviewing: #1d4ed8;
-  --status-offer: #10b981;
-  --status-accepted: #047857;
-  --status-rejected: #71717a;
-  --status-withdrawn: #a8a29e;
-  --status-ghosted: #d4d4d8;
+  /*
+   * One solid color per status: outcome segments and legend swatches. Each is at least 3:1
+   * against the page (WCAG 1.4.11): blues for progress, greens for offers, calm neutrals and a
+   * brown for the closed ones (Rejected is never red).
+   */
+  --status-saved: #0e7490;
+  --status-applied: #3b82f6;
+  --status-screening: #1d4ed8;
+  --status-interviewing: #1e3a8a;
+  --status-offer: #059669;
+  --status-accepted: #065f46;
+  --status-rejected: #52525b;
+  --status-withdrawn: #a16207;
+  --status-ghosted: #8b8b94;
 }
 
 :root[data-theme='dark'] {
@@ -112,15 +116,15 @@
   --status-success-strong: #064e3b;
   --status-success-strong-foreground: #d1fae5;
 
-  --status-saved: #38bdf8;
+  --status-saved: #22d3ee;
   --status-applied: #bfdbfe;
   --status-screening: #60a5fa;
-  --status-interviewing: #2563eb;
+  --status-interviewing: #3b82f6;
   --status-offer: #34d399;
-  --status-accepted: #059669;
-  --status-rejected: #a1a1aa;
-  --status-withdrawn: #d6d3d1;
-  --status-ghosted: #52525b;
+  --status-accepted: #10b981;
+  --status-rejected: #d4d4d8;
+  --status-withdrawn: #d97706;
+  --status-ghosted: #71717a;
 }
 
 html,

@@ -66,6 +66,20 @@ const GRAPHICS: [string, string][] = [
   ['ring', 'card'],
   ['chart-1', 'background'],
   ['chart-1', 'card'],
+  // Outcome segments and legend swatches (the bar sits on the page background).
+  ...(
+    [
+      'saved',
+      'applied',
+      'screening',
+      'interviewing',
+      'offer',
+      'accepted',
+      'rejected',
+      'withdrawn',
+      'ghosted',
+    ] as const
+  ).map((status): [string, string] => [`status-${status}`, 'background']),
 ];
 
 describe.each([
@@ -79,6 +93,8 @@ describe.each([
   });
 
   it.each(GRAPHICS)('%s on %s is at least 3:1', (fg, bg) => {
+    expect(tokens[fg], fg).toBeDefined();
+    expect(tokens[bg], bg).toBeDefined();
     expect(contrast(tokens[fg]!, tokens[bg]!)).toBeGreaterThanOrEqual(3);
   });
 });
