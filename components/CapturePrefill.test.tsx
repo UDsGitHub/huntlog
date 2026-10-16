@@ -278,10 +278,10 @@ describe('capture prefill', () => {
 
   it('a save that finishes after a new capture does not close the new form', async () => {
     let finish!: () => void;
-    const real = applications.addApplication;
-    vi.spyOn(applications, 'addApplication').mockImplementationOnce(async (input) => {
+    const real = applications.saveApplication;
+    vi.spyOn(applications, 'saveApplication').mockImplementationOnce(async (...args) => {
       await new Promise<void>((resolve) => (finish = resolve));
-      return real(input);
+      return real(...args);
     });
     const user = userEvent.setup();
     render(<App />);
@@ -330,10 +330,42 @@ describe('capture prefill', () => {
       expect((await db.applications.toArray())[0]?.notes).toBe('half-written');
     });
 
+    it('keeps a deferred capture when Edit is left through View existing', async () => {
+      await applications.addApplication({
+        url: 'https://other.com/1',
+        company: 'Other',
+        title: 'Role',
+      });
+      const user = userEvent.setup();
+      await seedAndOpenDetail(user);
+      await user.click(screen.getByRole('button', { name: 'Edit' }));
+      await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+      await screen.findByText('Job captured. It opens when you finish editing.');
+
+      await user.clear(screen.getByLabelText('Company'));
+      await user.type(screen.getByLabelText('Company'), 'Other');
+      await user.type(screen.getByLabelText(/Job title/), 'Role');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await user.click(
+        await screen.findByRole('button', { name: 'Discard changes and view existing' }),
+      );
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'Other' })).toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: 'Open' }));
+      await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
+
+      // The flag is spent: a later edit's Save goes back to its detail view.
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+    });
+
     it('an edit save that finishes after a capture does not close the Add form', async () => {
       let finish!: () => void;
-      const real = applications.updateApplication;
-      vi.spyOn(applications, 'updateApplication').mockImplementationOnce(async (...args) => {
+      const real = applications.saveApplication;
+      vi.spyOn(applications, 'saveApplication').mockImplementationOnce(async (...args) => {
         await new Promise<void>((resolve) => (finish = resolve));
         return real(...args);
       });

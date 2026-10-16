@@ -10,6 +10,7 @@ beforeEach(async () => {
 });
 
 type User = ReturnType<typeof userEvent.setup>;
+const WARNING = 'You may have logged this already';
 
 async function fillAndSave(user: User, fields: { url: string; company: string; title?: string }) {
   await user.click(await screen.findByRole('button', { name: '+ Add application' }));
@@ -37,7 +38,7 @@ describe('Duplicate warning', () => {
       company: 'Someone',
     });
 
-    const warning = await screen.findByRole('alert', { name: 'You may have logged this already' });
+    const warning = await screen.findByRole('group', { name: 'You may have logged this already' });
     expect(warning).toHaveTextContent('Acme · Senior Engineer, applied 2026-10-01');
     expect(warning).toHaveTextContent('Same job posting URL');
     expect(warning).toHaveFocus();
@@ -53,7 +54,9 @@ describe('Duplicate warning', () => {
       company: '  ACME ',
       title: 'senior   engineer',
     });
-    expect(await screen.findByRole('alert')).toHaveTextContent('Same company and title');
+    expect(await screen.findByRole('group', { name: WARNING })).toHaveTextContent(
+      'Same company and title',
+    );
   });
 
   it("doesn't warn about a different role at the same company", async () => {
@@ -62,7 +65,7 @@ describe('Duplicate warning', () => {
     render(<App />);
     await fillAndSave(user, { url: 'https://acme.com/2', company: 'Acme', title: 'Designer' });
     await screen.findByRole('button', { name: /Designer/ });
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
   });
 
   it("doesn't warn about a soft-deleted application", async () => {
@@ -72,7 +75,7 @@ describe('Duplicate warning', () => {
     render(<App />);
     await fillAndSave(user, { url: app.url, company: 'Acme', title: 'Senior Engineer' });
     expect(await screen.findByRole('list', { name: 'Applications' })).toHaveTextContent('Acme');
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
   });
 
   it('Save anyway saves a second application', async () => {
@@ -118,7 +121,9 @@ describe('Duplicate warning', () => {
       company: 'Acme',
       title: 'Senior Engineer',
     });
-    expect(await screen.findByRole('alert')).toHaveTextContent('and 1 more match');
+    expect(await screen.findByRole('group', { name: WARNING })).toHaveTextContent(
+      'and 1 more match',
+    );
   });
 
   it('clears when the user changes what it matched on', async () => {
@@ -126,9 +131,9 @@ describe('Duplicate warning', () => {
     const user = userEvent.setup();
     render(<App />);
     await fillAndSave(user, { url: app.url, company: 'X' });
-    await screen.findByRole('alert');
+    await screen.findByRole('group', { name: WARNING });
     await user.type(screen.getByLabelText('Job posting URL'), '2');
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('list', { name: 'Applications' })).toHaveTextContent('X');
   });
@@ -144,7 +149,7 @@ describe('Duplicate warning', () => {
     expect(screen.getByLabelText('Job posting URL')).toHaveAccessibleDescription(
       'Enter the job posting URL.',
     );
-    expect(screen.queryByRole('alert', { name: /logged this already/ })).toBeNull();
+    expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
   });
 
   it("keeps a saved job's cleared date applied cleared when editing", async () => {
@@ -160,6 +165,20 @@ describe('Duplicate warning', () => {
     expect(await db.applications.get(app.id)).not.toHaveProperty('appliedAt');
   });
 
+  it('is announced through focus, not as a second live region', async () => {
+    await existing();
+    const user = userEvent.setup();
+    render(<App />);
+    await fillAndSave(user, {
+      url: 'https://boards.greenhouse.io/acme/jobs/1?gh_jid=1',
+      company: 'X',
+    });
+    const warning = await screen.findByRole('group', { name: WARNING });
+    expect(warning).toHaveFocus();
+    expect(warning).not.toHaveAttribute('aria-live');
+    expect(warning.getAttribute('role')).not.toBe('alert');
+  });
+
   describe('when editing', () => {
     async function editFirst(user: User, name: RegExp) {
       render(<App />);
@@ -173,7 +192,36 @@ describe('Duplicate warning', () => {
       await editFirst(user, /^Acme/);
       await user.click(screen.getByRole('button', { name: 'Save' }));
       await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
-      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
+    });
+
+    it('says that View existing discards the unsaved changes', async () => {
+      await existing();
+      await addApplication({ url: 'https://beta.com/1', company: 'Beta', title: 'Designer' });
+      const user = userEvent.setup();
+      await editFirst(user, /^Beta/);
+      await user.clear(screen.getByLabelText('Company'));
+      await user.type(screen.getByLabelText('Company'), 'Acme');
+      await user.clear(screen.getByLabelText(/Job title/));
+      await user.type(screen.getByLabelText(/Job title/), 'Senior Engineer');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      expect(
+        await screen.findByRole('button', { name: 'Discard changes and view existing' }),
+      ).toBeInTheDocument();
+    });
+
+    it("doesn't warn again on later edits of a job kept with Save anyway", async () => {
+      const original = await existing();
+      const user = userEvent.setup();
+      render(<App />);
+      await fillAndSave(user, { url: original.url, company: 'Kept Co' });
+      await user.click(await screen.findByRole('button', { name: 'Save anyway' }));
+      await user.click(await screen.findByRole('button', { name: /^Kept Co/ }));
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      await user.type(screen.getByLabelText(/Notes/), 'Second round on Friday');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+      expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
     });
 
     it('warns when the edit makes it match another application', async () => {
@@ -187,7 +235,9 @@ describe('Duplicate warning', () => {
         'https://boards.greenhouse.io/acme/jobs/1?gh_jid=1',
       );
       await user.click(screen.getByRole('button', { name: 'Save' }));
-      expect(await screen.findByRole('alert')).toHaveTextContent('Acme · Senior Engineer');
+      expect(await screen.findByRole('group', { name: WARNING })).toHaveTextContent(
+        'Acme · Senior Engineer',
+      );
     });
   });
 });

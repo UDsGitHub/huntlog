@@ -16,14 +16,11 @@ import {
   type InputField,
 } from '@/lib/applicationInput';
 import {
-  addApplication,
-  findDuplicates,
   NotFoundError,
-  updateApplication,
+  saveApplication,
   ValidationError,
+  type DuplicateMatch,
 } from '@/lib/applications';
-import { validateApplication } from '@/lib/applicationInput';
-import { normalizeUrl } from '@/lib/normalizeUrl';
 import { todayLocal } from '@/lib/dates';
 import { defaultCurrency, knownCurrencies, numberSeparators } from '@/lib/locale';
 import type { Application } from '@/lib/types';
@@ -116,9 +113,15 @@ export function ApplicationForm({
   const saving = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
   const fieldRefs = useRef<Partial<Record<InputField, HTMLElement | null>>>({});
-  const [duplicates, setDuplicates] = useState<{ matches: Application[]; url: string } | null>(
-    null,
-  );
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[] | null>(null);
+  // Focus for the first invalid field moves after the render that re-enables the fieldset (a
+  // disabled field can't take focus). A ref, used once, so it never steals focus later.
+  const pendingFocus = useRef<InputField | null>(null);
+  useLayoutEffect(() => {
+    if (isSaving || !pendingFocus.current) return;
+    fieldRefs.current[pendingFocus.current]?.focus();
+    pendingFocus.current = null;
+  }, [errors, isSaving]);
   const currencies = useMemo(() => knownCurrencies(), []);
 
   // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
@@ -149,43 +152,29 @@ export function ApplicationForm({
 
   async function save({ allowDuplicate }: { allowDuplicate: boolean }) {
     if (saving.current) return;
-    const result = validateApplication(values, undefined, undefined, {
-      appliedAtRequired: !application || application.status !== 'saved',
-    });
-    setErrors(result.errors);
+    setErrors({});
     setSaveError(null);
-    if (!result.values) {
-      setDuplicates(null);
-      const first = FIELD_ORDER.find((field) => result.errors[field]);
-      if (first) fieldRefs.current[first]?.focus();
-      return;
-    }
-    // A missing date would mean "default to today" to storage; an empty string means cleared.
-    const validated = { ...result.values, appliedAt: result.values.appliedAt ?? '' };
     saving.current = true;
     setIsSaving(true);
     try {
-      if (!allowDuplicate) {
-        const matches = await findDuplicates(validated, { excludeId: application?.id });
-        if (matches.length > 0) {
-          setDuplicates({ matches, url: normalizeUrl(validated.url) });
-          saving.current = false;
-          setIsSaving(false);
-          return;
-        }
+      // One call validates, checks for duplicates and saves; the rules live in lib only.
+      const result = await saveApplication(values, { id: application?.id, allowDuplicate });
+      if ('duplicates' in result) {
+        setDuplicates(result.duplicates);
+        saving.current = false;
+        setIsSaving(false);
+        return;
       }
-      // Already validated; saving re-checks the normalized values, which can't newly fail
-      // (the only time-dependent rule, "not in the future", only gets looser).
-      onSaved(
-        await (application
-          ? updateApplication(application.id, validated)
-          : addApplication(validated)),
-      );
+      onSaved(result.saved);
     } catch (error) {
       saving.current = false;
       setIsSaving(false);
+      setDuplicates(null);
       if (error instanceof ValidationError) {
         setErrors(error.fields);
+        // The first invalid field, in screen order (also for errors only storage can catch).
+        const first = FIELD_ORDER.find((field) => error.fields[field]);
+        pendingFocus.current = first ?? null;
         return;
       }
       if (error instanceof NotFoundError) {
@@ -395,8 +384,8 @@ export function ApplicationForm({
       </fieldset>
       {duplicates && (
         <DuplicateWarning
-          matches={duplicates.matches}
-          urlNormalized={duplicates.url}
+          matches={duplicates}
+          editing={Boolean(application)}
           onViewExisting={onViewExisting}
           onSaveAnyway={() => void save({ allowDuplicate: true })}
         />

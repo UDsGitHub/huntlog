@@ -51,7 +51,7 @@ test('a full application record, end to end, with the duplicate warning', async 
     .fill('http://boards.greenhouse.io/acme/jobs/1/?utm_source=linkedin&gh_src=x&gh_jid=1');
   await page.getByLabel('Company').fill('Acme Inc');
   await page.getByRole('button', { name: 'Save' }).click();
-  const warning = page.getByRole('alert', { name: 'You may have logged this already' });
+  const warning = page.getByRole('group', { name: 'You may have logged this already' });
   await expect(warning).toContainText('Acme · Senior Engineer, applied 2026-10-01');
   await expect(warning).toContainText('Same job posting URL');
   await warning.getByRole('button', { name: 'View existing' }).click();
@@ -86,7 +86,7 @@ test('the duplicate warning fits a 320px panel', async ({ session }) => {
     await page.getByLabel(/Job title/).fill(`Title ${'W'.repeat(150)}`);
     await page.getByRole('button', { name: 'Save' }).click();
   }
-  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'You may have logged this already' })).toBeVisible();
   const { scrollWidth, clientWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,

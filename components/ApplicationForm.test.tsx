@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as applicationInput from '@/lib/applicationInput';
 import * as applications from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
 import { db } from '@/lib/db';
@@ -170,10 +171,10 @@ describe('Add view', () => {
 
   it('locks the fields while saving, so nothing typed during the save is lost', async () => {
     let finish!: () => void;
-    const real = applications.addApplication;
-    vi.spyOn(applications, 'addApplication').mockImplementation(async (input) => {
+    const real = applications.saveApplication;
+    vi.spyOn(applications, 'saveApplication').mockImplementation(async (...args) => {
       await new Promise<void>((resolve) => (finish = resolve));
-      return real(input);
+      return real(...args);
     });
     const user = userEvent.setup();
     await openAddForm(user);
@@ -191,21 +192,26 @@ describe('Add view', () => {
     await screen.findByRole('list', { name: 'Applications' });
   });
 
-  it('passes already-normalized values to storage, so its re-check agrees', async () => {
-    const spy = vi.spyOn(applications, 'addApplication');
+  it('validates once per save, in storage', async () => {
+    const spy = vi.spyOn(applicationInput, 'validateApplication');
     const user = userEvent.setup();
     await openAddForm(user);
     await user.type(field('Job posting URL'), 'example.com/jobs/1');
-    await user.type(field('Company'), '  Acme  ');
-    await user.type(field('Minimum'), '85,000');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.type(field('Company'), 'Acme{Enter}');
     await screen.findByRole('list', { name: 'Applications' });
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0]![0]).toMatchObject({
-      url: 'https://example.com/jobs/1',
-      company: 'Acme',
-      salaryMin: 85000,
-    });
+  });
+
+  it('focuses a field that only storage rejects, once the form is enabled again', async () => {
+    vi.spyOn(applications, 'saveApplication').mockRejectedValueOnce(
+      new applications.ValidationError({ appliedAt: 'Enter the date you applied.' }),
+    );
+    const user = userEvent.setup();
+    await openAddForm(user);
+    await user.type(field('Job posting URL'), 'https://example.com');
+    await user.type(field('Company'), 'Acme{Enter}');
+    await waitFor(() => expect(field('Date applied')).toHaveFocus());
+    expect(field('Date applied')).toHaveAccessibleDescription('Enter the date you applied.');
   });
 
   it('announces a second save even when the message repeats', async () => {
@@ -225,7 +231,7 @@ describe('Add view', () => {
 
   it('keeps the form and shows an error when saving fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(applications, 'addApplication').mockRejectedValue(new Error('quota'));
+    vi.spyOn(applications, 'saveApplication').mockRejectedValue(new Error('quota'));
     const user = userEvent.setup();
     await openAddForm(user);
     await user.type(field('Job posting URL'), 'https://example.com');

@@ -36,6 +36,15 @@ export default function App() {
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
 
   function navigate(next: View) {
+    // Leaving Edit some other way than its own Save/Cancel (e.g. View existing): a capture that
+    // waited for the edit mustn't be lost, nor linger to hijack a later edit.
+    if (deferredCapture.current && viewRef.current.name === 'edit' && next.name !== 'add') {
+      deferredCapture.current = false;
+      showToast({
+        message: 'Your captured job is ready.',
+        action: { label: 'Open', onAction: () => navigate({ name: 'add' }) },
+      });
+    }
     viewRef.current = next;
     setView(next);
   }
