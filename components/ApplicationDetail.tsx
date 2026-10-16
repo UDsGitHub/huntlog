@@ -7,7 +7,7 @@ import { formatSalary } from '@/lib/format';
 import { StatusChip, type StatusPick } from './StatusChip';
 import { StatusTimeline } from './StatusTimeline';
 import { getResume } from '@/lib/resumes';
-import { openResume } from '@/lib/openResume';
+import { openResume, opensInViewer } from '@/lib/openResume';
 import type { Application } from '@/lib/types';
 
 interface Props {
@@ -172,10 +172,10 @@ function ResumeLink({ resumeId, snapshot }: { resumeId: string; snapshot?: strin
       <span className="min-w-0 break-words">{resume.name}</span>
       <button
         type="button"
-        onClick={() => void openResume(resume.id).then((opened) => setFailed(!opened))}
+        onClick={() => void openResume(resume).then((opened) => setFailed(!opened))}
         className="rounded border border-slate-300 px-2 py-0.5 text-xs font-medium hover:bg-slate-50 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-600"
       >
-        {resume.mimeType === 'application/pdf' ? 'Open' : 'Download'}
+        {opensInViewer(resume) ? 'Open' : 'Download'}
         <span className="sr-only"> resume {resume.name}</span>
       </button>
       {failed && <span className="text-xs text-slate-600">The file isn't available.</span>}
