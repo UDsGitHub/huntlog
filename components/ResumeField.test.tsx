@@ -21,6 +21,11 @@ function realFile(name: string, head = PDF_HEAD): File {
 }
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   fakeBrowser.reset();
   await db.delete();
   await db.open();

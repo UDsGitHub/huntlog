@@ -1,13 +1,14 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, sheetsClosed, test } from './fixtures';
 
 async function addJob(page: Page, company: string, status?: string) {
   await page.getByRole('button', { name: 'Add application', exact: true }).click();
   await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/jobs/1`);
   await page.getByLabel('Company').fill(company);
-  if (status) await page.getByLabel('Status').selectOption(status);
-  await page.getByRole('button', { name: 'Save' }).click();
+  if (status) await page.getByLabel('Status', { exact: true }).selectOption(status);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^${company}`) })).toBeVisible();
+  await sheetsClosed(page);
 }
 
 const chip = (page: Page, company: string) =>

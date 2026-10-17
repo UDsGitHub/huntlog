@@ -30,6 +30,11 @@ function fields() {
 }
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   fakeBrowser.reset();
   // `as never`: getCurrent's callback overload types the spy as returning void.
   vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
@@ -42,6 +47,13 @@ beforeEach(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+/** Leaves the form with its Back button, confirming the discard when something was typed. */
+async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Back' }));
+  const discard = screen.queryByRole('button', { name: 'Discard' });
+  if (discard) await user.click(discard);
+}
 
 describe('capture prefill', () => {
   it('prefills from a draft stored before the panel opened, then consumes it', async () => {
@@ -144,14 +156,15 @@ describe('capture prefill', () => {
     expect(screen.queryByText(HINT)).toBeNull();
   });
 
-  it('focuses the URL field when no URL could be captured', async () => {
+  it('opens on Company, the first field, when no URL could be captured', async () => {
     await fakeBrowser.storage.session.set({
       [draftKey(WINDOW_ID)]: createDraft('command', { url: 'chrome://settings', readFailed: true }),
     });
     render(<App />);
     await screen.findByRole('status', { name: '' });
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Couldn't read/));
-    await waitFor(() => expect(fields().url).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText('Company')).toHaveFocus());
+    expect(fields().url).toHaveValue('');
   });
 
   it('says only the address was kept when the read failed on a web page', async () => {
@@ -338,6 +351,18 @@ describe('capture prefill', () => {
       expect((await db.applications.toArray())[0]?.notes).toBe('half-written');
     });
 
+    it('dismissing the waiting toast keeps focus in the open Edit sheet', async () => {
+      const user = userEvent.setup();
+      await seedAndOpenDetail(user);
+      await user.click(screen.getByRole('button', { name: 'Edit' }));
+      await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+      await screen.findByText('Job captured. It opens when you finish editing.');
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+      // Not the page's heading behind the (inert) sheet: a control inside the sheet.
+      const sheet = screen.getByRole('dialog', { name: 'Edit application' });
+      expect(sheet).toContainElement(document.activeElement as HTMLElement);
+    });
+
     it('keeps a deferred capture when Edit is left through View existing', async () => {
       await applications.addApplication({
         url: 'https://other.com/1',
@@ -363,7 +388,7 @@ describe('capture prefill', () => {
       await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
 
       // The flag is spent: a later edit's Save goes back to its detail view.
-      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      await leaveForm(user);
       await user.click(await screen.findByRole('button', { name: /^Acme/ }));
       await user.click(await screen.findByRole('button', { name: 'Edit' }));
       await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -415,7 +440,7 @@ describe('capture prefill', () => {
     render(<App />);
     await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     await user.click(screen.getByRole('button', { name: 'Add application' }));
 
     expect(fields().title).toHaveValue('');
@@ -433,5 +458,21 @@ describe('capture prefill', () => {
     );
     expect(screen.queryByRole('form')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add application' })).toBeEnabled();
+  });
+
+  it('a captured form slides out whole on Back, not remounted mid-way', async () => {
+    // Real slide timing here: the bug was a remount during the slide-out.
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query: string) => ({ matches: false, media: query }) as unknown as MediaQueryList,
+    );
+    await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });
+    const user = userEvent.setup();
+    render(<App />);
+    const form = await screen.findByRole('form', { name: 'Add application' });
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    // Still the same form, sliding out (not swapped for a fresh one).
+    expect(form).toBeInTheDocument();
+    expect(form.closest('dialog')).toHaveAttribute('data-state', 'closing');
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
   });
 });

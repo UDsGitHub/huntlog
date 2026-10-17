@@ -28,7 +28,7 @@ test('upload a resume, link it to an application, open it from the application',
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('combobox', { name: /^Resume/ }).selectOption({ label: 'Backend v3' });
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // The row leaves the resume out (spec §4.4); the detail view shows it.
   const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
@@ -63,7 +63,7 @@ test('a resume an application uses is archived, not deleted, and still opens', a
     .setInputFiles({ name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
   await upload.getByRole('button', { name: 'Upload and use' }).click();
   await expect(page.getByRole('combobox', { name: /^Resume/ })).toHaveValue(/.+/);
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Resumes' }).click();

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, sheetsClosed, test } from './fixtures';
 
 async function addJob(
   page: Page,
@@ -12,9 +12,11 @@ async function addJob(
     .fill(`https://${company.replace(/\W/g, '').toLowerCase()}.com/1`);
   await page.getByLabel('Company').fill(company);
   if (fields.title) await page.getByLabel(/Job title/).fill(fields.title);
-  if (fields.status) await page.getByLabel('Status').selectOption(fields.status);
-  await page.getByRole('button', { name: 'Save' }).click();
+  if (fields.status) await page.getByLabel('Status', { exact: true }).selectOption(fields.status);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^${company}`) })).toBeVisible();
+  // The next Add opens only once this sheet has gone.
+  await sheetsClosed(page);
 }
 
 const companies = (page: Page) =>

@@ -15,6 +15,18 @@ import { inert } from './inert';
 import { prefersReducedMotion } from './motion';
 import { registerToastLayer } from './toastLayer';
 
+/**
+ * Moves focus into the newest open sheet (its first control), for when the element that had it
+ * went away and the page behind is inert. Returns whether a sheet was open.
+ */
+export function focusOpenSheet(): boolean {
+  const sheets = document.querySelectorAll<HTMLDialogElement>('dialog[open]');
+  const sheet = sheets[sheets.length - 1];
+  if (!sheet) return false;
+  (sheet.querySelector<HTMLElement>(FOCUSABLE) ?? sheet).focus();
+  return true;
+}
+
 /** How long the slide in or out takes. Reduced motion skips it. */
 export const SHEET_ANIMATION_MS = 200;
 
@@ -132,8 +144,11 @@ export function Sheet({
           unregisterLayer.current = registerToastLayer({ region: toastRegion.current });
         }
       }
+      // The given element, else the body's first control, else the header's (Back or Close).
       const target =
-        initialFocus?.current ?? body.current?.querySelector<HTMLElement>(FOCUSABLE) ?? null;
+        initialFocus?.current ??
+        body.current?.querySelector<HTMLElement>(FOCUSABLE) ??
+        element.querySelector<HTMLElement>(FOCUSABLE);
       (target ?? element).focus();
       return;
     }

@@ -93,7 +93,9 @@ test('a capture leaves More details collapsed when it filled nothing in there', 
       'aria-expanded',
       'false',
     );
-    await panel.getByRole('button', { name: 'Cancel' }).click();
+    // A capture's prefill isn't typing: Back leaves without asking.
+    await panel.getByRole('button', { name: 'Back' }).click();
+    await expect(panel.getByRole('dialog', { name: 'Add application' })).toBeHidden();
   }
 });
 

@@ -16,7 +16,7 @@ test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ sess
     await page.getByRole('button', { name: 'Add application', exact: true }).click();
     await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/jobs/1`);
     await page.getByLabel('Company').fill(company);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('listitem').filter({ hasText: company })).toBeVisible();
   }
 

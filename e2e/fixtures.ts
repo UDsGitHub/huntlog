@@ -145,3 +145,11 @@ export async function scrollPanel(page: Page, top: number | 'end') {
     top,
   );
 }
+
+/**
+ * Waits until no sheet is open or sliding out. The page behind a sheet is inert meanwhile, so a
+ * `.focus()` or key press right after a Save would be lost (clicks wait on their own).
+ */
+export async function sheetsClosed(page: Page) {
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+}

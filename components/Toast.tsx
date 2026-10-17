@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { inert } from './inert';
 import { XIcon } from './icons';
 import { prefersReducedMotion } from './motion';
 import { useToastLayer } from './toastLayer';
-import { usePublishedHeight } from './usePublishedHeight';
 
 export const TOAST_DURATION_MS = 5000;
 /** How long a toast takes to slide out. Reduced motion skips it. */
@@ -128,11 +127,9 @@ export function Toast({
       {/* The page's region: always mounted, so a toast appearing in it is announced. */}
       <div
         aria-live="polite"
-        // Clear of a sticky bottom bar or the floating button when one is showing; each
-        // publishes the room it takes. Inside a sheet, its region already sits above its footer.
-        style={{
-          bottom: 'calc(var(--sticky-bar-height, 0px) + var(--fab-clearance, 0px) + 1rem)',
-        }}
+        // Clear of the floating button when it shows (it publishes the room it takes). Inside a
+        // sheet, its region already sits above the sheet's footer.
+        style={{ bottom: 'calc(var(--fab-clearance, 0px) + 1rem)' }}
         className="pointer-events-none fixed inset-x-4 flex justify-center"
       >
         {!region && card}
@@ -195,12 +192,4 @@ function ToastCard({
       </button>
     </div>
   );
-}
-
-/**
- * Publishes a sticky bottom bar's height as `--sticky-bar-height` on the document while it's
- * mounted, so the toast and focus scrolling keep clear of it, whatever its size.
- */
-export function useStickyBar(bar: RefObject<HTMLElement | null>) {
-  usePublishedHeight(bar, '--sticky-bar-height');
 }

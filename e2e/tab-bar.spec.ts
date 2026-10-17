@@ -59,7 +59,7 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
     await page.getByRole('button', { name: 'Add application', exact: true }).click();
     await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/1`);
     await page.getByLabel('Company').fill(company);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('listitem').filter({ hasText: company })).toBeVisible();
   }
   await scrollPanel(page, 'end');
@@ -73,7 +73,8 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
   expect(await activePanel(page).evaluate((element) => element.scrollTop)).toBe(scrolled);
   await expectNoHorizontalScroll(page);
 
-  // Hidden while a form is open, so the sticky Save bar owns the panel.
+  // A form opens as a sheet over the panel; the tab bar stays in place behind it.
   await page.getByRole('button', { name: 'Add application', exact: true }).click();
-  await expect(page.getByRole('tablist')).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Add application' })).toBeVisible();
+  await expect(page.locator('[role="tablist"]')).toHaveCount(1);
 });

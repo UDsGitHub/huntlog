@@ -6,6 +6,7 @@ import {
   useState,
   type FormEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import {
   SALARY_PERIOD_LABELS,
@@ -34,11 +35,15 @@ import { defaultCurrency, numberSeparators, orderedCurrencies } from '@/lib/loca
 import type { Application } from '@/lib/types';
 import { DuplicateWarning } from './DuplicateWarning';
 import { ResumeField } from './ResumeField';
-import { useStickyBar } from './Toast';
+import { Sheet } from './Sheet';
 import type { CapturePrefill } from './useCaptureDraft';
 import { ChevronRightIcon } from './icons';
 
 interface Props {
+  /** The sheet is showing (it stays mounted while it slides out after closing). */
+  open: boolean;
+  /** After the sheet has finished closing. */
+  onClosed?: () => void;
   /** A captured page or link. The form is remounted per capture (keyed by nonce), so it's read once. */
   prefill?: CapturePrefill | null;
   /** Edit mode: the stored application to change. Without it, the form adds a new one. */
@@ -46,6 +51,7 @@ interface Props {
   /** Remembered source and work mode; used only for a manual Add (no capture, not Edit). */
   defaults?: FormDefaults;
   onSaved: (application: Application) => void;
+  /** Back (or Escape), after confirming any discard: leave without saving. */
   onCancel: () => void;
   /** "View existing" in the duplicate warning: leave this form for that application. */
   onViewExisting: (id: string) => void;
@@ -54,7 +60,7 @@ interface Props {
 type FormValues = Required<{ [K in keyof ApplicationInput]: string }>;
 
 /** Fields above More details, in screen order (title has no validation of its own). */
-const MAIN_FIELDS: InputField[] = ['url', 'company', 'status', 'appliedAt', 'resumeId'];
+const MAIN_FIELDS: InputField[] = ['company', 'url', 'status', 'appliedAt', 'resumeId'];
 /** Fields under More details (spec §4.2), in screen order. */
 const DETAIL_FIELDS: InputField[] = [
   'location',
@@ -97,7 +103,14 @@ function formValuesFrom(app: Application): FormValues {
   };
 }
 
+/**
+ * The Add/Edit form (spec §4.2), in a near-full-height sheet: Back in its header (asking before
+ * discarding typed changes), Save as its footer, so Save is always in reach and toasts sit above
+ * it. A click outside doesn't close it.
+ */
 export function ApplicationForm({
+  open,
+  onClosed,
   prefill,
   application,
   defaults,
@@ -108,7 +121,7 @@ export function ApplicationForm({
   // Without React's colons, the ids are valid in CSS selectors too (happy-dom resolves `list` that way).
   const id = useId().replace(/:/g, '');
   const draft = application ? undefined : prefill?.draft;
-  const [values, setValues] = useState<FormValues>(() =>
+  const [initial] = useState<FormValues>(() =>
     application
       ? formValuesFrom(application)
       : {
@@ -129,6 +142,11 @@ export function ApplicationForm({
           source: (!draft && defaults?.source) || '',
           notes: '',
         },
+  );
+  const [values, setValues] = useState<FormValues>(initial);
+  // Anything typed since the form opened: leaving then asks first (spec §3).
+  const dirty = (Object.keys(values) as (keyof FormValues)[]).some(
+    (field) => values[field] !== initial[field],
   );
   // More details opens on its own in Edit when a field inside has a value. Errors inside open
   // it too (save()).
@@ -156,14 +174,17 @@ export function ApplicationForm({
   // Includes a stored currency the runtime doesn't know, so Edit never silently swaps it.
   const storedCurrency = application?.salaryCurrency;
   const currencies = useMemo(() => orderedCurrencies(undefined, storedCurrency), [storedCurrency]);
-  const stickyBar = useRef<HTMLDivElement>(null);
-  useStickyBar(stickyBar);
-
-  // Start at the first empty required field: Company after a capture with a URL, otherwise URL.
-  // A layout effect, so focus moves in the same commit that shows the form.
-  useLayoutEffect(() => {
-    fieldRefs.current[draft?.url ? 'company' : 'url']?.focus();
-  }, [draft]);
+  // The sheet focuses Company when it opens: the first field, and the first one a capture
+  // leaves empty. (After the sheet records the opener, so focus returns there.) A view of the
+  // field refs, not a second copy of them.
+  const companyRef = useMemo<RefObject<HTMLElement>>(
+    () => ({
+      get current() {
+        return fieldRefs.current.company ?? null;
+      },
+    }),
+    [],
+  );
 
   // A hint stays while the field still holds exactly what was captured.
   const hints = {
@@ -265,304 +286,340 @@ export function ApplicationForm({
     .filter(Boolean)
     .join(' · ');
 
+  const formId = `${id}-form`;
+  const dateHidden = values.status === 'saved';
+  const dateOptional = isStatus(values.status) && appliedAtOptional(values.status);
   return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      aria-label={application ? 'Edit application' : 'Add application'}
-      aria-busy={isSaving || undefined}
-      className="flex flex-col gap-3"
-    >
-      {/* Locked while saving: the save writes what was there when Save was pressed. */}
-      <fieldset disabled={isSaving} className="flex min-w-0 flex-col gap-3">
-        {readFailed && (
-          <p className="text-sm text-muted-foreground">{readFailedMessage(draft?.url)}</p>
-        )}
-
-        <Field label="Job posting URL" htmlFor={`${id}-url`}>
-          <input
-            {...control('url', hints.url)}
-            type="text"
-            inputMode="url"
-            autoComplete="off"
-            value={values.url}
-            onChange={(e) => set('url')(e.target.value)}
-          />
-          {message('url', hints.url)}
-        </Field>
-
-        <Field label="Company" htmlFor={`${id}-company`}>
-          <input
-            {...control('company')}
-            type="text"
-            autoComplete="off"
-            value={values.company}
-            onChange={(e) => set('company')(e.target.value)}
-          />
-          {message('company')}
-        </Field>
-
-        <Field label="Job title" optional htmlFor={`${id}-title`}>
-          <input
-            id={`${id}-title`}
-            name="title"
-            type="text"
-            autoComplete="off"
-            value={values.title}
-            onChange={(e) => set('title')(e.target.value)}
-            aria-describedby={hints.title ? `${id}-title-hint` : undefined}
-            className="field"
-          />
-          {hints.title && <AutoFilledHint id={`${id}-title-hint`} />}
-        </Field>
-
-        <Field label="Status" htmlFor={`${id}-status`}>
-          <select
-            {...control('status')}
-            value={values.status}
-            onChange={(e) => set('status')(e.target.value)}
-          >
-            <optgroup label="Active">
-              {ACTIVE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Closed">
-              {CLOSED_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-          {message('status')}
-        </Field>
-
-        {/* Hidden for Saved: nothing was applied for yet (spec §4.2, §5). */}
-        <div hidden={values.status === 'saved'}>
-          <Field
-            label="Date applied"
-            optional={isStatus(values.status) && appliedAtOptional(values.status)}
-            htmlFor={`${id}-appliedAt`}
-          >
-            <input
-              {...control('appliedAt')}
-              type="date"
-              max={todayLocal()}
-              value={values.appliedAt}
-              onChange={(e) => set('appliedAt')(e.target.value)}
-            />
-            {message('appliedAt')}
-          </Field>
-        </div>
-
-        <ResumeField
-          id={`${id}-resumeId`}
-          value={values.resumeId}
-          onChange={(resumeId) => set('resumeId')(resumeId)}
-          linked={
-            application?.resumeId
-              ? { resumeId: application.resumeId, snapshot: application.resumeNameSnapshot }
-              : undefined
-          }
-          error={errors.resumeId}
-          selectRef={register('resumeId') as (element: HTMLSelectElement | null) => void}
-        />
-
-        <div className="flex min-w-0 flex-col gap-1">
-          <button
-            type="button"
-            aria-expanded={detailsOpen}
-            aria-controls={`${id}-details`}
-            onClick={() => setDetailsOpen((open) => !open)}
-            className="btn btn-outline btn-sm self-start"
-          >
-            <ChevronRightIcon
-              className={`size-4 transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-90' : ''}`}
-            />
-            More details
-          </button>
-          {!detailsOpen && detailsSummary && (
-            <p className="text-xs break-words text-muted-foreground">{detailsSummary}</p>
-          )}
-        </div>
-
-        {/* Hidden, not unmounted: values and field refs survive collapsing. */}
-        <div id={`${id}-details`} hidden={!detailsOpen} className="flex min-w-0 flex-col gap-3">
-          <Field label="Location" optional htmlFor={`${id}-location`}>
-            <input
-              {...control('location')}
-              type="text"
-              autoComplete="off"
-              value={values.location}
-              onChange={(e) => set('location')(e.target.value)}
-            />
-            {message('location')}
-          </Field>
-
-          <Field label="Work mode" optional htmlFor={`${id}-workMode`}>
-            <select
-              {...control('workMode')}
-              value={values.workMode}
-              onChange={(e) => set('workMode')(e.target.value)}
-            >
-              <option value="">Not set</option>
-              {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {message('workMode')}
-          </Field>
-
-          <fieldset className="flex min-w-0 flex-col gap-2">
-            <legend className="field-label">
-              Salary <span className="font-normal text-muted-foreground">(optional)</span>
-            </legend>
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
-                <input
-                  {...control('salaryMin')}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={values.salaryMin}
-                  onChange={(e) => set('salaryMin')(e.target.value)}
-                />
-                {message('salaryMin')}
-              </Field>
-              <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
-                <input
-                  {...control('salaryMax')}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={values.salaryMax}
-                  onChange={(e) => set('salaryMax')(e.target.value)}
-                />
-                {message('salaryMax')}
-              </Field>
-              <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
-                <select
-                  {...control('salaryCurrency')}
-                  value={values.salaryCurrency}
-                  onChange={(e) => set('salaryCurrency')(e.target.value)}
-                >
-                  <optgroup label="Common">
-                    {currencies.common.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="All currencies">
-                    {currencies.others.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                {message('salaryCurrency')}
-              </Field>
-              <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
-                <select
-                  {...control('salaryPeriod')}
-                  value={values.salaryPeriod}
-                  onChange={(e) => set('salaryPeriod')(e.target.value)}
-                >
-                  {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                {message('salaryPeriod')}
-              </Field>
-            </div>
-          </fieldset>
-
-          <Field label="Source" optional htmlFor={`${id}-source`}>
-            <input
-              {...control('source')}
-              type="text"
-              autoComplete="off"
-              list={`${id}-source-suggestions`}
-              value={values.source}
-              onChange={(e) => set('source')(e.target.value)}
-            />
-            <datalist id={`${id}-source-suggestions`}>
-              {SOURCE_SUGGESTIONS.map((source) => (
-                <option key={source} value={source} />
-              ))}
-            </datalist>
-            {message('source')}
-          </Field>
-
-          <Field label="Notes" optional htmlFor={`${id}-notes`}>
-            <textarea
-              {...control('notes')}
-              rows={4}
-              value={values.notes}
-              onChange={(e) => set('notes')(e.target.value)}
-            />
-            {message('notes')}
-          </Field>
-        </div>
-      </fieldset>
-      {duplicates && (
-        <DuplicateWarning
-          matches={duplicates}
-          editing={Boolean(application)}
-          onViewExisting={onViewExisting}
-          onSaveAnyway={() => void save({ allowDuplicate: true })}
-        />
-      )}
-      {saveError && (
-        <p role="alert" className="field-error">
-          {saveError}
-        </p>
-      )}
-      {/* Sticky: Save is always reachable without scrolling (spec §4.2, §10). */}
-      <div
-        ref={stickyBar}
-        // Sticks to the section's padding edge; -bottom-4 cancels its 1rem bottom padding, so the bar
-        // sits flush with the panel's bottom.
-        className="sticky -bottom-4 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3"
-      >
-        <button type="submit" aria-disabled={isSaving || undefined} className="btn btn-primary">
+    <Sheet
+      open={open}
+      onClose={onCancel}
+      onClosed={onClosed}
+      title={application ? 'Edit application' : 'Add application'}
+      closeButton="back"
+      size="full"
+      dirty={dirty}
+      initialFocus={companyRef}
+      footer={
+        <button
+          type="submit"
+          form={formId}
+          aria-disabled={isSaving || undefined}
+          className="btn btn-primary w-full"
+        >
           {isSaving ? 'Saving…' : 'Save'}
         </button>
-        <button type="button" onClick={onCancel} className="btn btn-outline">
-          Cancel
-        </button>
-      </div>
-    </form>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={handleSubmit}
+        noValidate
+        aria-label={application ? 'Edit application' : 'Add application'}
+        aria-busy={isSaving || undefined}
+        className="flex flex-col gap-3"
+      >
+        {/* Enter in a field submits through the form's default button. The visible Save is in
+            the sheet's footer, outside this element (joined by form=), so this hidden one keeps
+            Enter working the same everywhere. */}
+        <button type="submit" hidden disabled={isSaving} tabIndex={-1} aria-hidden="true" />
+        {/* Locked while saving: the save writes what was there when Save was pressed. */}
+        <fieldset disabled={isSaving} className="flex min-w-0 flex-col gap-3">
+          {readFailed && (
+            <p className="text-sm text-muted-foreground">{readFailedMessage(draft?.url)}</p>
+          )}
+          <p className="field-hint">
+            <span aria-hidden="true">Fields marked * are required.</span>
+          </p>
+
+          <Field label="Company" required htmlFor={`${id}-company`}>
+            <input
+              {...control('company')}
+              type="text"
+              autoComplete="off"
+              aria-required="true"
+              value={values.company}
+              onChange={(e) => set('company')(e.target.value)}
+            />
+            {message('company')}
+          </Field>
+
+          <Field label="Job title" optional htmlFor={`${id}-title`}>
+            <input
+              id={`${id}-title`}
+              name="title"
+              type="text"
+              autoComplete="off"
+              value={values.title}
+              onChange={(e) => set('title')(e.target.value)}
+              aria-describedby={hints.title ? `${id}-title-hint` : undefined}
+              className="field"
+            />
+            {hints.title && <AutoFilledHint id={`${id}-title-hint`} />}
+          </Field>
+
+          <Field label="Job posting URL" required htmlFor={`${id}-url`}>
+            <input
+              {...control('url', hints.url)}
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              aria-required="true"
+              value={values.url}
+              onChange={(e) => set('url')(e.target.value)}
+            />
+            {message('url', hints.url)}
+          </Field>
+
+          {/* Status and Date applied share a row; Status takes it when the date is hidden. */}
+          <div className={`grid min-w-0 gap-2 ${dateHidden ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <Field label="Status" htmlFor={`${id}-status`}>
+              <select
+                {...control('status')}
+                value={values.status}
+                onChange={(e) => set('status')(e.target.value)}
+              >
+                <optgroup label="Active">
+                  {ACTIVE_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABELS[status]}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Closed">
+                  {CLOSED_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABELS[status]}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              {message('status')}
+            </Field>
+
+            {/* Hidden for Saved: nothing was applied for yet (spec §4.2, §5). */}
+            <div hidden={dateHidden} className="min-w-0">
+              <Field
+                label="Date applied"
+                required={!dateOptional}
+                optional={dateOptional}
+                htmlFor={`${id}-appliedAt`}
+              >
+                <input
+                  {...control('appliedAt')}
+                  type="date"
+                  max={todayLocal()}
+                  aria-required={!dateOptional || undefined}
+                  value={values.appliedAt}
+                  onChange={(e) => set('appliedAt')(e.target.value)}
+                />
+                {message('appliedAt')}
+              </Field>
+            </div>
+          </div>
+          <ResumeField
+            id={`${id}-resumeId`}
+            value={values.resumeId}
+            onChange={(resumeId) => set('resumeId')(resumeId)}
+            linked={
+              application?.resumeId
+                ? { resumeId: application.resumeId, snapshot: application.resumeNameSnapshot }
+                : undefined
+            }
+            error={errors.resumeId}
+            selectRef={register('resumeId') as (element: HTMLSelectElement | null) => void}
+          />
+
+          <div className="flex min-w-0 flex-col gap-1">
+            <button
+              type="button"
+              aria-expanded={detailsOpen}
+              aria-controls={`${id}-details`}
+              onClick={() => setDetailsOpen((open) => !open)}
+              className="btn btn-outline btn-sm self-start"
+            >
+              <ChevronRightIcon
+                className={`size-4 transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-90' : ''}`}
+              />
+              More details
+            </button>
+            {!detailsOpen && detailsSummary && (
+              <p className="text-xs break-words text-muted-foreground">{detailsSummary}</p>
+            )}
+          </div>
+
+          {/* Hidden, not unmounted: values and field refs survive collapsing. */}
+          <div id={`${id}-details`} hidden={!detailsOpen} className="flex min-w-0 flex-col gap-3">
+            <Field label="Location" optional htmlFor={`${id}-location`}>
+              <input
+                {...control('location')}
+                type="text"
+                autoComplete="off"
+                value={values.location}
+                onChange={(e) => set('location')(e.target.value)}
+              />
+              {message('location')}
+            </Field>
+
+            <Field label="Work mode" optional htmlFor={`${id}-workMode`}>
+              <select
+                {...control('workMode')}
+                value={values.workMode}
+                onChange={(e) => set('workMode')(e.target.value)}
+              >
+                <option value="">Not set</option>
+                {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {message('workMode')}
+            </Field>
+
+            <fieldset className="flex min-w-0 flex-col gap-2">
+              <legend className="field-label">
+                Salary <span className="font-normal text-muted-foreground">(optional)</span>
+              </legend>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
+                  <input
+                    {...control('salaryMin')}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={values.salaryMin}
+                    onChange={(e) => set('salaryMin')(e.target.value)}
+                  />
+                  {message('salaryMin')}
+                </Field>
+                <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
+                  <input
+                    {...control('salaryMax')}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={values.salaryMax}
+                    onChange={(e) => set('salaryMax')(e.target.value)}
+                  />
+                  {message('salaryMax')}
+                </Field>
+                <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
+                  <select
+                    {...control('salaryCurrency')}
+                    value={values.salaryCurrency}
+                    onChange={(e) => set('salaryCurrency')(e.target.value)}
+                  >
+                    <optgroup label="Common">
+                      {currencies.common.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="All currencies">
+                      {currencies.others.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  {message('salaryCurrency')}
+                </Field>
+                <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
+                  <select
+                    {...control('salaryPeriod')}
+                    value={values.salaryPeriod}
+                    onChange={(e) => set('salaryPeriod')(e.target.value)}
+                  >
+                    {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  {message('salaryPeriod')}
+                </Field>
+              </div>
+            </fieldset>
+
+            <Field label="Source" optional htmlFor={`${id}-source`}>
+              <input
+                {...control('source')}
+                type="text"
+                autoComplete="off"
+                list={`${id}-source-suggestions`}
+                value={values.source}
+                onChange={(e) => set('source')(e.target.value)}
+              />
+              <datalist id={`${id}-source-suggestions`}>
+                {SOURCE_SUGGESTIONS.map((source) => (
+                  <option key={source} value={source} />
+                ))}
+              </datalist>
+              {message('source')}
+            </Field>
+
+            <Field label="Notes" optional htmlFor={`${id}-notes`}>
+              <textarea
+                {...control('notes')}
+                rows={4}
+                value={values.notes}
+                onChange={(e) => set('notes')(e.target.value)}
+              />
+              {message('notes')}
+            </Field>
+          </div>
+        </fieldset>
+        {duplicates && (
+          <DuplicateWarning
+            matches={duplicates}
+            editing={Boolean(application)}
+            onViewExisting={onViewExisting}
+            onSaveAnyway={() => void save({ allowDuplicate: true })}
+          />
+        )}
+        {saveError && (
+          <p role="alert" className="field-error">
+            {saveError}
+          </p>
+        )}
+      </form>
+    </Sheet>
   );
 }
 
 function Field({
   label,
   htmlFor,
+  required,
   optional,
   small,
   children,
 }: {
   label: string;
   htmlFor: string;
+  /** Marked with an asterisk; the field itself says "required" to screen readers. */
+  required?: boolean;
+  /** Labelled "(optional)", as before (spec §4.2 keeps both markers). */
   optional?: boolean;
   small?: boolean;
   children: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={htmlFor} className={small ? 'text-xs font-medium' : 'field-label'}>
-        {label}
-        {optional && <span className="font-normal text-muted-foreground"> (optional)</span>}
-      </label>
+      {/* The asterisk sits beside the label, not in it: the field's name stays "Company". */}
+      <div className="flex items-baseline gap-0.5">
+        <label htmlFor={htmlFor} className={small ? 'text-xs font-medium' : 'field-label'}>
+          {label}
+          {optional && <span className="font-normal text-muted-foreground"> (optional)</span>}
+        </label>
+        {required && (
+          <span aria-hidden="true" className="text-sm font-medium text-destructive">
+            *
+          </span>
+        )}
+      </div>
       {children}
     </div>
   );

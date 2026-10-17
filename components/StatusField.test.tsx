@@ -5,6 +5,11 @@ import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   await db.delete();
   await db.open();
 });

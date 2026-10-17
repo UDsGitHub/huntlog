@@ -21,6 +21,13 @@ import { useToday } from './useToday';
 interface Props {
   /** Opens a new application (the empty state's button). */
   onAdd: () => void;
+  /** Changes each time the list is shown again (e.g. a form sheet over it has gone). */
+  shown?: number;
+  /**
+   * A row just saved: if the refresh for `shown` came before it reached the live query, the
+   * list refreshes once more when it arrives, so it sorts into place rather than sitting on top.
+   */
+  expectRow?: string;
   /** Search, filter and sort; kept by App so they survive opening a job and coming back. */
   query: ListQuery;
   onQueryChange: (query: ListQuery) => void;
@@ -37,6 +44,8 @@ interface Props {
 
 export function ApplicationList({
   onAdd,
+  shown = 0,
+  expectRow,
   query,
   onQueryChange,
   onOpen,
@@ -61,17 +70,28 @@ export function ApplicationList({
   // query changes or the list is shown again. New rows still appear, at the top.
   // A date filter depends on the day and the week start; nothing else does, so only then do they
   // refresh the frozen list (spec §4.4: otherwise only a query change or showing it again does).
+  // Shown again (`shown`) refreshes it too, like a remount would.
   const queryKey = JSON.stringify(
-    query.dates.kind === 'any' ? [query] : [query, today, weekStartsOn],
+    query.dates.kind === 'any' ? [query, shown] : [query, shown, today, weekStartsOn],
   );
   const [frozen, setFrozen] = useState<{
     queryKey: string;
     ranks: Map<string, number>;
     shown: Set<string>;
+    /** The expected row, when it wasn't there yet at this refresh. */
+    awaiting?: string;
   }>();
-  if (applications && frozen?.queryKey !== queryKey) {
+  const awaitedArrived =
+    !!frozen?.awaiting && !!applications?.some((app) => app.id === frozen.awaiting);
+  if (applications && (frozen?.queryKey !== queryKey || awaitedArrived)) {
     const fresh = queryApplications(applications, query, context);
-    setFrozen({ queryKey, ranks: rankOf(fresh), shown: new Set(fresh.map((app) => app.id)) });
+    const missing = expectRow && !applications.some((app) => app.id === expectRow);
+    setFrozen({
+      queryKey,
+      ranks: rankOf(fresh),
+      shown: new Set(fresh.map((app) => app.id)),
+      awaiting: frozen?.queryKey !== queryKey && missing ? expectRow : undefined,
+    });
   }
   const current = frozen?.queryKey === queryKey ? frozen : undefined;
   const visible = useMemo(

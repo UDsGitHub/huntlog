@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
+import * as applications from '@/lib/applications';
 import { addApplication } from '@/lib/applications';
 import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
@@ -10,6 +11,11 @@ import App from '@/entrypoints/sidepanel/App';
 const WINDOW_ID = 3;
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   fakeBrowser.reset();
   vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({ id: WINDOW_ID } as never);
   await db.delete();
@@ -26,6 +32,14 @@ async function openAdd(user: User) {
   render(<App />);
   await screen.findByText(/No applications yet/);
   await user.click(screen.getByRole('button', { name: 'Add application' }));
+  return screen.getByRole('form', { name: 'Add application' });
+}
+
+/** Leaves the form with its Back button, confirming the discard when something was typed. */
+async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Back' }));
+  const discard = screen.queryByRole('button', { name: 'Discard' });
+  if (discard) await user.click(discard);
 }
 
 describe('More details', () => {
@@ -79,55 +93,62 @@ describe('More details', () => {
     await user.type(screen.getByLabelText('Minimum'), 'lots');
     await user.click(detailsToggle());
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.getByLabelText('Job posting URL')).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText('Company')).toHaveFocus());
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'true');
     await waitFor(() =>
       expect(screen.getByLabelText('Minimum')).toHaveAccessibleDescription(/Enter a number/),
     );
   });
 
-  it('publishes the sticky bar height so the toast and focus scrolling keep clear', async () => {
+  it('has Save as the sheet footer, outside the scrolling fields, and Back to leave', async () => {
+    const user = userEvent.setup();
+    const form = await openAdd(user);
+    const save = screen.getByRole('button', { name: 'Save' });
+    // Not inside the fields: it stays put however long the form is.
+    expect(form).not.toContainElement(save);
+    expect(save).toHaveAttribute('form', form.id);
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+  });
+
+  it('marks required fields with an asterisk, keeping "(optional)" on the rest', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    const root = document.documentElement;
-    expect(root.style.getPropertyValue('--sticky-bar-height')).toMatch(/^\d+px$/);
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(root.style.getPropertyValue('--sticky-bar-height')).toBe('');
+    expect(screen.getByLabelText('Company')).toHaveAttribute('aria-required', 'true');
+    expect(screen.getByLabelText('Job posting URL')).toHaveAttribute('aria-required', 'true');
+    expect(screen.getByLabelText('Date applied')).toHaveAttribute('aria-required', 'true');
+    expect(screen.getByText('Fields marked * are required.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Job title/)).toHaveAccessibleName('Job title (optional)');
+    // Withdrawn doesn't need a Date applied: the asterisk gives way to "(optional)".
+    await user.selectOptions(screen.getByLabelText('Status'), 'withdrawn');
+    expect(screen.getByLabelText(/Date applied/)).toHaveAccessibleName('Date applied (optional)');
   });
 
-  it('stays collapsed when only a top field fails', async () => {
+  it('puts Status and Date applied on one row, Status alone for Saved', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(screen.getByLabelText('Job posting URL')).toHaveFocus());
-    expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
+    const row = screen.getByLabelText('Status').closest('.grid')!;
+    expect(row).toHaveClass('grid-cols-2');
+    expect(row).toContainElement(screen.getByLabelText('Date applied'));
+    await user.selectOptions(screen.getByLabelText('Status'), 'saved');
+    expect(row).toHaveClass('grid-cols-1');
   });
 
-  it('opens in Edit when a field inside has a value', async () => {
-    await addApplication({ url: 'https://acme.com/1', company: 'Acme', notes: 'Call back' });
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    expect(detailsToggle()).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('stays collapsed in Edit when nothing inside has a value', async () => {
-    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('keeps Save and Cancel in a sticky bar after every field', async () => {
+  it('asks before discarding typed changes, and not when nothing changed', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    const bar = screen.getByRole('button', { name: 'Save' }).parentElement!;
-    // Sticky at the section's bottom edge (its real position is checked in e2e/form-layout.spec.ts).
-    expect(bar).toHaveClass('sticky');
-    expect(bar).toContainElement(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.queryByRole('form')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.type(screen.getByLabelText('Company'), 'Acme');
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('alertdialog', { name: 'Discard your changes?' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByLabelText('Company')).toHaveValue('Acme');
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(screen.queryByRole('form')).toBeNull();
   });
 });
 
@@ -213,7 +234,7 @@ describe('Remembered defaults', () => {
   it('start the next manual Add with the last source and work mode, shown while collapsed', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     await addOne(user, { company: 'acme', source: 'Referral', workMode: 'remote' });
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
@@ -309,5 +330,47 @@ describe('Remembered defaults', () => {
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
       source: 'LinkedIn',
     });
+  });
+
+  it('sorts a new row into place once its sheet has gone (the list counts as shown again)', async () => {
+    await addApplication({ url: 'https://zeta.com/1', company: 'Zeta' });
+    await addApplication({ url: 'https://beta.com/1', company: 'Beta' });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('list', { name: 'Applications' });
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    await user.click(screen.getByRole('radio', { name: 'Company' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.type(screen.getByLabelText('Company'), 'Gamma');
+    await user.type(screen.getByLabelText('Job posting URL'), 'gamma.com/1{Enter}');
+    const companies = () =>
+      within(screen.getByRole('list', { name: 'Applications' }))
+        .getAllByRole('listitem')
+        .map((li) => li.querySelector('.row-open')?.textContent);
+    await waitFor(() => expect(companies()).toEqual(['Beta', 'Gamma', 'Zeta']));
+  });
+
+  it('keeps the detail behind an Edit out of reach while the Edit loads', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await screen.findByRole('heading', { level: 2, name: 'Acme' });
+    // From now on, loading is slow: Edit's load waits until released.
+    let release!: () => void;
+    const loaded = new Promise<void>((resolve) => (release = resolve));
+    const real = applications.getApplication;
+    vi.spyOn(applications, 'getApplication').mockImplementation(async (...args) => {
+      await loaded;
+      return real(...args);
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    // Edit is loading: the detail behind can't start another action meanwhile.
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Acme' }).closest('[inert]'),
+    ).not.toBeNull();
+    act(() => release());
+    expect(await screen.findByRole('dialog', { name: 'Edit application' })).toBeInTheDocument();
   });
 });
