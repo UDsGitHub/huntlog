@@ -30,6 +30,11 @@ function fields() {
 }
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   fakeBrowser.reset();
   // `as never`: getCurrent's callback overload types the spy as returning void.
   vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
@@ -42,6 +47,13 @@ beforeEach(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+/** Leaves the form with its Back button, confirming the discard when something was typed. */
+async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Back' }));
+  const discard = screen.queryByRole('button', { name: 'Discard' });
+  if (discard) await user.click(discard);
+}
 
 describe('capture prefill', () => {
   it('prefills from a draft stored before the panel opened, then consumes it', async () => {
@@ -144,14 +156,15 @@ describe('capture prefill', () => {
     expect(screen.queryByText(HINT)).toBeNull();
   });
 
-  it('focuses the URL field when no URL could be captured', async () => {
+  it('opens on Company, the first field, when no URL could be captured', async () => {
     await fakeBrowser.storage.session.set({
       [draftKey(WINDOW_ID)]: createDraft('command', { url: 'chrome://settings', readFailed: true }),
     });
     render(<App />);
     await screen.findByRole('status', { name: '' });
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Couldn't read/));
-    await waitFor(() => expect(fields().url).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText('Company')).toHaveFocus());
+    expect(fields().url).toHaveValue('');
   });
 
   it('says only the address was kept when the read failed on a web page', async () => {
@@ -363,7 +376,7 @@ describe('capture prefill', () => {
       await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
 
       // The flag is spent: a later edit's Save goes back to its detail view.
-      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      await leaveForm(user);
       await user.click(await screen.findByRole('button', { name: /^Acme/ }));
       await user.click(await screen.findByRole('button', { name: 'Edit' }));
       await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -415,7 +428,7 @@ describe('capture prefill', () => {
     render(<App />);
     await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     await user.click(screen.getByRole('button', { name: 'Add application' }));
 
     expect(fields().title).toHaveValue('');

@@ -13,6 +13,7 @@ import {
   SettingsIcon,
 } from '@/components/icons';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import { Sheet } from '@/components/Sheet';
 import { StatsPanel } from '@/components/StatsPanel';
 import { StatusSheetProvider } from '@/components/StatusSheet';
 import { panelState, TabPanel, useTabSlide } from '@/components/TabPanels';
@@ -77,6 +78,10 @@ export default function App() {
   }, []);
   const slide = useTabSlide(tab, TAB_ORDER);
   const [view, setView] = useState<View>({ name: 'list' });
+  // What shows in Applications: the list or a detail view. Add and Edit open as a sheet over it.
+  const [base, setBase] = useState<View>(view);
+  // The Add or Edit view whose sheet is on screen: kept until the sheet has finished sliding out.
+  const [sheetView, setSheetView] = useState<View | null>(null);
   // The view on screen, readable from async handlers. Every navigation creates a new object, so
   // a handler can tell whether the view it belongs to is still showing (see isCurrent).
   const viewRef = useRef(view);
@@ -132,7 +137,13 @@ export default function App() {
     }
     viewRef.current = next;
     setView(next);
+    if (next.name === 'add' || next.name === 'edit') setSheetView(next);
+    else setBase(next);
   }
+
+  /** A form's sheet finished closing (unless another one opened meanwhile). */
+  const formClosed = (closing: View) =>
+    setSheetView((current) => (current === closing ? null : current));
 
   /**
    * Async work (a save, a delete) may finish after the user has moved on, e.g. a capture opened
@@ -286,8 +297,7 @@ export default function App() {
             {announcement.text}
             {announcement.count % 2 ? '​' : ''}
           </p>
-          {/* Tabs are hidden while a form is open (spec §3): its sticky Save bar owns the panel. */}
-          {!inForm && (
+          {
             <TabBar
               tabs={TABS}
               selected={tab}
@@ -295,81 +305,29 @@ export default function App() {
               idPrefix={TAB_PREFIX}
               label="Job Log sections"
             />
-          )}
+          }
         </div>
         {/* Clipped, not hidden: overflow hidden would still let focus scroll it sideways. */}
         <div className="relative mt-4 min-h-0 flex-1 overflow-clip">
           <TabPanel
             state={sectionState('applications')}
             direction={slide.direction}
-            role={inForm ? undefined : 'tabpanel'}
+            role="tabpanel"
             id={panelId(TAB_PREFIX, 'applications')}
-            aria-labelledby={inForm ? undefined : tabId(TAB_PREFIX, 'applications')}
+            aria-labelledby={tabId(TAB_PREFIX, 'applications')}
             className="flex min-w-0 flex-col gap-4"
           >
-            {view.name === 'detail' ? (
+            {base.name === 'detail' ? (
               <ApplicationDetail
-                key={view.id}
-                id={view.id}
-                initialFocus={view.focus}
-                onBack={() => toList({ kind: 'row', id: view.id })}
-                onEdit={() => navigate({ name: 'edit', id: view.id })}
-                onDeleted={(application) => handleDeleted(view, application)}
+                key={base.id}
+                id={base.id}
+                initialFocus={base.focus}
+                active={!sheetView}
+                onBack={() => toList({ kind: 'row', id: base.id })}
+                onEdit={() => navigate({ name: 'edit', id: base.id })}
+                onDeleted={(application) => handleDeleted(base, application)}
                 onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
               />
-            ) : view.name === 'edit' ? (
-              <EditView
-                id={view.id}
-                onViewExisting={(id) => {
-                  if (isCurrent(view)) navigate({ name: 'detail', id, focus: 'heading' });
-                }}
-                onDone={(saved) => {
-                  if (saved) announce('Saved changes.');
-                  if (!isCurrent(view)) return;
-                  // This handler may come from the render where Save was pressed, before the capture
-                  // arrived, so it checks the ref rather than `prefill`.
-                  if (deferredCapture.current) {
-                    deferredCapture.current = false;
-                    return navigate({ name: 'add' });
-                  }
-                  navigate({ name: 'detail', id: view.id, focus: 'edit' });
-                }}
-              />
-            ) : view.name === 'add' ? (
-              <section aria-labelledby="add-heading" className="flex flex-col gap-3">
-                <h2 id="add-heading" className="section-heading">
-                  Add application
-                </h2>
-                {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
-                {/* A manual Add waits for the remembered defaults (read once, on mount); a capture
-                doesn't use them, so it never waits. */}
-                {(prefill || formDefaults) && (
-                  <ApplicationForm
-                    key={`${formSession}-${prefill?.nonce ?? 0}`}
-                    prefill={prefill}
-                    defaults={formDefaults}
-                    onSaved={(application) => {
-                      announce(`Saved ${application.company}.`);
-                      // Every new application, manual or captured, sets the next manual Add's defaults.
-                      void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
-                        setFormDefaults,
-                      );
-                      if (!isCurrent(view)) return;
-                      consume();
-                      toList({ kind: 'add' });
-                    }}
-                    onCancel={() => {
-                      consume();
-                      toList({ kind: 'add' });
-                    }}
-                    onViewExisting={(id) => {
-                      if (!isCurrent(view)) return;
-                      consume();
-                      navigate({ name: 'detail', id, focus: 'heading' });
-                    }}
-                  />
-                )}
-              </section>
             ) : (
               // Bottom padding keeps the last row clear of the floating + Add.
               <section aria-labelledby="applications-heading" className="flex flex-col gap-2 pb-16">
@@ -389,7 +347,10 @@ export default function App() {
                     onQueryChange={setListQuery}
                     onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
                     onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
-                    focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
+                    // Not while a sheet is on screen: the page behind it is inert until it's gone.
+                    focusRowId={
+                      !sheetView && focusTarget?.kind === 'row' ? focusTarget.id : undefined
+                    }
                     awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
                     onRowFocused={clearFocusTarget}
                     onRowMissing={focusAddInstead}
@@ -441,11 +402,66 @@ export default function App() {
             />
           </TabPanel>
         </div>
+        {/* Add and Edit open as a sheet over the list or detail view (spec §4.2). */}
+        {sheetView?.name === 'add' && (prefill || formDefaults) && (
+          // Remount per capture: a new capture replaces whatever is in the form (spec §4.1). A
+          // manual Add waits for the remembered defaults (read once, on mount); a capture doesn't
+          // use them, so it never waits.
+          <ApplicationForm
+            key={`${formSession}-${prefill?.nonce ?? 0}`}
+            open={view === sheetView}
+            onClosed={() => formClosed(sheetView)}
+            prefill={prefill}
+            defaults={formDefaults}
+            onSaved={(application) => {
+              announce(`Saved ${application.company}.`);
+              // Every new application, manual or captured, sets the next manual Add's defaults.
+              void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
+                setFormDefaults,
+              );
+              if (!isCurrent(sheetView)) return;
+              consume();
+              toList({ kind: 'add' });
+            }}
+            onCancel={() => {
+              if (!isCurrent(sheetView)) return;
+              consume();
+              toList({ kind: 'add' });
+            }}
+            onViewExisting={(id) => {
+              if (!isCurrent(sheetView)) return;
+              consume();
+              navigate({ name: 'detail', id, focus: 'heading' });
+            }}
+          />
+        )}
+        {sheetView?.name === 'edit' && (
+          <EditView
+            key={sheetView.id}
+            id={sheetView.id}
+            open={view === sheetView}
+            onClosed={() => formClosed(sheetView)}
+            onViewExisting={(id) => {
+              if (isCurrent(sheetView)) navigate({ name: 'detail', id, focus: 'heading' });
+            }}
+            onDone={(saved) => {
+              if (saved) announce('Saved changes.');
+              if (!isCurrent(sheetView)) return;
+              // This handler may come from the render where Save was pressed, before the capture
+              // arrived, so it checks the ref rather than `prefill`.
+              if (deferredCapture.current) {
+                deferredCapture.current = false;
+                return navigate({ name: 'add' });
+              }
+              navigate({ name: 'detail', id: sheetView.id, focus: 'edit' });
+            }}
+          />
+        )}
         {/* Outside the sections: a fixed element inside a sliding (transformed) one would move
           with it. Only on the Applications list. */}
         {tab === 'applications' && view.name === 'list' && (
           <AddButton
-            focus={focusTarget?.kind === 'add'}
+            focus={!sheetView && focusTarget?.kind === 'add'}
             onFocused={clearFocusTarget}
             onClick={openAdd}
           />
@@ -480,17 +496,20 @@ function AddButton({
 
 function EditView({
   id,
+  open,
+  onClosed,
   onDone,
   onViewExisting,
 }: {
   id: string;
+  open: boolean;
+  onClosed: () => void;
   onDone: (saved: boolean) => void;
   onViewExisting: (id: string) => void;
 }) {
   // Loaded once, not live: if the row is deleted in another window, the form stays (so typed
   // changes aren't lost) and Save explains why it can't save.
   const [application, setApplication] = useState<Application | null | undefined>(undefined);
-  const back = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let cancelled = false;
     getApplication(id).then(
@@ -504,40 +523,31 @@ function EditView({
       cancelled = true;
     };
   }, [id]);
-  useLayoutEffect(() => {
-    if (application === null) back.current?.focus();
-  }, [application]);
 
   if (application === undefined) return null;
+  if (application === null) {
+    return (
+      <Sheet
+        open={open}
+        onClose={() => onDone(false)}
+        onClosed={onClosed}
+        title="Edit application"
+        closeButton="back"
+      >
+        <p className="text-sm text-muted-foreground">This application isn't available any more.</p>
+      </Sheet>
+    );
+  }
   return (
-    <section aria-labelledby="edit-heading" className="flex flex-col gap-3">
-      <h2 id="edit-heading" className="section-heading">
-        Edit application
-      </h2>
-      {application ? (
-        <ApplicationForm
-          key={application.id}
-          application={application}
-          onSaved={() => onDone(true)}
-          onCancel={() => onDone(false)}
-          onViewExisting={onViewExisting}
-        />
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            This application isn't available any more.
-          </p>
-          <button
-            ref={back}
-            type="button"
-            onClick={() => onDone(false)}
-            className="self-start btn btn-outline"
-          >
-            ← Back
-          </button>
-        </>
-      )}
-    </section>
+    <ApplicationForm
+      key={application.id}
+      open={open}
+      onClosed={onClosed}
+      application={application}
+      onSaved={() => onDone(true)}
+      onCancel={() => onDone(false)}
+      onViewExisting={onViewExisting}
+    />
   );
 }
 

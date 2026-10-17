@@ -21,6 +21,11 @@ interface Props {
   onEdit: () => void;
   onDeleted: (application: Application) => void;
   onStatusPick: (application: Application, pick: StatusPick) => void;
+  /**
+   * False while a form sheet is over it: the page is inert then, so its focus moves wait until
+   * the sheet has gone (e.g. back from an Edit whose row was deleted meanwhile: the heading).
+   */
+  active?: boolean;
 }
 
 /**
@@ -47,6 +52,7 @@ export function ApplicationDetail({
   onEdit,
   onDeleted,
   onStatusPick,
+  active = true,
 }: Props) {
   // null: not found or soft-deleted (maybe in another window); undefined: still loading.
   const app = useLiveQuery(async () => (await getApplication(id)) ?? null, [id]);
@@ -58,10 +64,10 @@ export function ApplicationDetail({
   const slide = initialFocus === 'heading' ? 'page page-slide-in' : 'page';
 
   useLayoutEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !active) return;
     // Fall back to the heading when there's no Edit button (the row is gone).
     (initialFocus === 'edit' && editButton.current ? editButton : heading).current?.focus();
-  }, [loaded, initialFocus]);
+  }, [loaded, initialFocus, active]);
 
   const back = (
     <button

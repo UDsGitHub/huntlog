@@ -132,8 +132,11 @@ export function Sheet({
           unregisterLayer.current = registerToastLayer({ region: toastRegion.current });
         }
       }
+      // The given element, else the body's first control, else the header's (Back or Close).
       const target =
-        initialFocus?.current ?? body.current?.querySelector<HTMLElement>(FOCUSABLE) ?? null;
+        initialFocus?.current ??
+        body.current?.querySelector<HTMLElement>(FOCUSABLE) ??
+        element.querySelector<HTMLElement>(FOCUSABLE);
       (target ?? element).focus();
       return;
     }

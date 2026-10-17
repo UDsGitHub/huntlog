@@ -7,6 +7,11 @@ import App from '@/entrypoints/sidepanel/App';
 import { postingSite } from './ApplicationDetail';
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   await db.delete();
   await db.open();
 });
@@ -37,6 +42,13 @@ async function openDetail(user: ReturnType<typeof userEvent.setup>) {
   const list = await screen.findByRole('list', { name: 'Applications' });
   await user.click(within(list).getByRole('button', { name: /Acme/ }));
   return screen.findByRole('heading', { level: 2, name: 'Acme' });
+}
+
+/** Leaves the form with its Back button, confirming the discard when something was typed. */
+async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Back' }));
+  const discard = screen.queryByRole('button', { name: 'Discard' });
+  if (discard) await user.click(discard);
 }
 
 describe('Detail view', () => {
@@ -153,7 +165,7 @@ describe('Edit', () => {
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.clear(screen.getByLabelText('Company'));
     await user.type(screen.getByLabelText('Company'), 'Changed');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
 
     await screen.findByRole('heading', { level: 2, name: 'Acme' });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
@@ -274,7 +286,7 @@ describe('focus after the review fixes', () => {
       focused.push((e.target as HTMLElement).textContent ?? ''),
     );
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
@@ -289,7 +301,7 @@ describe('focus after the review fixes', () => {
     await act(async () => {
       await softDeleteApplication(app.id);
     });
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     expect(
       await screen.findByRole('heading', { name: "This application isn't available" }),
     ).toHaveFocus();
@@ -301,7 +313,8 @@ describe('focus after the review fixes', () => {
     await openDetail(user);
     vi.spyOn(applications, 'getApplication').mockResolvedValueOnce(undefined);
     await user.click(screen.getByRole('button', { name: 'Edit' }));
-    const back = await screen.findByRole('button', { name: '← Back' });
+    // A sheet with nothing to edit focuses its Back button.
+    const back = await screen.findByRole('button', { name: 'Back' });
     expect(back).toHaveFocus();
     expect(screen.getByText("This application isn't available any more.")).toBeInTheDocument();
     await user.click(back);

@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, launchExtension, panelUrl, test } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  launchExtension,
+  panelUrl,
+  sheetsClosed,
+  test,
+} from './fixtures';
 
 async function addJob(page: Page, fields: { url: string; company: string; notes?: string }) {
   await page.getByRole('button', { name: 'Add application' }).click();
@@ -9,8 +16,9 @@ async function addJob(page: Page, fields: { url: string; company: string; notes?
     await page.getByRole('button', { name: 'More details' }).click();
     await page.getByLabel(/Notes/).fill(fields.notes);
   }
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText(fields.company);
+  await sheetsClosed(page);
 }
 
 test('view, edit, delete with Undo, then delete for good across a restart', async ({
@@ -28,7 +36,7 @@ test('view, edit, delete with Undo, then delete for good across a restart', asyn
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill('Lisbon');
   await page.getByLabel(/Work mode/).selectOption('remote');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
   await expect(page.getByRole('definition').filter({ hasText: 'Lisbon' })).toBeVisible();
 
@@ -70,8 +78,8 @@ test('the whole flow works with the keyboard alone', async ({ session }) => {
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.getByLabel('Job posting URL')).toBeFocused();
-  await page.getByLabel('Company').focus();
+  // Edit opens as a sheet on Company, the first field.
+  await expect(page.getByLabel('Company')).toBeFocused();
   await page.keyboard.press('End');
   await page.keyboard.type(' GmbH');
   await page.keyboard.press('Enter');

@@ -23,7 +23,7 @@ test('the floating Add button, the empty state and toasts above it', async ({ se
   await expect(fab).toBeHidden();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
   await row.getByRole('button', { name: /^Status: / }).click();
@@ -59,7 +59,7 @@ test('the last row stays reachable above the floating button', async ({ session 
     await page.getByRole('button', { name: 'Add application', exact: true }).click();
     await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/1`);
     await page.getByLabel('Company').fill(company);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('listitem').filter({ hasText: company })).toBeVisible();
   }
   await scrollPanel(page, 'end');

@@ -1,11 +1,18 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, launchExtension, panelUrl, test } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  launchExtension,
+  panelUrl,
+  sheetsClosed,
+  test,
+} from './fixtures';
 
 async function addJob(page: Page, url: string, company: string) {
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill(url);
   await page.getByLabel('Company').fill(company);
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 }
 
 // M0 slice: open the panel, add a job, see it listed, and it survives a browser restart.
@@ -49,13 +56,17 @@ test('works with the keyboard alone', async ({ session }) => {
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Add application', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
+  // The form opens in a sheet on Company, the first field; then the title, then the URL.
+  await expect(page.getByLabel('Company')).toBeFocused();
+  await page.keyboard.type('Keyboard Co');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
   await expect(page.getByLabel('Job posting URL')).toBeFocused();
   await page.keyboard.type('example.com/jobs/7');
-  await page.keyboard.press('Tab');
-  await page.keyboard.type('Keyboard Co');
   await page.keyboard.press('Enter');
 
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Keyboard Co');
+  await sheetsClosed(page);
   await expect(page.getByRole('button', { name: 'Add application', exact: true })).toBeFocused();
 });
 
@@ -70,10 +81,12 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByLabel('Minimum').fill('lots');
   await page.getByLabel('Maximum').fill('also lots');
   await page.getByLabel('Date applied').fill('');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Enter the date you applied.')).toBeVisible();
   await expectNoHorizontalScroll(page);
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  // Back, then confirm discarding what was typed.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Discard' }).click();
 
   // A row with very long values.
   await page.getByRole('button', { name: 'Add application' }).click();
@@ -81,7 +94,7 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByLabel('Company').fill(`Company${'X'.repeat(120)}`);
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill(`Somewhere${'Y'.repeat(150)}`);
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

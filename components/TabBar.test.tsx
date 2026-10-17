@@ -18,6 +18,13 @@ const tab = (name: string) => screen.getByRole('tab', { name });
 /** A section by its tab id, whether or not it's showing. */
 const panel = (id: string) => document.getElementById(`section-panel-${id}`)!;
 
+/** Leaves the form with its Back button, confirming the discard when something was typed. */
+async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Back' }));
+  const discard = screen.queryByRole('button', { name: 'Discard' });
+  if (discard) await user.click(discard);
+}
+
 describe('Tab bar', () => {
   it('shows Applications, Stats, Resumes and Settings, Applications selected, wired to its panel', async () => {
     render(<App />);
@@ -124,13 +131,14 @@ describe('Tab bar', () => {
     expect(tab('Settings')).toHaveFocus();
   });
 
-  it('is hidden while a form is open, and back after', async () => {
+  it('stays in place behind a form sheet', async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText(/No applications yet/);
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(screen.queryByRole('tablist')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(document.querySelector('[role="tablist"]')).toBeInTheDocument();
+    await leaveForm(user);
     expect(screen.getByRole('tablist')).toBeInTheDocument();
   });
 

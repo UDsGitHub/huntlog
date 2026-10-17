@@ -23,7 +23,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   await page.getByLabel('Per').selectOption('year');
   await page.getByLabel(/Source/).fill('Referral');
   await page.getByLabel(/Notes/).fill('Met the team.\nFollow up with Dana.');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // View it.
   await page.getByRole('button', { name: /^Acme/ }).click();
@@ -39,7 +39,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   // Edit it.
   await page.getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel(/Location/).fill('Remote, EU');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(detail).toContainText('Remote, EU');
 
   // Add the same posting again via a tracking link: warned, and View existing opens the original.
@@ -49,7 +49,7 @@ test('a full application record, end to end, with the duplicate warning', async 
     .getByLabel('Job posting URL')
     .fill('http://boards.greenhouse.io/acme/jobs/1/?utm_source=linkedin&gh_src=x&gh_jid=1');
   await page.getByLabel('Company').fill('Acme Inc');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   const warning = page.getByRole('group', { name: 'You may have logged this already' });
   await expect(warning).toContainText('Acme · Senior Engineer, applied Oct 1, 2026');
   await expect(warning).toContainText('Same job posting URL');
@@ -72,7 +72,7 @@ test('a full application record, end to end, with the duplicate warning', async 
     .getByLabel('Job posting URL')
     .fill('https://boards.greenhouse.io/acme/jobs/1?gh_jid=1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Acme');
 });
 
@@ -85,7 +85,7 @@ test('the duplicate warning fits a 320px panel', async ({ session }) => {
     await page.getByLabel('Job posting URL').fill(`https://acme.com/${'a'.repeat(200)}`);
     await page.getByLabel('Company').fill(company);
     await page.getByLabel(/Job title/).fill(`Title ${'W'.repeat(150)}`);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
   }
   await expect(page.getByRole('group', { name: 'You may have logged this already' })).toBeVisible();
   await expectNoHorizontalScroll(page);

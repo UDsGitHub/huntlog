@@ -1,12 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import {
-  activePanel,
-  expect,
-  expectNoHorizontalScroll,
-  panelUrl,
-  scrollPanel,
-  test,
-} from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
 // The service worker has the raw `chrome` global; borrow WXT's typings for it.
 declare const chrome: typeof browser;
@@ -31,7 +24,7 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   for (const label of [/Location/, 'Minimum', /Notes/]) {
     await expect(page.getByLabel(label)).toBeHidden();
   }
-  const save = page.getByRole('button', { name: 'Save' });
+  const save = page.getByRole('button', { name: 'Save', exact: true });
   expect(await inViewport(page, save)).toBe(true);
 
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
@@ -39,17 +32,18 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel('Minimum').fill('85,000');
   await page.getByLabel(/Notes/).fill('A long note.\n'.repeat(20));
-  // The form is now taller than the panel; the sticky bar keeps Save on screen.
-  const { scrollHeight, clientHeight } = await activePanel(page).evaluate((element) => ({
+  // The form is now taller than its sheet and scrolls inside it; Save, the sheet's footer,
+  // stays on screen, flush with the bottom of the panel.
+  const body = page.getByRole('form', { name: 'Add application' }).locator('..');
+  const { scrollHeight, clientHeight } = await body.evaluate((element) => ({
     scrollHeight: element.scrollHeight,
     clientHeight: element.clientHeight,
   }));
   expect(scrollHeight).toBeGreaterThan(clientHeight);
+  await body.evaluate((element) => element.scrollTo(0, 200));
   expect(await inViewport(page, save)).toBe(true);
-  // Flush with the bottom of the panel, with nothing showing through below it.
-  await scrollPanel(page, 200);
-  const bar = (await save.locator('..').boundingBox())!;
-  expect(bar.y + bar.height).toBeCloseTo(568, 0);
+  const footer = (await save.locator('..').boundingBox())!;
+  expect(footer.y + footer.height).toBeCloseTo(568, 0);
   await expectNoHorizontalScroll(page);
 
   await save.click();
@@ -57,9 +51,7 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   await expect(page.getByRole('region', { name: 'Acme' })).toContainText('From $85,000 per year');
 });
 
-test('More details opens on a hidden error and the toast clears the sticky bar', async ({
-  session,
-}) => {
+test('More details opens on a hidden error, and the field is in view', async ({ session }) => {
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(panelUrl(session.extensionId));
@@ -69,15 +61,15 @@ test('More details opens on a hidden error and the toast clears the sticky bar',
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await expect(page.getByLabel('Minimum')).toBeFocused();
   await expect(page.getByLabel('Minimum')).toBeVisible();
 });
 
-test('a focused field is never hidden behind the sticky bar', async ({ session }) => {
+test('a focused field is never hidden behind the Save footer', async ({ session }) => {
   const page = await session.context.newPage();
-  const save = page.getByRole('button', { name: 'Save' });
+  const save = page.getByRole('button', { name: 'Save', exact: true });
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
@@ -86,10 +78,11 @@ test('a focused field is never hidden behind the sticky bar', async ({ session }
   await page.getByLabel(/Location/).fill('x'.repeat(201));
   await page.getByLabel(/Notes/).fill('A long note.\n'.repeat(30));
 
-  // Every panel height from short to tall: the invalid field must land above the bar.
+  // Every panel height from short to tall: the invalid field must land above the footer.
+  const body = page.getByRole('form', { name: 'Add application' }).locator('..');
   for (let height = 380; height <= 700; height += 40) {
     await page.setViewportSize({ width: 320, height });
-    await scrollPanel(page, 0);
+    await body.evaluate((element) => element.scrollTo(0, 0));
     await save.click();
     const location = page.getByLabel(/Location/);
     await expect(location).toBeFocused();
@@ -108,7 +101,7 @@ test('remembered source and work mode survive a panel reload', async ({ session 
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Source/).fill('Referral');
   await page.getByLabel(/Work mode/).selectOption('remote');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Acme/ })).toBeVisible();
   // The defaults are written just after the save; wait for them before reloading.
   await expect
@@ -132,9 +125,9 @@ test('a job logged as Saved has no date applied', async ({ session }) => {
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByLabel('Status').selectOption('saved');
+  await page.getByLabel('Status', { exact: true }).selectOption('saved');
   await expect(page.getByLabel(/Date applied/)).toBeHidden();
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByRole('button', { name: /^Acme/ }).click();
   const detail = page.getByRole('region', { name: 'Acme' });
   await expect(detail.getByRole('definition').first()).toHaveText('Saved');

@@ -12,7 +12,7 @@ test('chip → Interviewing → the timeline records it → Undo reverts it', as
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
   await row.getByRole('button', { name: /^Status: Applied/ }).click();
@@ -44,7 +44,7 @@ test('an interview date can be backfilled from the timeline', async ({ session }
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByLabel('Date applied').fill('2026-09-01');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByRole('button', { name: /^Status: Applied/ }).click();
   await page
     .getByRole('dialog', { name: 'Change status' })

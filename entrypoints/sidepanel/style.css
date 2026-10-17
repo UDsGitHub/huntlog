@@ -237,10 +237,6 @@
 
 /* Tab sections (components/TabPanels.tsx): the next one slides in as the last slides out. The
    duration is set inline from TAB_SLIDE_MS. */
-.tab-panel {
-  /* Keep focused or scrolled-to fields clear of the forms' sticky Save bar (WCAG 2.4.11). */
-  scroll-padding-bottom: calc(var(--sticky-bar-height, 0px) + 1rem);
-}
 .tab-panel[data-slide='in-forward'] {
   animation: tab-in-from-right cubic-bezier(0.32, 0.72, 0, 1);
 }

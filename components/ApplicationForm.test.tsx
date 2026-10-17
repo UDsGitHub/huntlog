@@ -7,6 +7,11 @@ import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   await db.delete();
   await db.open();
 });
@@ -24,6 +29,13 @@ async function openAddForm(user: ReturnType<typeof userEvent.setup>) {
 
 const field = (label: string | RegExp) => screen.getByLabelText(label);
 
+/** Leaves the form with its Back button, confirming the discard when something was typed. */
+async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Back' }));
+  const discard = screen.queryByRole('button', { name: 'Discard' });
+  if (discard) await user.click(discard);
+}
+
 describe('Add view', () => {
   it('starts on the list with an empty state that explains capture', async () => {
     const user = userEvent.setup();
@@ -36,10 +48,11 @@ describe('Add view', () => {
     expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
   });
 
-  it('opens a blank form with defaults and focuses the URL field', async () => {
+  it('opens a blank form in a sheet with defaults, focusing Company, the first field', async () => {
     const user = userEvent.setup();
     await openAddForm(user);
-    expect(field('Job posting URL')).toHaveFocus();
+    expect(screen.getByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(field('Company')).toHaveFocus();
     expect(field('Job posting URL')).toHaveValue('');
     expect(field('Date applied')).toHaveValue(todayLocal());
     expect(field(/Work mode/)).toHaveValue('');
@@ -135,7 +148,8 @@ describe('Add view', () => {
     expect(field('Date applied')).toHaveAccessibleDescription('Enter the date you applied.');
     expect(field('Maximum')).toHaveAccessibleDescription('Maximum must be at least the minimum.');
     expect(field('Maximum')).toHaveAttribute('aria-invalid', 'true');
-    expect(field('Job posting URL')).toHaveFocus();
+    // The first invalid field in screen order: Company comes first.
+    expect(field('Company')).toHaveFocus();
     expect(await db.applications.count()).toBe(0);
   });
 
@@ -252,7 +266,7 @@ describe('Add view', () => {
     const user = userEvent.setup();
     await openAddForm(user);
     await user.type(field('Company'), 'Half typed');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     expect(screen.queryByRole('form')).toBeNull();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
@@ -264,7 +278,7 @@ describe('Add view', () => {
     const user = userEvent.setup();
     await openAddForm(user);
     await user.type(field('Company'), 'Half typed');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await leaveForm(user);
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(field('Company')).toHaveValue('');
   });

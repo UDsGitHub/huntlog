@@ -5,6 +5,11 @@ import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
+  // Sheets open and close at once, so focus and views settle without waiting for a slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   await db.delete();
   await db.open();
 });
@@ -85,8 +90,9 @@ describe('Duplicate warning', () => {
     await fillAndSave(user, { url: app.url, company: 'Acme Again' });
     await user.click(await screen.findByRole('button', { name: 'Save anyway' }));
 
-    const list = await screen.findByRole('list', { name: 'Applications' });
-    expect(list).toHaveTextContent('Acme Again');
+    // The list stays behind the sheet: wait for the new row itself.
+    const list = screen.getByRole('list', { name: 'Applications' });
+    await waitFor(() => expect(list).toHaveTextContent('Acme Again'));
     expect(await db.applications.count()).toBe(2);
   });
 
@@ -135,7 +141,9 @@ describe('Duplicate warning', () => {
     await user.type(screen.getByLabelText('Job posting URL'), '2');
     expect(screen.queryByRole('group', { name: WARNING })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('list', { name: 'Applications' })).toHaveTextContent('X');
+    await waitFor(() =>
+      expect(screen.getByRole('list', { name: 'Applications' })).toHaveTextContent('X'),
+    );
   });
 
   it('shows field errors instead of checking duplicates when input is invalid', async () => {

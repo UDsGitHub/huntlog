@@ -14,7 +14,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
     await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/jobs/1`);
     await page.getByLabel('Company').fill(company);
     if (appliedAt) await page.getByLabel('Date applied').fill(appliedAt);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('listitem').filter({ hasText: company })).toBeVisible();
   }
   await add('Acme'); // today
