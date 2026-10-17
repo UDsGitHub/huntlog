@@ -101,8 +101,9 @@ export function ListControls({
 }
 
 /**
- * Sort, Date applied and Status (spec §4.4). Changes apply as they're made; Reset clears the
- * filters and the sort (not the search), Done closes.
+ * Sort, Date applied and Status (spec §4.4), chosen as a draft: only Apply changes the list, and
+ * closing the sheet any other way (Escape, ×, a click outside) discards the draft. Reset clears
+ * the draft's filters and sort (still to be applied); the search isn't part of the sheet.
  */
 function FilterSheet({
   open,
@@ -117,8 +118,15 @@ function FilterSheet({
   onChange: (query: ListQuery) => void;
   onClose: () => void;
 }) {
-  const changed =
-    query.statuses.length > 0 || query.dates.kind !== 'any' || query.sort !== DEFAULT_QUERY.sort;
+  const [draft, setDraft] = useState(query);
+  // Each opening starts from what the list shows.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDraft(query);
+  }
+  const resettable =
+    draft.statuses.length > 0 || draft.dates.kind !== 'any' || draft.sort !== DEFAULT_QUERY.sort;
   return (
     <Sheet
       open={open}
@@ -129,14 +137,21 @@ function FilterSheet({
         <div className="flex gap-2">
           <button
             type="button"
-            disabled={!changed}
-            onClick={() => onChange({ ...withoutFilters(query), sort: DEFAULT_QUERY.sort })}
+            disabled={!resettable}
+            onClick={() => setDraft({ ...withoutFilters(draft), sort: DEFAULT_QUERY.sort })}
             className="btn btn-outline flex-1"
           >
             Reset
           </button>
-          <button type="button" onClick={onClose} className="btn btn-primary flex-1">
-            Done
+          <button
+            type="button"
+            onClick={() => {
+              onChange({ ...draft, search: query.search });
+              onClose();
+            }}
+            className="btn btn-primary flex-1"
+          >
+            Apply
           </button>
         </div>
       }
@@ -147,12 +162,12 @@ function FilterSheet({
           value,
           label: SORT_LABELS[value],
         }))}
-        value={query.sort}
-        onChange={(sort) => onChange({ ...query, sort })}
+        value={draft.sort}
+        onChange={(sort) => setDraft({ ...draft, sort })}
         layout="segmented"
       />
-      <DateFilterField query={query} context={context} onChange={onChange} />
-      <StatusChips query={query} onChange={onChange} />
+      <DateFilterField query={draft} context={context} onChange={setDraft} />
+      <StatusChips query={draft} onChange={setDraft} />
     </Sheet>
   );
 }
@@ -172,22 +187,40 @@ function ChoiceGroup<Value extends string>({
   layout: 'segmented' | 'chips';
 }) {
   const name = useId();
+  const chosen = options.findIndex((option) => option.value === value);
+  const segmented = layout === 'segmented';
   return (
     <fieldset className="flex min-w-0 flex-col gap-1.5">
       <legend className="field-label mb-1.5">{legend}</legend>
       <div
         className={
-          layout === 'segmented'
-            ? 'grid grid-cols-3 gap-1 rounded-lg bg-muted p-1'
-            : 'flex flex-wrap gap-1.5'
+          segmented ? 'relative grid gap-1 rounded-lg bg-muted p-1' : 'flex flex-wrap gap-1.5'
+        }
+        style={
+          segmented
+            ? { gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }
+            : undefined
         }
       >
+        {/* The selection marker slides between options (spec §4.4): one cell wide, moved a
+            whole cell plus the gap per step. Instant under reduced motion. */}
+        {segmented && chosen >= 0 && (
+          <span
+            aria-hidden="true"
+            data-marker=""
+            className="absolute inset-y-1 left-1 rounded-md bg-background shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none"
+            style={{
+              width: `calc((100% - 0.5rem - ${options.length - 1} * 0.25rem) / ${options.length})`,
+              transform: `translateX(calc(${chosen} * (100% + 0.25rem)))`,
+            }}
+          />
+        )}
         {options.map((option) => (
           <label
             key={option.value}
             className={
-              layout === 'segmented'
-                ? 'flex cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-center text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring'
+              segmented
+                ? 'relative flex cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-center text-sm font-medium text-muted-foreground transition-colors has-[:checked]:text-foreground has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring'
                 : 'chip has-[:checked]:chip-on has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring'
             }
           >

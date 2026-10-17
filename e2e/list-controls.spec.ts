@@ -43,12 +43,18 @@ test('filter, search and sort a set of jobs', async ({ session }) => {
 
   await page.getByRole('button', { name: 'Filters' }).click();
   await filters(page).getByRole('button', { name: 'Closed' }).click();
-  await expect(companies(page)).toHaveText(['Gamma']);
-  await filters(page).getByRole('button', { name: 'Saved' }).click();
-  await expect(companies(page)).toHaveText(['Gamma', 'Beta']);
-  // A click on the dimmed area outside closes it (nothing typed to lose).
+  // A draft until Apply: a click on the dimmed area outside closes it and discards it.
+  await expect(companies(page)).toHaveCount(4);
   await page.mouse.click(10, 10);
   await expect(filters(page)).toBeHidden();
+  await expect(companies(page)).toHaveCount(4);
+
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await filters(page).getByRole('button', { name: 'Closed' }).click();
+  await filters(page).getByRole('button', { name: 'Saved' }).click();
+  await filters(page).getByRole('button', { name: 'Apply' }).click();
+  await expect(filters(page)).toBeHidden();
+  await expect(companies(page)).toHaveText(['Gamma', 'Beta']);
   await expect(page.getByRole('button', { name: 'Filters, 1 on' })).toBeVisible();
   await expect(page.getByText('Showing 2 of 4')).toBeVisible();
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
@@ -61,9 +67,20 @@ test('filter, search and sort a set of jobs', async ({ session }) => {
 
   await page.getByRole('button', { name: 'Filters' }).click();
   await filters(page).locator('label', { hasText: 'Company' }).click();
+  // The sort marker slides under the chosen option.
+  const marker = filters(page).locator('[data-marker]');
+  const option = filters(page).locator('label', { hasText: 'Company' });
+  await expect
+    .poll(async () => {
+      const [m, o] = [await marker.boundingBox(), await option.boundingBox()];
+      return Math.abs(Math.round(m!.x - o!.x));
+    })
+    .toBe(0);
+  await filters(page).getByRole('button', { name: 'Apply' }).click();
   await expect(companies(page)).toHaveText(['Acme', 'Beta', 'Gamma', 'Société Générale']);
+  await page.getByRole('button', { name: 'Filters' }).click();
   await filters(page).getByRole('button', { name: 'Offer' }).click();
-  await filters(page).getByRole('button', { name: 'Done' }).click();
+  await filters(page).getByRole('button', { name: 'Apply' }).click();
   await expect(page.getByText('No applications match.')).toBeVisible();
   await page.getByRole('button', { name: 'Clear search and filters' }).click();
   await expect(companies(page)).toHaveCount(4);

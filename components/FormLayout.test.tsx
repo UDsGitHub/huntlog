@@ -351,7 +351,7 @@ describe('Remembered defaults', () => {
     await screen.findByRole('list', { name: 'Applications' });
     await user.click(screen.getByRole('button', { name: /^Filters/ }));
     await user.click(screen.getByRole('radio', { name: 'Company' }));
-    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.type(screen.getByLabelText('Company'), 'Gamma');
     await user.type(screen.getByLabelText('Job posting URL'), 'gamma.com/1{Enter}');
