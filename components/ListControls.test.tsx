@@ -2,6 +2,8 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { addApplication, saveApplication, setStatus } from '@/lib/applications';
 import { db } from '@/lib/db';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { createDraft, draftKey } from '@/lib/captureDraft';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
@@ -158,13 +160,14 @@ describe('List controls', () => {
       await user.clear(from);
       expect(from).toHaveAccessibleDescription('Enter a date.');
       expect(within(sheet).queryByText(/Jobs without a date applied/)).toBeNull();
-      // Unfinished when applied: filters nothing, and isn't counted.
+      // An unfinished range isn't applied: the sheet stays open on the date that's wrong.
+      await user.click(to);
       await apply(user, sheet);
-      expect(rows()).toHaveLength(4);
-      expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
-      expect(screen.queryByText(/^Showing/)).toBeNull();
+      expect(sheet).toHaveAttribute('open');
+      expect(from).toHaveFocus();
+      // The list keeps what was applied before (Last 30 days).
+      expect(rows()).toEqual(['Société Générale']);
 
-      sheet = await openFilters(user);
       await user.type(within(sheet).getByLabelText('From'), '2026-08-01');
       await user.clear(within(sheet).getByLabelText('To'));
       await user.type(within(sheet).getByLabelText('To'), '2026-09-05');
@@ -245,10 +248,48 @@ describe('List controls', () => {
     await renderList();
     const sheet = await openFilters(user);
     const marker = sheet.querySelector<HTMLElement>('[data-marker]')!;
-    expect(marker.style.transform).toBe('translateX(calc(0 * (100% + 0.25rem)))');
+    expect(marker.style.transform).toBe('translateX(calc(0 * (100% + var(--seg-gap))))');
     await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
-    expect(marker.style.transform).toBe('translateX(calc(2 * (100% + 0.25rem)))');
+    expect(marker.style.transform).toBe('translateX(calc(2 * (100% + var(--seg-gap))))');
     expect(marker).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it("an Apply that changes nothing in effect doesn't refresh the frozen list", async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await filterBy(user, 'Applied');
+    expect(rows()).toEqual(['Société Générale', 'Acme']);
+    const acme = (await db.applications.toArray()).find((a) => a.company === 'Acme')!;
+    await act(async () => {
+      await setStatus(acme.id, 'offer');
+    });
+    await waitFor(() => expect(chipOf('Acme')).toHaveTextContent('Offer'));
+    // Custom then back to Any time leaves Custom dates behind, with the same effect.
+    await filterBy(user, 'Custom', 'Any time');
+    expect(rows()).toEqual(['Société Générale', 'Acme']);
+  });
+
+  it('a capture closes the filter sheet, its draft discarded', async () => {
+    await seed();
+    vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+      id: 3,
+    } satisfies Partial<Browser.windows.Window> as never);
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
+    await act(async () => {
+      await fakeBrowser.storage.session.set({
+        [draftKey(3)]: createDraft('page', { url: 'https://acme.com/new' }),
+      });
+    });
+    expect(await screen.findByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Filter and sort' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(rows()).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
 
   it('searches company, title, location and notes, ignoring accents', async () => {
