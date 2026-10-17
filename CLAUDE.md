@@ -25,7 +25,7 @@ Gotchas:
 
 ## Architecture (from spec.md §3–§9)
 
-**UI:** the M6 redesign is done (v0.6.0), so the sections below describe the code. Decisions from the post-M6 design review (`docs/design-review/`) land as v0.6.x follow-up PRs before M7, each updating `spec.md` and these sections.
+**UI:** the M6 redesign is done (v0.6.0). The post-M6 design review's decisions (`docs/design-review/README.md`, list in `milestones.md`) are already in `spec.md` and land as v0.6.x follow-up PRs before M7; each PR updates the sections below for what it changes. Until then, where the spec and these sections disagree about UI, build what the spec says.
 
 **Local-first, no network.** All data lives in the browser. Applications and Resumes (file Blobs) are in IndexedDB via Dexie (`lib/db.ts`). Settings are in `chrome.storage.local`. Never add fetch calls, analytics, remote code, or host permissions: the Web Store privacy pitch depends on this.
 

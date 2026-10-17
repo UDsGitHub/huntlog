@@ -92,6 +92,18 @@ Before M7 starts, the owner reviews the whole app and makes design decisions. Cl
 
 Claude then applies the decisions (in follow-up PRs, released as v0.6.x) before starting M7.
 
+**Review outcome (2026-10-17):** the owner's answers are in `docs/design-review/README.md` and spec.md. Follow-up PRs before M7:
+- **polish:** button variants, icons, toast layout, labels, list row and resume row layout, copy;
+- **motion and scrolling:** accordion height animation, the scrollbar flash while a sheet opens, hidden scrollbars, Notes without a resize handle;
+- **inputs:** a Select component (Status, Work mode, Per), a searchable Currency, number fields, and the inline upload's +/− toggle;
+- **filters:** Apply instead of applying live, and a sliding sort marker;
+- **discard:** a centered dialog;
+- **header:** tabs with the icon beside the label, and Settings as a gear that opens a sheet;
+- **stats:** a large Applied number with the goal ring beside it, and the chosen chip kept in view;
+- **rename:** Huntlog, with an icon.
+
+Tag v0.6.1 when they're merged.
+
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
 

@@ -77,3 +77,38 @@ The tone rule holds: rejections show only as "Closed – not selected", errors s
 | Sentlog | No listing found | Says "what I sent"; "JobLogs" exists |
 
 *Recommendation:* **Huntlog** or **Next Round**. Both are free in the store, short, and match the factual, encouraging tone. The icon follows the chosen name.
+
+
+## Open UI Question Responses
+1. go with option B
+2. Keep the date on its own line
+3. Leave as is
+4. follow your recommendation
+5. Lets go with Huntlog
+
+## Extra Review Comments
+- There is a wierd UI thing where opening a drawer flashes a scrollbar in the main app before the drawer finishes animating
+- Lets experiment with making the tabs laid out as icon next to label in a row, then move the settings to the same how as the extension title
+- For buttons like the delete all button, since we are following shadcn style, we should use the destructive button variant styles.
+- The filter button in the applications tab should be shadcn ghost variant
+- Lets reduce the width of the first column of the row under the title/status row so the text in there doesnt overflow to far close ot the link icon and look akward. we can also add a justify between on their wrapper and some gap as extra fallback.
+- Like I mentioned before, remove the "(optional)" text in the label of the optional fields, just leave them with the label alone.
+- Status in the add application form isnt using the custom or a custom select, it should.
+- The plus button next to the resume field in the add application form should be ghost variant as well.
+- WHy is source in the more details section of add application form set default to other, builtIn, if this has something to do with my existing setup and not the code, let me know and I will wipe my db to retest that.
+- Why does it seem like the content of the accordion is wrapped by something that fades in and out when you toggle the accordion. That should not be the behavior, it should expand and collapse, growing and shrinking the height of the content and hiding excess with overflow hidden I think. you should know how to setup a good accordion.
+- I dont like the "Upload and use" copy for the Resume upload field in the add application form, change the copy to "Upload", remove the cancel upload button and animate the plus icon spinning and transitioning to the minus icon
+- Also change the "Backend v3" placeholder example to something more generic because that copy doesnt read as an example resume file name
+- Same thing with the work mode select should be the or a custom select
+- maybe change the currency select to a datalist because that list is too long to sift through
+- the year, month, and hour select should be a or the custom select
+- Remove the ellipses for the "Other..." option in the source field in the more details section of the add application form.
+- You still have not made the change for the notes textarea input to auto grow after 3 lines or rows and remove its adjustability
+- The discard changes warning being at the bottom of the drawer is not user friendly, either make it a modal or dialog or propose a better alternative
+- For the resume list item in the resumes tab, change the 3 dots icon to the vertical 3 dots, transparent background and no hover styles on its the wrapper
+- I want to suggest hiding the scrollbar for a scrollable areas, vertical or horizontal
+- Settings page looks good, only comment is that all number inputs in this application appear to just be text fields. Thats fine if we have some parsing making sure that we only take numbers. Either we do that, we switch to number input or you propose an alternative. I know for the maximum and minimum input for the wage input in the add application form, you may have left that text to allow formatted currency input but I would prefer consistency either keep it number, leave it text field but only accept number or propose an alternative
+- The sort by selected field option indicator in the application filters should be animated to slide between selections
+- The filter changes should immediately be reflected until apply is clicked, so the "Done" button in the filter drawer should say "Apply"
+- Use the square-pen icon for the edit in the application list item detail view title header row
+- Group the toast action label and the close icon for the toasts together with a flex div and smaller spacing between them as compared to that between the wrapper and the toast message
