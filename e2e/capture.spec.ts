@@ -22,7 +22,7 @@ async function openPanel(session: ExtensionSession, width = 360) {
   const panel = await session.context.newPage();
   await panel.setViewportSize({ width, height: 700 });
   await panel.goto(panelUrl(session.extensionId));
-  await expect(panel.getByRole('heading', { level: 1, name: 'Job Log' })).toBeVisible();
+  await expect(panel.getByRole('heading', { level: 1, name: 'Huntlog' })).toBeVisible();
   const windowId = await panel.evaluate(async () => (await chrome.windows.getCurrent()).id!);
   return { panel, windowId };
 }

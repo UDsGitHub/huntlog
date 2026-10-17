@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Job Log is a Manifest V3 Chrome extension for tracking job applications, built with WXT + React 18 + TypeScript (strict) + Tailwind v4. `spec.md` is the source of truth: read it before building any feature, and update it when a product decision changes. Build order is in `milestones.md` (thin end-to-end slices M0–M9); work one milestone at a time.
+Huntlog is a Manifest V3 Chrome extension for tracking job applications, built with WXT + React 18 + TypeScript (strict) + Tailwind v4. `spec.md` is the source of truth: read it before building any feature, and update it when a product decision changes. Build order is in `milestones.md` (thin end-to-end slices M0–M9); work one milestone at a time.
 
 ## Commands
 
@@ -15,6 +15,7 @@ Job Log is a Manifest V3 Chrome extension for tracking job applications, built w
 - `npx vitest run lib/stats.test.ts -t "week start"`: a single test file or test name.
 - `npx playwright test`: end-to-end tests in `e2e/`, loading the built extension into a persistent Chromium context. Run `npm run build` first. `e2e/manifest.spec.ts` asserts the built manifest's permissions, so update it when a milestone adds one.
 - `npm run screenshots`: every screen at 320px in light and dark into `docs/design-review/screenshots/` (`review/`, a separate Playwright config, not in CI; build first). `node review/copy-deck.ts` regenerates `docs/design-review/copy-deck.md`, every user-facing string by screen.
+- `node scripts/render-icons.ts`: renders `assets/icon.svg` (the Huntlog crosshair-and-check icon) to `public/icon/{16,32,48,128}.png` through Playwright's Chromium. Edit the SVG, never the PNGs.
 - `npm run lint` / `npx tsc --noEmit` / `npx prettier --check .`: ESLint, type check and formatting. ESLint bans `fetch`, `XMLHttpRequest`, `WebSocket` and `EventSource` as bare globals and on `window`/`self`/`globalThis`, plus `navigator.sendBeacon`. It's a guardrail, not a proof: the PR review still checks for network creep.
 
 Gotchas:

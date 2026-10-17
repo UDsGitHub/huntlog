@@ -155,7 +155,7 @@ test('About links open the bundled privacy policy and notices', async ({ session
     settings(page).getByRole('link', { name: 'Privacy policy' }).click(),
   ]);
   await expect(privacy.getByRole('heading', { name: 'Privacy policy' })).toBeVisible();
-  await expect(settings(page)).toContainText(/Job Log \d+\.\d+\.\d+/);
+  await expect(settings(page)).toContainText(/Huntlog \d+\.\d+\.\d+/);
 });
 
 test('Undo in a toast over Settings closes it and focuses the restored row', async ({

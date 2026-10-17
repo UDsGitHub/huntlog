@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 
 // Local-first: the extension must never talk to the network (CLAUDE.md, spec §8).
 const NETWORK_APIS = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'];
-const NETWORK_MESSAGE = 'No network calls: Job Log is local-only.';
+const NETWORK_MESSAGE = 'No network calls: Huntlog is local-only.';
 const networkBan = {
   'no-restricted-globals': [
     'error',

@@ -323,7 +323,7 @@ export default function App() {
         <div className="flex shrink-0 flex-col gap-1 pt-3">
           <div className="flex items-center justify-between gap-2 px-4">
             <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
-              Job Log
+              Huntlog
             </h1>
             <button
               type="button"
@@ -346,7 +346,7 @@ export default function App() {
             selected={tab}
             onSelect={selectTab}
             idPrefix={TAB_PREFIX}
-            label="Job Log sections"
+            label="Huntlog sections"
           />
         </div>
         {/* Clipped, not hidden: overflow hidden would still let focus scroll it sideways. */}

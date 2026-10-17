@@ -29,7 +29,7 @@ describe('Tab bar', () => {
   it('shows Applications, Stats and Resumes, Applications selected, wired to its panel', async () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
-    const tablist = screen.getByRole('tablist', { name: 'Job Log sections' });
+    const tablist = screen.getByRole('tablist', { name: 'Huntlog sections' });
     expect(
       within(tablist)
         .getAllByRole('tab')

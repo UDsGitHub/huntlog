@@ -630,7 +630,7 @@ function AboutCard() {
           </a>
         </li>
       </ul>
-      {version && <p className="field-hint">Job Log {version}</p>}
+      {version && <p className="field-hint">Huntlog {version}</p>}
     </Card>
   );
 }

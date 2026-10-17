@@ -8,7 +8,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    name: 'Job Log',
+    name: 'Huntlog',
     // sidePanel API landed in 114, setPanelBehavior in 116.
     minimum_chrome_version: '116',
     permissions: [
@@ -20,12 +20,12 @@ export default defineConfig({
       'scripting',
     ],
     action: {
-      default_title: 'Open Job Log',
+      default_title: 'Open Huntlog',
     },
     commands: {
       'add-job': {
         suggested_key: { default: 'Alt+Shift+J' },
-        description: 'Add the current page to Job Log',
+        description: 'Add the current page to Huntlog',
       },
     },
   },

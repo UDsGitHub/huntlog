@@ -1,4 +1,4 @@
-# Job Log — Milestones
+# Huntlog — Milestones
 
 Each milestone is a thin vertical slice: it ships something a user can do end to end in a loaded extension, with UI, storage and tests, and it leaves the app releasable. The riskiest pieces come first: Chrome APIs whose behavior we have only assumed. Section references (§) point to `spec.md`.
 
@@ -16,7 +16,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - **Done when:** `npm run dev` / `build` / `zip` work, CI runs lint, typecheck, unit and e2e, and the commands in CLAUDE.md are updated to match reality.
 
 ## M1 — Capture plumbing (de-risk) ✅ (v0.1.0)
-**Slice:** Right-click a job page → "Add job to Job Log" → the side panel opens with the URL and page title prefilled → Save.
+**Slice:** Right-click a job page → "Add job to Huntlog" → the side panel opens with the URL and page title prefilled → Save.
 
 - Add the `contextMenus`, `activeTab` and `scripting` permissions.
 - Register the page and link context-menu items and the `Alt+Shift+J` command.
@@ -104,7 +104,7 @@ Claude then applies the decisions (in follow-up PRs, released as v0.6.x) before 
 
 The owner also asked why Source opened on "Other" in a new form: the remembered source from an application saved before the Source chips existed (when "Other" was a typed suggestion), not a code bug; it resets the next time a new application is saved with a chip or none.
 
-Tag v0.6.1 when they're merged.
+All eight landed (#47–#55); tagged v0.6.1.
 
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
