@@ -14,6 +14,7 @@ Job Log is a Manifest V3 Chrome extension for tracking job applications, built w
 - `npx vitest run`: all unit and component tests (`lib/`, `components/`, `tests/`).
 - `npx vitest run lib/stats.test.ts -t "week start"`: a single test file or test name.
 - `npx playwright test`: end-to-end tests in `e2e/`, loading the built extension into a persistent Chromium context. Run `npm run build` first. `e2e/manifest.spec.ts` asserts the built manifest's permissions, so update it when a milestone adds one.
+- `npm run screenshots`: every screen at 320px in light and dark into `docs/design-review/screenshots/` (`review/`, a separate Playwright config, not in CI; build first). `node review/copy-deck.ts` regenerates `docs/design-review/copy-deck.md`, every user-facing string by screen.
 - `npm run lint` / `npx tsc --noEmit` / `npx prettier --check .`: ESLint, type check and formatting. ESLint bans `fetch`, `XMLHttpRequest`, `WebSocket` and `EventSource` as bare globals and on `window`/`self`/`globalThis`, plus `navigator.sendBeacon`. It's a guardrail, not a proof: the PR review still checks for network creep.
 
 Gotchas:
@@ -24,7 +25,7 @@ Gotchas:
 
 ## Architecture (from spec.md §3–§9)
 
-**M6 redesign in progress:** `spec.md` already describes the M6 UI (sheets, sliding tabs, the new list row and filters, the form in a sheet). The sections below describe the code as it is now, and each M6 PR updates the parts it changes. Until then, where they disagree about UI, build what the spec says.
+**UI:** the M6 redesign is done (v0.6.0), so the sections below describe the code. Decisions from the post-M6 design review (`docs/design-review/`) land as v0.6.x follow-up PRs before M7, each updating `spec.md` and these sections.
 
 **Local-first, no network.** All data lives in the browser. Applications and Resumes (file Blobs) are in IndexedDB via Dexie (`lib/db.ts`). Settings are in `chrome.storage.local`. Never add fetch calls, analytics, remote code, or host permissions: the Web Store privacy pitch depends on this.
 

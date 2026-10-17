@@ -66,7 +66,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - A range picker including Custom, headline cards, the outcomes bar, and the activity chart. Charts are hand-written SVG and CSS: Recharts measured about 320 KB minified for one bar chart, more than the whole panel (spec §9).
 - **Tests:** range boundaries, week start, the "first entered" rule, and an empty dataset.
 
-## M6 — Settings & weekly goal
+## M6 — Settings & weekly goal ✅ (v0.6.0)
 **Slice:** Set a weekly goal of 10 → the Stats tab shows the goal progress ring at 3 of 10. Switch to dark mode.
 
 - A Settings tab using `chrome.storage.local`: weekly goal, first day of the week (feeds into `stats.ts`), and theme (System / Light / Dark).
@@ -90,7 +90,7 @@ Before M7 starts, the owner reviews the whole app and makes design decisions. Cl
 - a **copy deck** of every user-facing string, factual and encouraging;
 - a **name shortlist** of about 8 names with a Web Store availability check (the icon follows the name).
 
-Claude then applies the decisions (in M6 follow-up PRs) before starting M7.
+Claude then applies the decisions (in follow-up PRs, released as v0.6.x) before starting M7.
 
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
