@@ -56,12 +56,13 @@ describe('Status in the form', () => {
     expect(saved?.statusHistory.map((e) => e.status)).toEqual(['saved']);
   });
 
-  it('shows Date applied again, as optional, for Withdrawn', async () => {
+  it('shows Date applied again, not required, for Withdrawn', async () => {
     const user = userEvent.setup();
     await openAdd(user);
     await user.selectOptions(screen.getByLabelText('Status'), 'withdrawn');
     expect(dateHidden()).toBe(false);
-    expect(screen.getByText('Date applied').parentElement).toHaveTextContent('(optional)');
+    expect(screen.getByLabelText('Date applied')).not.toHaveAttribute('aria-required');
+    expect(screen.getByText('Date applied').parentElement).not.toHaveTextContent('*');
   });
 
   it('requires Date applied for other statuses', async () => {

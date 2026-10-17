@@ -170,26 +170,29 @@ function ToastCard({
       className={`toast flex w-full max-w-sm min-w-0 items-center gap-3 rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg ${leaving ? 'pointer-events-none' : 'pointer-events-auto'}`}
     >
       <span className="min-w-0 flex-1 break-words">{toast.message}</span>
-      {toast.action && (
+      {/* The action and close sit together, closer than the gap to the message. */}
+      <div className="flex shrink-0 items-center gap-1">
+        {toast.action && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.action!.onAction();
+              onDismiss('action');
+            }}
+            className="btn btn-outline btn-sm"
+          >
+            {toast.action.label}
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => {
-            toast.action!.onAction();
-            onDismiss('action');
-          }}
-          className="btn btn-outline btn-sm"
+          onClick={() => onDismiss('dismiss')}
+          aria-label="Dismiss"
+          className="btn btn-ghost btn-icon size-7 text-muted-foreground"
         >
-          {toast.action.label}
+          <XIcon />
         </button>
-      )}
-      <button
-        type="button"
-        onClick={() => onDismiss('dismiss')}
-        aria-label="Dismiss"
-        className="btn btn-ghost btn-icon size-7 text-muted-foreground"
-      >
-        <XIcon />
-      </button>
+      </div>
     </div>
   );
 }

@@ -81,7 +81,7 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="field-label">
-        Resume <span className="font-normal text-muted-foreground">(optional)</span>
+        Resume
       </label>
       <div className="flex min-w-0 gap-2">
         <Combobox
@@ -106,7 +106,7 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
           title="Upload new resume"
           aria-expanded={uploading}
           onClick={() => setUploading((open) => !open)}
-          className="btn btn-outline btn-icon"
+          className="btn btn-ghost btn-icon"
         >
           <PlusIcon />
         </button>

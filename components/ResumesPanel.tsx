@@ -65,6 +65,9 @@ export function ResumesPanel({
   const [renameOpen, setRenameOpen] = useState(false);
   const id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  // Said once the sheet has gone: while it slides out it's still modal, which keeps the panel's
+  // status region inert, so an announcement made then would go unheard.
+  const pendingAnnouncement = useRef<string | null>(null);
   // Leaving the tab (a capture) closes the rename sheet, and forgets it, so coming back doesn't
   // reopen it. (App forgets the upload sheet the same way.)
   if (!active && renameOpen) setRenameOpen(false);
@@ -146,6 +149,12 @@ export function ResumesPanel({
     ) {
       keepFocus();
     }
+  };
+  const afterSheet = () => {
+    const message = pendingAnnouncement.current;
+    pendingAnnouncement.current = null;
+    if (message) announce(message);
+    focusIfLost();
   };
   const empty = resumes.length === 0;
 
@@ -239,9 +248,9 @@ export function ResumesPanel({
       <UploadSheet
         open={uploadOpen}
         onClose={() => onUploadOpenChange(false)}
-        onClosed={focusIfLost}
+        onClosed={afterSheet}
         onUploaded={(resume) => {
-          announce(`Uploaded ${resume.name}.`);
+          pendingAnnouncement.current = `Uploaded ${resume.name}.`;
           onUploadOpenChange(false);
         }}
       />
@@ -253,10 +262,10 @@ export function ResumesPanel({
           onClose={() => setRenameOpen(false)}
           onClosed={() => {
             setRenaming(null);
-            focusIfLost();
+            afterSheet();
           }}
-          onSaved={() => {
-            announce('Saved.');
+          onSaved={(saved) => {
+            pendingAnnouncement.current = `Renamed to ${saved.name}.`;
             setRenameOpen(false);
           }}
         />
@@ -312,7 +321,7 @@ function ResumeRow({
   async function open() {
     if (!(await openResume(resume))) announce(`${resume.name} isn't available any more.`);
   }
-  const details = `${formatLabel(resume.fileName)} · ${formatBytes(resume.size)} · Uploaded ${formatTimestampDate(resume.createdAt)}`;
+  const details = `${formatLabel(resume.fileName)} · ${formatBytes(resume.size)}`;
   const verb = opensInViewer(resume) ? 'Open' : 'Download';
 
   return (
@@ -330,8 +339,14 @@ function ResumeRow({
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="text-sm font-medium break-words">{resume.name}</span>
-          <span id={`${id}-details`} className="text-xs text-muted-foreground">
-            {details}
+          {/* The upload date on its own line, so it never breaks mid-date at 320px. */}
+          <span id={`${id}-details`} className="flex flex-col text-xs text-muted-foreground">
+            {/* A separator for screen readers, which would otherwise run the lines together. */}
+            <span>
+              {details}
+              <span className="sr-only"> · </span>
+            </span>
+            <span>Uploaded {formatTimestampDate(resume.createdAt)}</span>
           </span>
           {resume.note && (
             <span id={`${id}-note`} className="text-xs break-words text-muted-foreground">
@@ -341,6 +356,7 @@ function ResumeRow({
         </span>
       </button>
       <MoreMenu
+        vertical
         label={`More actions for ${resume.name}`}
         items={[
           {
@@ -431,7 +447,7 @@ function RenameSheet({
   open: boolean;
   onClose: () => void;
   onClosed: () => void;
-  onSaved: () => void;
+  onSaved: (resume: Resume) => void;
 }) {
   const id = useId();
   const [name, setName] = useState(resume.name);
@@ -448,8 +464,7 @@ function RenameSheet({
     if (saving) return;
     setSaving(true);
     try {
-      await updateResume(resume.id, { name, note });
-      onSaved();
+      onSaved(await updateResume(resume.id, { name, note }));
     } catch (error) {
       if (error instanceof ResumeValidationError) fail(error.fields);
       else {
@@ -510,7 +525,7 @@ function RenameSheet({
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor={`${id}-note`} className="field-label">
-            Note <span className="font-normal text-muted-foreground">(optional)</span>
+            Note
           </label>
           <input
             ref={noteInput}

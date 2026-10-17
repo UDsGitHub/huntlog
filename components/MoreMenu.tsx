@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { EllipsisIcon } from './icons';
+import { EllipsisIcon, EllipsisVerticalIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 
 export interface MoreMenuItem {
@@ -16,7 +16,16 @@ export interface MoreMenuItem {
  * opens it with the first item focused; Up/Down/Home/End move; Escape closes back to the button;
  * Tab or a click elsewhere closes.
  */
-export function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[] }) {
+export function MoreMenu({
+  label,
+  items,
+  vertical = false,
+}: {
+  label: string;
+  items: MoreMenuItem[];
+  /** A bare vertical ⋮ (no fill, even on hover), for a menu inside a card's row. */
+  vertical?: boolean;
+}) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -63,9 +72,13 @@ export function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[
         aria-expanded={open}
         aria-controls={open ? `${id}-menu` : undefined}
         onClick={() => setOpen((was) => !was)}
-        className="btn btn-ghost btn-icon"
+        className={
+          vertical
+            ? 'btn btn-icon text-muted-foreground aria-expanded:text-foreground'
+            : 'btn btn-ghost btn-icon'
+        }
       >
-        <EllipsisIcon />
+        {vertical ? <EllipsisVerticalIcon /> : <EllipsisIcon />}
       </button>
       {open && (
         <div

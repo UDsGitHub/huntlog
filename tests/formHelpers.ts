@@ -7,12 +7,12 @@ export function sourceValue(): string {
   const pressed = within(group)
     .queryAllByRole('button', { pressed: true, hidden: true })
     .map((chip) => chip.textContent?.trim() ?? '');
-  if (pressed[0] === 'Other…')
+  if (pressed[0] === 'Other')
     return (within(group).getByLabelText('Other source') as HTMLInputElement).value;
   return pressed[0] ?? '';
 }
 
-/** Sets the open form's Source: its chip, Other… with text, or '' to clear it. */
+/** Sets the open form's Source: its chip, Other with text, or '' to clear it. */
 export async function chooseSource(user: ReturnType<typeof userEvent.setup>, value: string) {
   const group = screen.getByRole('group', { name: /^Source/, hidden: true });
   const current = sourceValue();
@@ -24,7 +24,7 @@ export async function chooseSource(user: ReturnType<typeof userEvent.setup>, val
   } else if (chip) {
     await user.click(chip);
   } else {
-    const other = within(group).getByRole('button', { name: 'Other…', hidden: true });
+    const other = within(group).getByRole('button', { name: 'Other', hidden: true });
     if (other.getAttribute('aria-pressed') !== 'true') await user.click(other);
     const field = within(group).getByLabelText('Other source');
     await user.clear(field);

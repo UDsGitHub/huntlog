@@ -117,7 +117,7 @@ describe('Add view', () => {
     expect(saved).not.toHaveProperty('salaryPeriod');
   });
 
-  it('offers the common sources as chips, and Other… for anything else', async () => {
+  it('offers the common sources as chips, and Other for anything else', async () => {
     const user = userEvent.setup();
     await openAddForm(user);
     await user.click(screen.getByRole('button', { name: 'More details' }));
@@ -126,14 +126,14 @@ describe('Add view', () => {
       within(group)
         .getAllByRole('button')
         .map((chip) => chip.textContent),
-    ).toEqual(['LinkedIn', 'Indeed', 'Company site', 'Referral', 'Recruiter', 'Other…']);
+    ).toEqual(['LinkedIn', 'Indeed', 'Company site', 'Referral', 'Recruiter', 'Other']);
     // One tap picks; tapping it again clears.
     await user.click(within(group).getByRole('button', { name: 'Indeed' }));
     expect(sourceValue()).toBe('Indeed');
     await user.click(within(group).getByRole('button', { name: /Indeed/ }));
     expect(sourceValue()).toBe('');
-    // Other… opens a field, focused, for any other source.
-    await user.click(within(group).getByRole('button', { name: 'Other…' }));
+    // Other opens a field, focused, for any other source.
+    await user.click(within(group).getByRole('button', { name: 'Other' }));
     expect(within(group).getByLabelText('Other source')).toHaveFocus();
     await user.type(within(group).getByLabelText('Other source'), 'Wellfound');
     expect(sourceValue()).toBe('Wellfound');

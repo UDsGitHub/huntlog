@@ -5,6 +5,7 @@ import { addApplication, NotFoundError } from '@/lib/applications';
 import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
 import * as resumes from '@/lib/resumes';
+import * as motion from './motion';
 import { addResume, type PickedFile } from '@/lib/resumes';
 import App from '@/entrypoints/sidepanel/App';
 
@@ -82,7 +83,12 @@ describe('Resumes tab', () => {
 
     const list = await within(panel).findByRole('list', { name: 'Resumes' });
     expect(list).toHaveTextContent('Backend v3');
-    expect(list).toHaveTextContent(/PDF · 108 bytes · Uploaded/);
+    // The upload date has its own line, so it never wraps mid-date.
+    expect(list).toHaveTextContent(/PDF · 108 bytes/);
+    const row = within(list).getByRole('button', { name: 'Open Backend v3' });
+    expect(
+      [...row.querySelectorAll(`[id$="-details"] > span`)].map((line) => line.textContent),
+    ).toEqual(['PDF · 108 bytes · ', expect.stringMatching(/^Uploaded /)]);
     expect(list).toHaveTextContent('For SRE roles');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('button', { name: 'Upload resume' })).toHaveFocus();
@@ -226,10 +232,27 @@ describe('Resumes tab', () => {
     expect(sheet.getByLabelText('Name')).toHaveValue('Renamed elsewhere');
     expect(sheet.getByLabelText('Name')).toHaveFocus();
     await user.clear(sheet.getByLabelText('Name'));
-    await user.type(sheet.getByLabelText('Name'), 'Backend v4');
+    // The sheet really slides out here (happy-dom otherwise reports reduced motion).
+    vi.spyOn(motion, 'prefersReducedMotion').mockReturnValue(false);
+    // For each change to the status region: was a modal sheet open then?
+    const statusWhileModal: boolean[] = [];
+    const watcher = new MutationObserver(() =>
+      statusWhileModal.push(document.querySelector('dialog[open]') !== null),
+    );
+    watcher.observe(screen.getByRole('status'), {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    // Spaces around the name are trimmed, and the announcement says the saved name.
+    await user.type(sheet.getByLabelText('Name'), '  Backend v4 ');
     await user.clear(sheet.getByLabelText(/Note/));
     await user.click(sheet.getByRole('button', { name: 'Save' }));
+    // Announced only once the sheet has closed: while it's open (sliding out included) it's
+    // modal, which keeps the status region inert, so the message would go unheard.
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(statusWhileModal).toEqual([false]);
+    expect(screen.getByRole('status')).toHaveTextContent('Renamed to Backend v4.');
     // The live list shows the new name once the write lands; focus stayed on that row's ⋯.
     await waitFor(() =>
       expect(

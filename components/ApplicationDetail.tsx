@@ -4,7 +4,7 @@ import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
 import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
 import { formatSalary } from '@/lib/format';
-import { ArrowLeftIcon, ExternalLinkIcon, PencilIcon, Trash2Icon } from './icons';
+import { ArrowLeftIcon, ExternalLinkIcon, SquarePenIcon, Trash2Icon } from './icons';
 import { MoreMenu } from './MoreMenu';
 import { toUnicodeHost } from '@/lib/punycode';
 import { StatusChip, type StatusPick } from './StatusChip';
@@ -129,7 +129,7 @@ export function ApplicationDetail({
             title="Edit"
             className="btn btn-ghost btn-icon shrink-0"
           >
-            <PencilIcon />
+            <SquarePenIcon />
           </button>
           <MoreMenu
             label={`More actions for ${app.company}`}

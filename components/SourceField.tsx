@@ -23,7 +23,7 @@ interface Props {
 
 /**
  * Source (spec §4.2): one tap on a chip (LinkedIn, Indeed, Company site, Referral, Recruiter),
- * or Other… for anything else, which opens a short text field. Tapping the chosen chip again
+ * or Other for anything else, which opens a short text field. Tapping the chosen chip again
  * clears it (Source is optional). Toggle buttons, so the arrow keys don't change the choice.
  */
 export function SourceField({ id, value, onChange, error, inputRef }: Props) {
@@ -69,7 +69,7 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
   return (
     <div role="group" aria-labelledby={`${id}-label`} className="flex min-w-0 flex-col gap-1.5">
       <p id={`${id}-label`} className="field-label">
-        Source <span className="font-normal text-muted-foreground">(optional)</span>
+        Source
       </p>
       <div className="flex flex-wrap gap-1.5">
         {CHIPS.map((chip, index) => (
@@ -84,7 +84,7 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
           </Chip>
         ))}
         <Chip pressed={mode === 'other'} onClick={() => pick('other')}>
-          Other…
+          Other
         </Chip>
       </div>
       {mode === 'other' && (
