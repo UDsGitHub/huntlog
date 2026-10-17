@@ -327,3 +327,39 @@ export function computeStats(
     activity: activity(live, range, weekStartsOn),
   };
 }
+
+/** This week against the weekly goal (spec §4.7). */
+export interface GoalProgress {
+  goal: number;
+  /** Applications applied this week. Can pass the goal. */
+  count: number;
+  /** How full the ring is: 0 to 1, full once the goal is reached. */
+  fraction: number;
+  /** How many more reach the goal; 0 once reached. */
+  remaining: number;
+  /** The calendar week counted (whole week, whatever range Stats shows). */
+  week: DateRange;
+}
+
+/**
+ * This week's Applied count against the goal (spec §4.7): applications whose Date applied falls
+ * in the calendar week containing `now`, whatever range the Stats tab shows. Like Applied, a job
+ * without a Date applied (Saved, or Skip) doesn't count, nor does a deleted one.
+ */
+export function weeklyGoalProgress(
+  apps: readonly Application[],
+  now: Date,
+  weekStartsOn: WeekStart,
+  goal: number,
+): GoalProgress {
+  const from = startOfWeek(todayLocal(now), weekStartsOn);
+  const week = { from, to: addDays(from, 6) };
+  const count = apps.filter((app) => !app.deletedAt && inRange(app.appliedAt, week)).length;
+  return {
+    goal,
+    count,
+    fraction: Math.min(1, count / goal),
+    remaining: Math.max(0, goal - count),
+    week,
+  };
+}

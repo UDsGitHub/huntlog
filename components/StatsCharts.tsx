@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { formatLocalDate, formatShortLocalDate } from '@/lib/dates';
-import type { Activity, ActivityUnit, Stats } from '@/lib/stats';
+import type { Activity, ActivityUnit, GoalProgress, Stats } from '@/lib/stats';
 import { STATUS_LABELS } from '@/lib/status';
 import type { Status } from '@/lib/types';
 
@@ -168,6 +168,76 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
           ))}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+const RING_RADIUS = 40;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+/**
+ * The weekly goal ring (spec §4.7): this week's applications against the goal, whatever range
+ * the tab shows. Full once the goal is reached; the count keeps going past it ("12 of 10").
+ */
+export function GoalRing({ progress }: { progress: GoalProgress }) {
+  const { count, goal, fraction, remaining } = progress;
+  const label = `${count} of ${goal} applications this week`;
+  return (
+    <section aria-labelledby="goal-heading" className="card flex min-w-0 items-center gap-4 p-4">
+      <svg
+        role="img"
+        aria-label={label}
+        viewBox="0 0 100 100"
+        className="size-24 shrink-0 -rotate-90"
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r={RING_RADIUS}
+          fill="none"
+          strokeWidth="10"
+          className="stroke-border"
+        />
+        {count > 0 && (
+          <circle
+            cx="50"
+            cy="50"
+            r={RING_RADIUS}
+            fill="none"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={RING_LENGTH}
+            strokeDashoffset={RING_LENGTH * (1 - fraction)}
+            className="stroke-chart-1 transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
+          />
+        )}
+        <text
+          x="50"
+          y="50"
+          textAnchor="middle"
+          dominantBaseline="central"
+          transform="rotate(90 50 50)"
+          aria-hidden="true"
+          className="fill-foreground text-[1.375rem] font-semibold"
+        >
+          {count}
+        </text>
+      </svg>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h3 id="goal-heading" className="text-sm font-semibold">
+          Weekly goal
+        </h3>
+        <p className="text-sm">
+          {count} of {goal} this week
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {remaining > 0
+            ? `${remaining} more to reach your goal.`
+            : count > goal
+              ? `Goal reached, and ${count - goal} beyond it.`
+              : 'Goal reached. Nice work.'}
+        </p>
+      </div>
     </section>
   );
 }

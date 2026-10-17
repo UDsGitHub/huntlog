@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import * as applications from '@/lib/applications';
@@ -225,5 +225,59 @@ describe('Stats tab', () => {
     await applied('2026-10-13');
     expect(await within(panel).findByText('Applied', { selector: 'dt' })).toBeInTheDocument();
     expect(card(panel, 'Applied')).toHaveTextContent('1');
+  });
+
+  describe('weekly goal ring', () => {
+    const ring = (panel: HTMLElement) =>
+      within(panel).queryByRole('region', { name: 'Weekly goal' });
+
+    it('shows only when a goal is set', async () => {
+      await applied('2026-10-13');
+      const user = userEvent.setup();
+      const panel = await openStats(user);
+      expect(ring(panel)).toBeNull();
+      await act(() => updateSettings({ weeklyGoal: 10 }));
+      expect(
+        await within(panel).findByRole('img', { name: '1 of 10 applications this week' }),
+      ).toBeInTheDocument();
+      await act(() => updateSettings({ weeklyGoal: undefined }));
+      await waitFor(() => expect(ring(panel)).toBeNull());
+    });
+
+    it('counts this week, whatever range is picked', async () => {
+      await updateSettings({ weeklyGoal: 10 });
+      await applied('2026-10-12');
+      await applied('2026-10-14');
+      await applied('2026-10-16');
+      await applied('2026-10-02'); // earlier this month: not this week
+      const user = userEvent.setup();
+      const panel = await openStats(user);
+      expect(ring(panel)).toHaveTextContent('3 of 10 this week');
+      expect(ring(panel)).toHaveTextContent('7 more to reach your goal.');
+      await user.selectOptions(within(panel).getByLabelText('Range'), 'This month');
+      expect(card(panel, 'Applied')).toHaveTextContent('4');
+      expect(ring(panel)).toHaveTextContent('3 of 10 this week');
+    });
+
+    it('says when the goal is reached, and how far past it', async () => {
+      await updateSettings({ weeklyGoal: 2 });
+      await applied('2026-10-12');
+      await applied('2026-10-13');
+      const user = userEvent.setup();
+      const panel = await openStats(user);
+      expect(ring(panel)).toHaveTextContent('Goal reached. Nice work.');
+      await applied('2026-10-14');
+      await waitFor(() => expect(ring(panel)).toHaveTextContent('3 of 2 this week'));
+      expect(ring(panel)).toHaveTextContent('Goal reached, and 1 beyond it.');
+    });
+
+    it('follows the first day of the week', async () => {
+      await updateSettings({ weeklyGoal: 5, weekStartsOn: 1 });
+      await applied('2026-10-11'); // Sunday: last week when weeks start on Monday
+      await applied('2026-10-12');
+      const user = userEvent.setup();
+      const panel = await openStats(user);
+      expect(ring(panel)).toHaveTextContent('1 of 5 this week');
+    });
   });
 });

@@ -5,6 +5,7 @@ import {
   daysBetween,
   resolveRange,
   startOfWeek,
+  weeklyGoalProgress,
   type DateRange,
 } from './stats';
 import type { Application, Status } from './types';
@@ -450,5 +451,83 @@ describe('across a DST change', () => {
     const weeks = activity([], { from: '2026-10-26', to: '2026-11-08' }, 1).buckets;
     expect(weeks).toHaveLength(14); // 14 days: still per day
     expect(weeks.at(-1)!.from).toBe('2026-11-08');
+  });
+});
+
+describe('weeklyGoalProgress', () => {
+  it('counts nothing yet, with the whole goal to go', () => {
+    expect(weeklyGoalProgress([], now, 0, 10)).toEqual({
+      goal: 10,
+      count: 0,
+      fraction: 0,
+      remaining: 10,
+      week: { from: '2026-10-11', to: '2026-10-17' },
+    });
+  });
+
+  it("counts this week's applications against the goal", () => {
+    const apps = [app('2026-10-12'), app('2026-10-14'), app('2026-10-16')];
+    expect(weeklyGoalProgress(apps, now, 0, 10)).toMatchObject({
+      count: 3,
+      fraction: 0.3,
+      remaining: 7,
+    });
+  });
+
+  it('is full at the goal, and keeps counting past it', () => {
+    const three = [app('2026-10-12'), app('2026-10-13'), app('2026-10-14')];
+    expect(weeklyGoalProgress(three, now, 0, 3)).toMatchObject({ fraction: 1, remaining: 0 });
+    const five = [...three, app('2026-10-15'), app('2026-10-16')];
+    expect(weeklyGoalProgress(five, now, 0, 3)).toMatchObject({
+      count: 5,
+      fraction: 1,
+      remaining: 0,
+    });
+  });
+
+  it.each([
+    [0, '2026-10-11', '2026-10-17', 2], // Sunday start: Sun 11 and Mon 12 count, Sat 10 doesn't
+    [1, '2026-10-12', '2026-10-18', 1], // Monday start: only Mon 12
+    [6, '2026-10-10', '2026-10-16', 3], // Saturday start: Sat 10, Sun 11, Mon 12
+  ] as const)('starts the week on day %i (%s to %s)', (weekStartsOn, from, to, count) => {
+    const apps = [app('2026-10-10'), app('2026-10-11'), app('2026-10-12'), app('2026-10-09')];
+    expect(weeklyGoalProgress(apps, now, weekStartsOn, 10)).toMatchObject({
+      count,
+      week: { from, to },
+    });
+  });
+
+  it("doesn't count saved, skipped or deleted jobs, or other weeks", () => {
+    const apps = [
+      app(undefined), // Saved, never applied
+      app(undefined, [['interviewing', '2026-10-13']]), // Skip: no Date applied
+      app('2026-10-13', [], { deletedAt: at('2026-10-14') }),
+      app('2026-10-04'), // last week
+      app('2026-10-13'),
+    ];
+    expect(weeklyGoalProgress(apps, now, 0, 10).count).toBe(1);
+  });
+
+  it('counts by Date applied, not by when the job was logged', () => {
+    const logged = app('2026-09-30', [], { createdAt: at('2026-10-13') });
+    expect(weeklyGoalProgress([logged], now, 0, 10).count).toBe(0);
+  });
+
+  it('on the first day of the week, counts only that day', () => {
+    const sunday = new Date(2026, 9, 11, 9);
+    const apps = [app('2026-10-10'), app('2026-10-11')];
+    expect(weeklyGoalProgress(apps, sunday, 0, 10)).toMatchObject({
+      count: 1,
+      week: { from: '2026-10-11', to: '2026-10-17' },
+    });
+  });
+
+  it('spans a daylight-saving change as seven calendar days', () => {
+    // US DST ends Sunday Nov 1 2026; a week starting that day still ends Saturday Nov 7.
+    const apps = [app('2026-11-01'), app('2026-11-07'), app('2026-11-08')];
+    expect(weeklyGoalProgress(apps, new Date(2026, 10, 4, 12), 0, 10)).toMatchObject({
+      count: 2,
+      week: { from: '2026-11-01', to: '2026-11-07' },
+    });
   });
 });

@@ -15,11 +15,12 @@ import {
   RANGE_KINDS,
   RANGE_LABELS,
   resolveRange,
+  weeklyGoalProgress,
   type DateRange,
   type RangeKind,
   type Rate,
 } from '@/lib/stats';
-import { ActivityChart, OutcomesBar } from './StatsCharts';
+import { ActivityChart, GoalRing, OutcomesBar } from './StatsCharts';
 import { useSettings } from './useSettings';
 
 const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent' });
@@ -94,6 +95,16 @@ export function StatsPanel() {
     return { now, range, stats: range && computeStats(apps, range, weekStartsOn) };
   }, [apps, kind, custom, weekStartsOn, today]);
 
+  const goal = settings?.weeklyGoal;
+  // This week against the goal, whatever range is picked (spec §4.7).
+  const progress = useMemo(
+    () =>
+      apps && goal !== undefined && weekStartsOn !== undefined
+        ? weeklyGoalProgress(apps, new Date(`${today}T12:00:00`), weekStartsOn, goal)
+        : undefined,
+    [apps, goal, weekStartsOn, today],
+  );
+
   if (!apps || !result) return null;
   const { now, range, stats } = result;
   const errors =
@@ -114,6 +125,7 @@ export function StatsPanel() {
       <h2 id="stats-heading" className="section-heading">
         Stats
       </h2>
+      {progress && <GoalRing progress={progress} />}
 
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex min-w-0 flex-col gap-1">
