@@ -1,13 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { listApplications } from '@/lib/applications';
-import {
-  checkPastLocalDate,
-  formatLocalDate,
-  MIN_YEAR,
-  msUntilNextDay,
-  todayLocal,
-} from '@/lib/dates';
+import { checkPastLocalDate, formatLocalDate, MIN_YEAR } from '@/lib/dates';
 import { effectiveWeekStart } from '@/lib/settings';
 import {
   addDays,
@@ -21,6 +15,7 @@ import {
   type Rate,
 } from '@/lib/stats';
 import { ActivityChart, GoalRing, OutcomesBar } from './StatsCharts';
+import { useToday } from './useToday';
 import { useSettings } from './useSettings';
 
 const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent' });
@@ -28,36 +23,6 @@ const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent' });
 /** "Oct 11 – Oct 17, 2026"-style text for a range, or one date when it's a single day. */
 function rangeText({ from, to }: DateRange): string {
   return from === to ? formatLocalDate(from) : `${formatLocalDate(from)} – ${formatLocalDate(to)}`;
-}
-
-/**
- * Today's local date, kept current: a panel left open overnight moves This week, the Custom
- * limit and every "today"-based range on at midnight, with no data change to trigger it.
- */
-function useToday(): string {
-  const [today, setToday] = useState(() => todayLocal());
-  useEffect(() => {
-    // Re-checked rather than trusted: a timer can fire a little early, or late after sleep.
-    const check = () => {
-      if (todayLocal() !== today) setToday(todayLocal());
-      else schedule();
-    };
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      clearTimeout(timer);
-      timer = setTimeout(check, msUntilNextDay() + 1000);
-    };
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') check();
-    };
-    schedule();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [today]);
-  return today;
 }
 
 /** A Custom date's error: empty, or outside what any entered date allows (1970 to today). */

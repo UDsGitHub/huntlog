@@ -1,24 +1,103 @@
-import { ACTIVE_STATUSES, CLOSED_STATUSES, isStatus } from './status';
+import type { WeekStart } from './locale';
+import { resolveRange, type DateRange } from './stats';
+import { ACTIVE_STATUSES, CLOSED_STATUSES, STATUSES } from './status';
 import type { Application, Status } from './types';
 
-/** Status filter (spec §4.4): everything, a group, or one status. */
-export type StatusFilter = 'all' | 'active' | 'closed' | Status;
 export type SortKey = 'activity' | 'applied' | 'company';
 
-export interface ListQuery {
-  filter: StatusFilter;
-  search: string;
-  sort: SortKey;
+/** Date applied filter (spec §4.4): presets with the Stats ranges' boundaries, or Custom. */
+export const DATE_FILTERS = ['any', 'this-week', 'this-month', 'last-30-days', 'custom'] as const;
+export type DateFilterKind = (typeof DATE_FILTERS)[number];
+export interface DateFilter {
+  kind: DateFilterKind;
+  /** Custom only: both days included, in either order. */
+  from?: string;
+  to?: string;
 }
 
-export const DEFAULT_QUERY: ListQuery = { filter: 'all', search: '', sort: 'activity' };
+export interface ListQuery {
+  search: string;
+  sort: SortKey;
+  /** The statuses to show; none means every status (spec §4.4). */
+  statuses: readonly Status[];
+  dates: DateFilter;
+}
+
+export const DEFAULT_QUERY: ListQuery = {
+  search: '',
+  sort: 'activity',
+  statuses: [],
+  dates: { kind: 'any' },
+};
+
+/** "Today" for the date filter: the presets are relative to it. */
+export interface QueryContext {
+  now: Date;
+  weekStartsOn: WeekStart;
+}
 
 export function isSortKey(value: unknown): value is SortKey {
   return value === 'activity' || value === 'applied' || value === 'company';
 }
 
-export function isStatusFilter(value: unknown): value is StatusFilter {
-  return value === 'all' || value === 'active' || value === 'closed' || isStatus(value);
+/** The status groups (spec §4.4): a chip that turns on all of its statuses. */
+export const STATUS_GROUPS = { active: ACTIVE_STATUSES, closed: CLOSED_STATUSES } as const;
+export type StatusGroup = keyof typeof STATUS_GROUPS;
+
+/** Kept in the fixed status order, so the same choice always compares equal. */
+function ordered(statuses: Iterable<Status>): Status[] {
+  const chosen = new Set(statuses);
+  return STATUSES.filter((status) => chosen.has(status));
+}
+
+/** One status chip pressed: on if it was off, off if it was on. */
+export function toggleStatus(statuses: readonly Status[], status: Status): Status[] {
+  return statuses.includes(status)
+    ? statuses.filter((s) => s !== status)
+    : ordered([...statuses, status]);
+}
+
+/** Whether a group's statuses are all on, some on, or none (its chip shows "mixed"). */
+export function groupState(
+  statuses: readonly Status[],
+  group: StatusGroup,
+): 'all' | 'some' | 'none' {
+  const members = STATUS_GROUPS[group];
+  const on = members.filter((status) => statuses.includes(status)).length;
+  return on === members.length ? 'all' : on > 0 ? 'some' : 'none';
+}
+
+/** A group chip pressed: all its statuses off when they were all on, otherwise all on. */
+export function toggleGroup(statuses: readonly Status[], group: StatusGroup): Status[] {
+  const members = STATUS_GROUPS[group];
+  return groupState(statuses, group) === 'all'
+    ? statuses.filter((status) => !members.includes(status))
+    : ordered([...statuses, ...members]);
+}
+
+/**
+ * The dates a date filter keeps, or undefined when it keeps everything: Any time, or a Custom
+ * range that isn't valid yet (the sheet says what's wrong).
+ */
+export function dateFilterRange(dates: DateFilter, context: QueryContext): DateRange | undefined {
+  if (dates.kind === 'any') return undefined;
+  return resolveRange(dates.kind, {
+    ...context,
+    custom: { from: dates.from, to: dates.to },
+  });
+}
+
+/**
+ * How many filters are on, for the filter button's badge (spec §4.4): one for a date range other
+ * than Any time, one for a status filter. Sort is never counted.
+ */
+export function activeFilterCount(query: ListQuery): number {
+  return (query.dates.kind === 'any' ? 0 : 1) + (query.statuses.length > 0 ? 1 : 0);
+}
+
+/** The query with its filters cleared; search and sort stay. */
+export function withoutFilters(query: ListQuery): ListQuery {
+  return { ...query, statuses: [], dates: { kind: 'any' } };
 }
 
 /**
@@ -35,11 +114,14 @@ export function foldText(text: string): string {
     .trim();
 }
 
-function matchesFilter(app: Application, filter: StatusFilter): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'active') return ACTIVE_STATUSES.includes(app.status);
-  if (filter === 'closed') return CLOSED_STATUSES.includes(app.status);
-  return app.status === filter;
+function matchesStatuses(app: Application, statuses: readonly Status[]): boolean {
+  return statuses.length === 0 || statuses.includes(app.status);
+}
+
+/** In the range by Date applied. A job without one (Saved, or Skip) is left out. */
+function matchesDates(app: Application, range: DateRange | undefined): boolean {
+  if (!range) return true;
+  return !!app.appliedAt && app.appliedAt >= range.from && app.appliedAt <= range.to;
 }
 
 /**
@@ -82,12 +164,18 @@ function compare(a: Application, b: Application, sort: SortKey): number {
 export function queryApplications(
   apps: Application[],
   query: ListQuery,
+  context: QueryContext,
   frozen?: ReadonlyMap<string, number>,
   keep?: ReadonlySet<string>,
 ): Application[] {
   const words = foldText(query.search).split(' ').filter(Boolean);
+  const range = dateFilterRange(query.dates, context);
   const kept = apps.filter(
-    (app) => (matchesFilter(app, query.filter) && matchesSearch(app, words)) || keep?.has(app.id),
+    (app) =>
+      (matchesStatuses(app, query.statuses) &&
+        matchesDates(app, range) &&
+        matchesSearch(app, words)) ||
+      keep?.has(app.id),
   );
   const rank = (app: Application) => frozen?.get(app.id);
   return kept

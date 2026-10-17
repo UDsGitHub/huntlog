@@ -83,9 +83,15 @@ export function Sheet({
   // Each opening starts without the discard question (state adjusted during render, not in an
   // effect, so there's no extra render pass).
   const [wasOpen, setWasOpen] = useState(open);
+  // Its content exists only from opening until it has finished closing: a closed sheet adds
+  // nothing to the page (no hidden fields, no duplicate labels).
+  const [mounted, setMounted] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setConfirming(false);
+    if (open) {
+      setConfirming(false);
+      setMounted(true);
+    }
   }
   const onClosedRef = useRef(onClosed);
   useEffect(() => {
@@ -95,6 +101,7 @@ export function Sheet({
   /** Closes the dialog for good: toasts move back to the page, and focus goes back. */
   function finishClosing(element: HTMLDialogElement) {
     if (element.open) element.close();
+    setMounted(false);
     unregisterLayer.current?.();
     unregisterLayer.current = null;
     // Back to the opener, unless something else already took focus.
@@ -253,7 +260,7 @@ export function Sheet({
           {...inert(panelInert)}
           className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
         >
-          {children}
+          {mounted && children}
         </div>
         <div className="relative shrink-0">
           {/* Toasts render here while this sheet is open: just above the footer. Never inert. */}
@@ -262,7 +269,7 @@ export function Sheet({
             aria-live="polite"
             className="pointer-events-none absolute inset-x-3 bottom-full mb-2 flex justify-center"
           />
-          {footer && (
+          {mounted && footer && (
             <div {...inert(panelInert)} className="border-t bg-background px-4 py-3">
               {footer}
             </div>

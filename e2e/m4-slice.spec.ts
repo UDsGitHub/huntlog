@@ -30,8 +30,8 @@ test('upload a resume, link it to an application, open it from the application',
   await page.getByRole('combobox', { name: /^Resume/ }).selectOption({ label: 'Backend v3' });
   await page.getByRole('button', { name: 'Save' }).click();
 
+  // The row leaves the resume out (spec §4.4); the detail view shows it.
   const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
-  await expect(row).toContainText('Backend v3');
   await row.getByRole('button', { name: /^Acme/ }).click();
 
   const [viewer] = await Promise.all([
@@ -64,7 +64,7 @@ test('a resume an application uses is archived, not deleted, and still opens', a
   await upload.getByRole('button', { name: 'Upload and use' }).click();
   await expect(page.getByRole('combobox', { name: /^Resume/ })).toHaveValue(/.+/);
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toContainText('Backend v3');
+  await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Resumes' }).click();
   await page.getByRole('button', { name: 'Delete Backend v3' }).click();

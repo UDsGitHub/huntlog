@@ -6,7 +6,7 @@ async function addJob(
   company: string,
   fields: { title?: string; status?: string } = {},
 ) {
-  await page.getByRole('button', { name: 'Add application' }).click();
+  await page.getByRole('button', { name: 'Add application', exact: true }).click();
   await page
     .getByLabel('Job posting URL')
     .fill(`https://${company.replace(/\W/g, '').toLowerCase()}.com/1`);
@@ -18,10 +18,9 @@ async function addJob(
 }
 
 const companies = (page: Page) =>
-  page
-    .getByRole('list', { name: 'Applications' })
-    .getByRole('listitem')
-    .locator('button span:first-child');
+  page.getByRole('list', { name: 'Applications' }).getByRole('listitem').locator('.row-open');
+
+const filters = (page: Page) => page.getByRole('dialog', { name: 'Filter and sort' });
 
 test('filter, search and sort a set of jobs', async ({ session }) => {
   const page = await session.context.newPage();
@@ -31,9 +30,17 @@ test('filter, search and sort a set of jobs', async ({ session }) => {
   await addJob(page, 'Beta', { status: 'saved' });
   await addJob(page, 'Gamma', { status: 'rejected' });
 
-  await page.getByLabel('Show').selectOption('closed');
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await filters(page).getByRole('button', { name: 'Closed' }).click();
   await expect(companies(page)).toHaveText(['Gamma']);
-  await page.getByLabel('Show').selectOption('all');
+  await filters(page).getByRole('button', { name: 'Saved' }).click();
+  await expect(companies(page)).toHaveText(['Gamma', 'Beta']);
+  // A click on the dimmed area outside closes it (nothing typed to lose).
+  await page.mouse.click(10, 10);
+  await expect(filters(page)).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Filters, 1 on' })).toBeVisible();
+  await expect(page.getByText('Showing 2 of 4')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
 
   await page.getByLabel('Search').fill('societe');
   await expect(companies(page)).toHaveText(['Société Générale']);
@@ -41,29 +48,58 @@ test('filter, search and sort a set of jobs', async ({ session }) => {
   await expect(companies(page)).toHaveText(['Acme']);
   await page.getByLabel('Search').fill('');
 
-  await page.getByLabel('Sort by').selectOption('company');
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await filters(page).locator('label', { hasText: 'Company' }).click();
   await expect(companies(page)).toHaveText(['Acme', 'Beta', 'Gamma', 'Société Générale']);
-
-  await page.getByLabel('Show').selectOption('offer');
+  await filters(page).getByRole('button', { name: 'Offer' }).click();
+  await filters(page).getByRole('button', { name: 'Done' }).click();
   await expect(page.getByText('No applications match.')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear search and filter' }).click();
+  await page.getByRole('button', { name: 'Clear search and filters' }).click();
   await expect(companies(page)).toHaveCount(4);
 });
 
-test('the list controls fit a 320px panel and work by keyboard', async ({ session }) => {
+test('the list controls and filter sheet fit 320px and work by keyboard', async ({ session }) => {
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
   await addJob(page, `Long${'Q'.repeat(80)}`, { title: `Title ${'W'.repeat(80)}` });
   await addJob(page, 'Acme');
   await expectNoHorizontalScroll(page);
+  // A long company name is cut off on its row, not wrapped or overflowing.
+  const long = companies(page).filter({ hasText: 'LongQ' });
+  expect(await long.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
 
   await page.getByLabel('Search').focus();
   await page.keyboard.type('acme');
-  await page.keyboard.press('Tab');
-  await expect(page.getByLabel('Show')).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(page.getByLabel('Sort by')).toBeFocused();
   await expect(companies(page)).toHaveText(['Acme']);
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Filters' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(filters(page)).toBeVisible();
+  // The first control: the sort, chosen with the arrow keys.
+  await expect(filters(page).getByRole('radio', { name: 'Last activity' })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(filters(page).getByRole('radio', { name: 'Date applied' })).toBeChecked();
   await expectNoHorizontalScroll(page);
+  await page.keyboard.press('Escape');
+  await expect(filters(page)).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Filters' })).toBeFocused();
+});
+
+test('the whole row opens the job; its chip and link do their own thing', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(panelUrl(session.extensionId));
+  await addJob(page, 'Acme', { title: 'Engineer' });
+  const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
+  const box = (await row.boundingBox())!;
+
+  // The chip opens its menu, not the job.
+  await row.getByRole('button', { name: /^Status: / }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // A click on the title line, away from the company name, opens the job.
+  await page.mouse.click(box.x + 40, box.y + box.height - 12);
+  await expect(page.getByRole('heading', { level: 2, name: 'Acme' })).toBeVisible();
 });
