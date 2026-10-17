@@ -66,7 +66,7 @@ Each milestone is a thin vertical slice: it ships something a user can do end to
 - A range picker including Custom, headline cards, the outcomes bar, and the activity chart. Charts are hand-written SVG and CSS: Recharts measured about 320 KB minified for one bar chart, more than the whole panel (spec §9).
 - **Tests:** range boundaries, week start, the "first entered" rule, and an empty dataset.
 
-## M6 — Settings & weekly goal
+## M6 — Settings & weekly goal ✅ (v0.6.0)
 **Slice:** Set a weekly goal of 10 → the Stats tab shows the goal progress ring at 3 of 10. Switch to dark mode.
 
 - A Settings tab using `chrome.storage.local`: weekly goal, first day of the week (feeds into `stats.ts`), and theme (System / Light / Dark).
