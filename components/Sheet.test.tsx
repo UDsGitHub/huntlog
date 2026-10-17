@@ -164,6 +164,10 @@ describe('Sheet', () => {
     await user.keyboard('{Escape}');
     const question = screen.getByRole('alertdialog', { name: 'Discard your changes?' });
     expect(screen.getByRole('button', { name: 'Keep editing' })).toHaveFocus();
+    expect(question).toHaveAccessibleDescription("What you've changed here won't be saved.");
+    // A dialog of its own over the sheet, not a bar inside it.
+    expect(question.closest('.sheet-panel')).toBeNull();
+    expect(question).toHaveAttribute('aria-modal', 'true');
     // The form behind the question is out of reach meanwhile.
     expect(screen.getByLabelText('First').closest('[inert]')).not.toBeNull();
     await user.click(screen.getByRole('button', { name: 'Keep editing' }));
@@ -181,6 +185,21 @@ describe('Sheet', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
     await user.click(screen.getByRole('button', { name: 'Discard' }));
     expect(dialog().open).toBe(false);
+  });
+
+  it('the question goes as soon as Discard starts the slide out', async () => {
+    const user = userEvent.setup();
+    render(<Harness dirty />);
+    await openSheet(user);
+    await user.keyboard('{Escape}');
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    // Still sliding out, but the question isn't left floating over it.
+    expect(dialog().open).toBe(true);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    act(() => vi.advanceTimersByTime(SHEET_ANIMATION_MS));
+    expect(dialog().open).toBe(false);
+    vi.useRealTimers();
   });
 
   it("doesn't ask again on the next opening", async () => {

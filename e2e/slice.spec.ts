@@ -84,9 +84,38 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Enter the date you applied.')).toBeVisible();
   await expectNoHorizontalScroll(page);
-  // Back, then confirm discarding what was typed.
-  await page.getByRole('button', { name: 'Back' }).click();
-  await page.getByRole('button', { name: 'Discard' }).click();
+  // Back asks in a dialog centered over the sheet, in either theme, with focus kept inside it.
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
+    await page.getByRole('button', { name: 'Back' }).click();
+    const question = page.getByRole('alertdialog', { name: 'Discard your changes?' });
+    await expect(question).toBeVisible();
+    const box = (await question.boundingBox())!;
+    expect(Math.abs(box.x + box.width / 2 - 160)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y + box.height / 2 - 320)).toBeLessThanOrEqual(1);
+    await expect(question.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(question.getByRole('button', { name: 'Discard' })).toBeFocused();
+    // Shift+Tab can't reach the sheet behind it (inert), only the question's other button.
+    await page.keyboard.press('Shift+Tab');
+    await expect(question.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.sheet-panel'))).toBe(
+      false,
+    );
+    await question.getByRole('button', { name: 'Keep editing' }).focus();
+    await expectNoHorizontalScroll(page);
+    if (theme === 'light') {
+      // A click on the dimmed area around it does nothing: the question needs an answer.
+      await page.mouse.click(10, 10);
+      await expect(question).toBeVisible();
+      await question.getByRole('button', { name: 'Keep editing' }).click();
+      await expect(question).toBeHidden();
+      await expect(page.getByRole('button', { name: 'Back' })).toBeFocused();
+    }
+  }
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
+  await sheetsClosed(page);
 
   // A row with very long values.
   await page.getByRole('button', { name: 'Add application' }).click();

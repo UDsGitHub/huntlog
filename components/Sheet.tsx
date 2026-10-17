@@ -296,37 +296,49 @@ export function Sheet({
               </div>
             )}
           </div>
-          {confirming && (
-            <div
-              role="alertdialog"
-              aria-labelledby={`${id}-discard`}
-              className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-xl border-t bg-popover p-4 text-popover-foreground shadow-xl"
-            >
-              <p id={`${id}-discard`} className="text-sm font-medium">
+        </div>
+      )}
+      {/* Centered over the sheet, on a dimmed layer that keeps clicks off the sheet (a click on
+          it does nothing: the question needs an answer). Gone as soon as the sheet starts
+          closing, rather than sliding out with it. */}
+      {mounted && open && confirming && (
+        <div className="discard-overlay absolute inset-0 flex items-center justify-center p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={`${id}-discard`}
+            aria-describedby={`${id}-discard-description`}
+            className="discard-dialog flex w-full max-w-xs flex-col gap-4 rounded-lg border bg-background p-5 shadow-lg"
+          >
+            <div className="flex flex-col gap-1.5">
+              <h3 id={`${id}-discard`} className="text-base font-semibold">
                 Discard your changes?
+              </h3>
+              <p id={`${id}-discard-description`} className="text-sm text-muted-foreground">
+                What you've changed here won't be saved.
               </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    confirmFrom.current = null;
-                    onClose();
-                  }}
-                  className="btn btn-destructive flex-1"
-                >
-                  Discard
-                </button>
-                <button
-                  ref={keepEditing}
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  className="btn btn-outline flex-1"
-                >
-                  Keep editing
-                </button>
-              </div>
             </div>
-          )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                ref={keepEditing}
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="btn btn-outline"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmFrom.current = null;
+                  onClose();
+                }}
+                className="btn btn-destructive"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </dialog>
