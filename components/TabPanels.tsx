@@ -80,11 +80,13 @@ export function TabPanel({
       style={{
         // One source for the duration: the CSS keyframes take it from here.
         animationDuration: `${TAB_SLIDE_MS}ms`,
+        // The side padding, which content that bleeds to the edges (Stats' range chips) reads.
+        ['--tab-gutter' as string]: '1rem',
         // Not display: none, which would lose the section's scroll position. content-visibility
         // keeps its rendering state but skips its layout and paint while it's out of sight.
         ...(state === 'idle' && { visibility: 'hidden', contentVisibility: 'hidden' }),
       }}
-      className={`tab-panel absolute inset-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 ${className}`}
+      className={`tab-panel absolute inset-0 overflow-y-auto overscroll-contain px-(--tab-gutter) pt-1 pb-4 ${className}`}
     >
       {children}
     </div>

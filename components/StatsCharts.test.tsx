@@ -88,12 +88,11 @@ describe('ActivityChart', () => {
 
   it('draws a bar per busy bucket, the busiest one full height', () => {
     const { container } = render(<ActivityChart activity={days} total={4} />);
-    const bars = [...container.querySelectorAll('rect')];
+    const bars = [...container.querySelectorAll<HTMLElement>('[data-bar]')];
     expect(bars).toHaveLength(2); // no bar for an empty day
-    const heights = bars.map((bar) => Number(bar.getAttribute('height')));
-    expect(heights[1]).toBeCloseTo(heights[0]! / 3);
+    expect(bars.map((bar) => parseFloat(bar.style.height))).toEqual([100, expect.closeTo(33.33)]);
     // The drawing is decorative: the text and the table carry the numbers.
-    expect(container.querySelector('svg')!.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(bars[0]!.closest('[aria-hidden="true"]')).not.toBeNull();
     expect(screen.getByText('Oct 11')).toBeInTheDocument();
     expect(screen.getByText('Oct 13')).toBeInTheDocument();
   });
@@ -165,6 +164,6 @@ describe('ActivityChart', () => {
     const empty = { unit: 'day' as const, buckets: days.buckets.map((b) => ({ ...b, count: 0 })) };
     const { container } = render(<ActivityChart activity={empty} total={0} />);
     expect(screen.getByText('No applications in this range yet.')).toBeInTheDocument();
-    expect(container.querySelectorAll('rect')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-bar]')).toHaveLength(0);
   });
 });

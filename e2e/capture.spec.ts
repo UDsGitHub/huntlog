@@ -174,9 +174,10 @@ test("a capture closes another tab's open sheet, so it can't block the panel aft
   for (const [tab, opener, sheet] of [
     ['Resumes', 'Upload resume', 'Upload a resume'],
     ['Settings', 'Delete all data', 'Delete all data?'],
+    ['Stats', 'Custom…', 'Custom range'],
   ] as const) {
     await panel.getByRole('tab', { name: tab }).click();
-    await panel.getByRole('button', { name: opener }).click();
+    await panel.getByRole(tab === 'Stats' ? 'radio' : 'button', { name: opener }).click();
     await expect(panel.getByRole('dialog', { name: sheet })).toBeVisible();
     await writeDraft(session, windowId, pageDraft());
     await expect(form(panel).url).toHaveValue(JOB_URL);
@@ -185,8 +186,9 @@ test("a capture closes another tab's open sheet, so it can't block the panel aft
     await expect(panel.locator('dialog[open]')).toHaveCount(0);
     // The panel is usable again: nothing modal is left behind.
     await panel.getByRole('tab', { name: tab }).click();
-    await expect(panel.getByRole('button', { name: opener })).toBeEnabled();
-    await panel.getByRole('button', { name: opener }).click();
+    const reopen = panel.getByRole(tab === 'Stats' ? 'radio' : 'button', { name: opener });
+    await expect(reopen).toBeEnabled();
+    await reopen.click();
     await expect(panel.getByRole('dialog', { name: sheet })).toBeVisible();
     await panel.keyboard.press('Escape');
     await expect(panel.locator('dialog[open]')).toHaveCount(0);

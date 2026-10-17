@@ -398,7 +398,7 @@ export default function App() {
                 </p>
               }
             >
-              <StatsPanel />
+              <StatsPanel active={tab === 'stats'} />
             </ErrorBoundary>
           </TabPanel>
           {/* Focusable itself: until it has controls, Tab from the tab bar must still reach it. */}

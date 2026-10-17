@@ -147,6 +147,8 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 This is a side-panel tab.
 
 - **Range picker:** a scrolling row of chips: This week (default), Last 7 days, This month, Last 30 days, This year, All time, Custom (whose From and To open in a sheet).
+  - The row is one Tab stop; the arrow keys, Home and End move between chips without changing the range, and Enter, Space or a tap picks one, so the keyboard never opens the Custom sheet by passing over it.
+  - The Custom sheet opens on the dates last applied (the last 30 days the first time) and changes the range only on Apply; closing it any other way keeps the range that was showing. Dates entered the wrong way round are swapped, and an empty or out-of-bounds date is flagged on Apply.
   - This week, This month and This year are whole calendar periods, so the chart shows the days still ahead. Last 7 and Last 30 days end today. All time runs from the first date logged (a Date applied or a status entry) to today. Custom is a From and To date, both included, from 1970 up to today.
   - Every count uses local calendar dates: a status entry counts on the local day of its timestamp.
 - **Headline cards:**
@@ -157,6 +159,7 @@ This is a side-panel tab.
   - **Interview rate:** of the applications applied in the range, the percentage that reached Interviewing, or Offer or Accepted (which only come after interviews).
   - Both rates count a stage reached at any time, even after the range ends, so a recent range isn't stuck at 0%. Ghosted and Withdrawn aren't responses. With nothing applied in the range, a rate shows "—" rather than 0%, and each rate shows its counts ("4 of 12").
   - A job without a Date applied (the user pressed Skip) isn't counted in Applied or the rates, but its interviews and offers still count.
+- **Charts** each sit in a card with a title and a one-line summary.
 - **Outcomes breakdown:** a stacked bar of how applications in the range currently stand, with Rejected as one segment. It is labeled neutrally ("Closed – not selected") and never shown as a headline number.
 - **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, up to 53 weeks per week (weeks start on the user's first day of the week), up to 5 years per month, and longer ones per year, so a long Custom or All time range still has bars wide enough to see.
 - **Weekly goal (optional):** the user sets N per week in Settings (1 to 200). A progress ring at the top of the Stats tab shows this week's Applied count against N ("3 of 10"), whatever range is picked. Past the goal, the ring stays full and the count keeps going ("12 of 10"). Weeks start on the locale's first day of the week, which can be overridden in Settings. Where the ring finally sits is an open question for the design review (§12).

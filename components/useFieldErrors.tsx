@@ -37,5 +37,15 @@ export function useFieldErrors<K extends string>(
         {errors[field]}
       </p>
     );
-  return { errors, fail, clear: () => setErrors({}), described, errorText };
+  /** Clears one field's error (it's being edited), or every error. */
+  function clear(field?: K) {
+    setErrors((current) => {
+      if (field === undefined) return {};
+      if (!current[field]) return current;
+      const rest = { ...current };
+      delete rest[field];
+      return rest;
+    });
+  }
+  return { errors, fail, clear, described, errorText };
 }
