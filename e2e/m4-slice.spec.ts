@@ -27,7 +27,13 @@ test('upload a resume, link it to an application, open it from the application',
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByRole('combobox', { name: /^Resume/ }).selectOption({ label: 'Backend v3' });
+  // The searchable resume dropdown: type to filter, Enter picks.
+  await page.getByRole('combobox', { name: /^Resume/ }).fill('backend');
+  await expect(page.getByRole('listbox', { name: 'Resumes' }).getByRole('option')).toHaveText([
+    'Backend v3',
+  ]);
+  await page.getByRole('combobox', { name: /^Resume/ }).press('Enter');
+  await expect(page.getByRole('combobox', { name: /^Resume/ })).toHaveValue('Backend v3');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   // The row leaves the resume out (spec §4.4); the detail view shows it.
@@ -56,13 +62,13 @@ test('a resume an application uses is archived, not deleted, and still opens', a
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   // Upload straight from the form.
-  await page.getByRole('button', { name: 'Upload new…' }).click();
+  await page.getByRole('button', { name: 'Upload new resume' }).click();
   const upload = page.getByRole('group', { name: 'Upload a new resume' });
   await upload
     .getByLabel('Resume file')
     .setInputFiles({ name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
   await upload.getByRole('button', { name: 'Upload and use' }).click();
-  await expect(page.getByRole('combobox', { name: /^Resume/ })).toHaveValue(/.+/);
+  await expect(page.getByRole('combobox', { name: /^Resume/ })).toHaveValue('Backend v3');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
 
@@ -87,7 +93,7 @@ test('the form with an inline upload fits a 320px panel', async ({ session }) =>
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: 'Add application' }).click();
-  await page.getByRole('button', { name: 'Upload new…' }).click();
+  await page.getByRole('button', { name: 'Upload new resume' }).click();
   await expect(page.getByRole('group', { name: 'Upload a new resume' })).toBeVisible();
   await expectNoHorizontalScroll(page);
 });

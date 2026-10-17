@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { createDraft, draftKey, type CaptureGesture } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
+import { sourceValue } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 const WINDOW_ID = 3;
@@ -30,6 +31,6 @@ describe.each<[string, CaptureGesture, Parameters<typeof createDraft>[1]]>([
       'aria-expanded',
       'false',
     );
-    expect(screen.getByLabelText(/Source/)).toHaveValue('');
+    expect(sourceValue()).toBe('');
   });
 });

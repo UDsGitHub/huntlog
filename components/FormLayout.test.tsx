@@ -6,6 +6,7 @@ import { addApplication } from '@/lib/applications';
 import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
+import { chooseSource, sourceValue } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 const WINDOW_ID = 3;
@@ -212,7 +213,7 @@ describe('Remembered defaults', () => {
     await user.click(await screen.findByRole('button', { name: 'Add application' }));
     expect(screen.queryByRole('form')).toBeNull();
     release();
-    await waitFor(() => expect(screen.getByLabelText(/Source/)).toHaveValue('LinkedIn'));
+    await waitFor(() => expect(sourceValue()).toBe('LinkedIn'));
   });
 
   async function addOne(
@@ -223,9 +224,7 @@ describe('Remembered defaults', () => {
     await user.type(screen.getByLabelText('Job posting URL'), `https://${fields.company}.com/1`);
     await user.type(screen.getByLabelText('Company'), fields.company);
     await user.click(detailsToggle());
-    const source = screen.getByLabelText(/Source/);
-    await user.clear(source);
-    if (fields.source) await user.type(source, fields.source);
+    await chooseSource(user, fields.source ?? '');
     await user.selectOptions(screen.getByLabelText(/Work mode/), fields.workMode ?? '');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByRole('button', { name: new RegExp(`^${fields.company}`) });
@@ -238,7 +237,7 @@ describe('Remembered defaults', () => {
     await addOne(user, { company: 'acme', source: 'Referral', workMode: 'remote' });
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(screen.getByLabelText(/Source/)).toHaveValue('Referral');
+    expect(sourceValue()).toBe('Referral');
     expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('Remote · Referral')).toBeInTheDocument();
@@ -252,7 +251,7 @@ describe('Remembered defaults', () => {
     await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
     const user = userEvent.setup();
     await openAdd(user);
-    await waitFor(() => expect(screen.getByLabelText(/Source/)).toHaveValue('LinkedIn'));
+    await waitFor(() => expect(sourceValue()).toBe('LinkedIn'));
   });
 
   it('remember a blank too: the defaults follow the last application', async () => {
@@ -262,7 +261,7 @@ describe('Remembered defaults', () => {
     await screen.findByText(/No applications yet/);
     await addOne(user, { company: 'beta' });
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(screen.getByLabelText(/Source/)).toHaveValue('');
+    expect(sourceValue()).toBe('');
   });
 
   it("don't hold up a capture's form while they load", async () => {
@@ -295,7 +294,7 @@ describe('Remembered defaults', () => {
     await user.type(screen.getByLabelText('Company'), 'Captured Co{Enter}');
     await screen.findByRole('button', { name: /^Captured Co/ });
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(screen.getByLabelText(/Source/)).toHaveValue('LinkedIn');
+    expect(sourceValue()).toBe('LinkedIn');
     expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
   });
 
@@ -311,7 +310,7 @@ describe('Remembered defaults', () => {
     });
     render(<App />);
     await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
-    expect(screen.getByLabelText(/Source/)).toHaveValue('');
+    expect(sourceValue()).toBe('');
     expect(screen.getByLabelText(/Work mode/)).toHaveValue('');
   });
 
@@ -322,9 +321,9 @@ describe('Remembered defaults', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    expect(screen.getByLabelText(/Source/)).toHaveValue('');
+    expect(sourceValue()).toBe('');
     await user.click(detailsToggle());
-    await user.type(screen.getByLabelText(/Source/), 'Recruiter');
+    await chooseSource(user, 'Recruiter');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
@@ -372,5 +371,46 @@ describe('Remembered defaults', () => {
     ).not.toBeNull();
     act(() => release());
     expect(await screen.findByRole('dialog', { name: 'Edit application' })).toBeInTheDocument();
+  });
+
+  it('More details is an accordion row that says what is inside, and slides shut', async () => {
+    // Real timing here, to see the slide.
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query: string) => ({ matches: false, media: query }) as unknown as MediaQueryList,
+    );
+    const user = userEvent.setup();
+    await openAdd(user);
+    const toggle = detailsToggle();
+    expect(toggle).toHaveAccessibleName('More details');
+    expect(toggle).toHaveAccessibleDescription('Location, work mode, salary, source, notes');
+    await user.click(toggle);
+    const location = screen.getByLabelText(/Location/);
+    expect(location).toBeVisible();
+    await user.click(toggle);
+    // Still shown while it slides shut, then hidden.
+    const panel = location.closest('.details-panel')!;
+    expect(panel).toHaveAttribute('data-state', 'closing');
+    expect(panel).not.toHaveAttribute('hidden');
+    await waitFor(() => expect(panel).toHaveAttribute('hidden'));
+  });
+
+  it('shows a dash between the salary minimum and maximum, out of their names', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(detailsToggle());
+    const min = screen.getByLabelText('Minimum');
+    const row = min.closest('.grid')!;
+    expect(row).toHaveTextContent('–');
+    expect(row).toContainElement(screen.getByLabelText('Maximum'));
+    expect(min).toHaveAccessibleName('Minimum');
+  });
+
+  it('starts Notes three lines tall, growing with the text', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(detailsToggle());
+    const notes = screen.getByLabelText(/Notes/);
+    expect(notes).toHaveAttribute('rows', '3');
+    expect(notes).toHaveClass('field-sizing-content');
   });
 });

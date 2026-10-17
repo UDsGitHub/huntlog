@@ -21,7 +21,10 @@ test('a full application record, end to end, with the duplicate warning', async 
   await page.getByLabel('Maximum').fill('95,000');
   await page.getByLabel('Currency').selectOption('EUR');
   await page.getByLabel('Per').selectOption('year');
-  await page.getByLabel(/Source/).fill('Referral');
+  await page
+    .getByRole('group', { name: /^Source/ })
+    .getByRole('button', { name: 'Referral' })
+    .click();
   await page.getByLabel(/Notes/).fill('Met the team.\nFollow up with Dana.');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 

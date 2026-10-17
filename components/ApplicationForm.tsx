@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -10,7 +11,6 @@ import {
 } from 'react';
 import {
   SALARY_PERIOD_LABELS,
-  SOURCE_SUGGESTIONS,
   WORK_MODE_LABELS,
   type ApplicationInput,
   type FieldErrors,
@@ -37,7 +37,13 @@ import { DuplicateWarning } from './DuplicateWarning';
 import { ResumeField } from './ResumeField';
 import { Sheet } from './Sheet';
 import type { CapturePrefill } from './useCaptureDraft';
-import { ChevronRightIcon } from './icons';
+import { AutoGrowTextarea } from './AutoGrowTextarea';
+import { ChevronDownIcon } from './icons';
+import { prefersReducedMotion } from './motion';
+import { SourceField } from './SourceField';
+
+/** How long More details takes to slide open or shut. */
+const DETAILS_ANIMATION_MS = 200;
 
 interface Props {
   /** The sheet is showing (it stays mounted while it slides out after closing). */
@@ -156,6 +162,18 @@ export function ApplicationForm({
     // work mode and salary: then open it for those, so their "Auto-filled" hints are seen.
     return false;
   });
+  // Collapsing slides shut before the section is hidden (not under reduced motion).
+  const [detailsClosing, setDetailsClosing] = useState(false);
+  const [wasOpen, setWasOpen] = useState(detailsOpen);
+  if (wasOpen !== detailsOpen) {
+    setWasOpen(detailsOpen);
+    setDetailsClosing(!detailsOpen && !prefersReducedMotion());
+  }
+  useEffect(() => {
+    if (!detailsClosing) return;
+    const timer = setTimeout(() => setDetailsClosing(false), DETAILS_ANIMATION_MS);
+    return () => clearTimeout(timer);
+  }, [detailsClosing]);
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -426,29 +444,40 @@ export function ApplicationForm({
                 : undefined
             }
             error={errors.resumeId}
-            selectRef={register('resumeId') as (element: HTMLSelectElement | null) => void}
+            inputRef={register('resumeId')}
           />
 
-          <div className="flex min-w-0 flex-col gap-1">
+          {/* An accordion row (spec §4.2): the hint says what's inside, or what's filled in. */}
+          <div className="-mx-1 flex min-w-0 flex-col border-y">
             <button
               type="button"
               aria-expanded={detailsOpen}
               aria-controls={`${id}-details`}
+              aria-describedby={`${id}-details-hint`}
               onClick={() => setDetailsOpen((open) => !open)}
-              className="btn btn-outline btn-sm self-start"
+              className="focus-ring flex w-full items-center justify-between gap-2 rounded-sm px-1 pt-3 pb-1 text-left text-sm font-medium"
             >
-              <ChevronRightIcon
-                className={`size-4 transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-90' : ''}`}
-              />
               More details
+              <ChevronDownIcon
+                className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-180' : ''}`}
+              />
             </button>
-            {!detailsOpen && detailsSummary && (
-              <p className="text-xs break-words text-muted-foreground">{detailsSummary}</p>
-            )}
+            <p
+              id={`${id}-details-hint`}
+              className="px-1 pb-3 text-xs break-words text-muted-foreground"
+            >
+              {detailsOpen ? '' : detailsSummary || 'Location, work mode, salary, source, notes'}
+            </p>
           </div>
 
-          {/* Hidden, not unmounted: values and field refs survive collapsing. */}
-          <div id={`${id}-details`} hidden={!detailsOpen} className="flex min-w-0 flex-col gap-3">
+          {/* Hidden, not unmounted: values and field refs survive collapsing. It slides open and
+              shut (instantly under reduced motion). */}
+          <div
+            id={`${id}-details`}
+            hidden={!detailsOpen && !detailsClosing}
+            data-state={detailsOpen ? 'open' : 'closing'}
+            className="details-panel flex min-w-0 flex-col gap-3"
+          >
             <Field label="Location" optional htmlFor={`${id}-location`}>
               <input
                 {...control('location')}
@@ -480,7 +509,8 @@ export function ApplicationForm({
               <legend className="field-label">
                 Salary <span className="font-normal text-muted-foreground">(optional)</span>
               </legend>
-              <div className="grid grid-cols-2 gap-2">
+              {/* Minimum – Maximum on one row, currency and period below. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
                 <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
                   <input
                     {...control('salaryMin')}
@@ -492,6 +522,9 @@ export function ApplicationForm({
                   />
                   {message('salaryMin')}
                 </Field>
+                <span aria-hidden="true" className="pt-7 text-muted-foreground">
+                  –
+                </span>
                 <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
                   <input
                     {...control('salaryMax')}
@@ -503,6 +536,8 @@ export function ApplicationForm({
                   />
                   {message('salaryMax')}
                 </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
                   <select
                     {...control('salaryCurrency')}
@@ -543,27 +578,17 @@ export function ApplicationForm({
               </div>
             </fieldset>
 
-            <Field label="Source" optional htmlFor={`${id}-source`}>
-              <input
-                {...control('source')}
-                type="text"
-                autoComplete="off"
-                list={`${id}-source-suggestions`}
-                value={values.source}
-                onChange={(e) => set('source')(e.target.value)}
-              />
-              <datalist id={`${id}-source-suggestions`}>
-                {SOURCE_SUGGESTIONS.map((source) => (
-                  <option key={source} value={source} />
-                ))}
-              </datalist>
-              {message('source')}
-            </Field>
+            <SourceField
+              id={`${id}-source`}
+              value={values.source}
+              onChange={set('source')}
+              error={errors.source}
+              inputRef={register('source')}
+            />
 
             <Field label="Notes" optional htmlFor={`${id}-notes`}>
-              <textarea
+              <AutoGrowTextarea
                 {...control('notes')}
-                rows={4}
                 value={values.notes}
                 onChange={(e) => set('notes')(e.target.value)}
               />
