@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent,
@@ -14,10 +15,11 @@ import {
   formatLabel,
   RESUME_ACCEPT,
   ResumeValidationError,
-  type ResumeErrors,
 } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
+import { carriesFiles } from './dropGuard';
 import { FileIcon, UploadIcon } from './icons';
+import { useFieldErrors } from './useFieldErrors';
 
 interface Props {
   /**
@@ -50,17 +52,23 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
   const [name, setName] = useState('');
   const [nameTyped, setNameTyped] = useState(false);
   const [note, setNote] = useState('');
-  const [errors, setErrors] = useState<ResumeErrors>({});
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
-  // Focus the first invalid field once its error has rendered (a ref, used once).
-  const pendingFocus = useRef<keyof ResumeErrors | null>(null);
-  useLayoutEffect(() => {
-    const field = pendingFocus.current;
-    if (!field) return;
-    pendingFocus.current = null;
-    ({ file: fileInput, name: nameInput, note: noteInput })[field].current?.focus();
-  }, [errors]);
+  const refs = useMemo(() => ({ file: fileInput, name: nameInput, note: noteInput }), []);
+  const { errors, fail, clear, described, errorText } = useFieldErrors(
+    id,
+    ['file', 'name', 'note'] as const,
+    refs,
+  );
+  // An upload still running when this closes (a capture switched tabs) still saves, but mustn't
+  // act on a sheet opened since.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   // The inline upload opens from an explicit "+" press: start at the file.
   useLayoutEffect(() => {
@@ -76,15 +84,11 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
     onStateChangeRef.current?.({ dirty, saving });
   }, [dirty, saving]);
 
-  function fail(fields: ResumeErrors) {
-    pendingFocus.current =
-      (['file', 'name', 'note'] as const).find((field) => fields[field]) ?? null;
-    setErrors(fields);
-  }
-
   function choose(picked: File) {
+    // Mid-upload, the file being saved is the one shown.
+    if (saving) return;
     setFile(picked);
-    setErrors({});
+    clear();
     if (!nameTyped) setName(defaultResumeName(picked.name));
   }
 
@@ -94,9 +98,11 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
     setSaving(true);
     try {
       const resume = await addResume(file, variant === 'sheet' ? { name, note } : { name });
+      if (!mounted.current) return;
       setSaving(false);
       onUploaded(resume);
     } catch (error) {
+      if (!mounted.current) return;
       setSaving(false);
       if (error instanceof ResumeValidationError) fail(error.fields);
       else {
@@ -106,12 +112,12 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
     }
   }
 
-  // Only drags that carry files light the zone up (not a text selection).
-  const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
   function onDrop(event: DragEvent) {
-    if (!carriesFiles(event)) return;
+    // Only drags that carry files light the zone up (not a text selection).
+    if (!carriesFiles(event.dataTransfer)) return;
     event.preventDefault();
     setDragging(false);
+    if (saving) return;
     const files = event.dataTransfer.files;
     if (files.length !== 1) {
       fail({ file: 'Drop one file at a time.' });
@@ -122,20 +128,6 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
     choose(files[0]!);
     fileInput.current?.focus();
   }
-
-  const described = (field: keyof ResumeErrors, ...hints: (string | false)[]) => {
-    const ids = [...hints, errors[field] && `${id}-${field}-error`].filter(Boolean).join(' ');
-    return {
-      'aria-invalid': errors[field] ? (true as const) : undefined,
-      'aria-describedby': ids || undefined,
-    };
-  };
-  const errorText = (field: keyof ResumeErrors) =>
-    errors[field] && (
-      <p id={`${id}-${field}-error`} className="field-error">
-        {errors[field]}
-      </p>
-    );
 
   const fields = (
     <>
@@ -161,11 +153,11 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
         <label
           htmlFor={`${id}-file`}
           data-dropzone=""
-          onDragEnter={(event) => carriesFiles(event) && setDragging(true)}
+          onDragEnter={(event) => carriesFiles(event.dataTransfer) && setDragging(true)}
           onDragOver={(event) => {
-            if (!carriesFiles(event)) return;
+            if (!carriesFiles(event.dataTransfer)) return;
             event.preventDefault();
-            event.dataTransfer.dropEffect = 'copy';
+            event.dataTransfer.dropEffect = saving ? 'none' : 'copy';
           }}
           onDragLeave={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {

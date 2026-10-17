@@ -1,13 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication, NotFoundError } from '@/lib/applications';
+import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
 import * as resumes from '@/lib/resumes';
 import { addResume, type PickedFile } from '@/lib/resumes';
 import App from '@/entrypoints/sidepanel/App';
-import { ResumesPanel } from './ResumesPanel';
 
 const PDF_HEAD = [0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37];
 const DOCX_HEAD = [0x50, 0x4b, 0x03, 0x04];
@@ -413,29 +412,114 @@ describe('Resumes tab', () => {
     expect(await db.resumeFiles.get(resume.id)).toBeDefined();
   });
 
-  it('closes its sheets when the tab is left (e.g. a capture switched tabs)', async () => {
+  it('a capture closes its sheets, and coming back to the tab does not reopen them', async () => {
     await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
-    function Harness() {
-      const [active, setActive] = useState(true);
-      const [uploadOpen, setUploadOpen] = useState(true);
-      return (
-        <>
-          <button type="button" onClick={() => setActive((was) => !was)}>
-            Switch
-          </button>
-          <ResumesPanel
-            showToast={() => {}}
-            announce={() => {}}
-            active={active}
-            uploadOpen={uploadOpen}
-            onUploadOpenChange={setUploadOpen}
-          />
-        </>
-      );
-    }
-    render(<Harness />);
-    expect(await screen.findByRole('dialog', { name: 'Upload a resume' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Switch', hidden: true }));
-    await waitFor(() => expect(document.querySelector('dialog[open]')).toBeNull());
+    vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+      id: 3,
+    } satisfies Partial<Browser.windows.Window> as never);
+    const capture = (url: string) =>
+      act(async () => {
+        await fakeBrowser.storage.session.set({ [draftKey(3)]: createDraft('page', { url }) });
+      });
+    const user = userEvent.setup();
+    await openResumesTab(user);
+    await openUpload(user);
+    await capture('https://acme.com/1');
+    expect(await screen.findByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Upload a resume' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(screen.getByRole('tab', { name: 'Resumes' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await menuAction(user, 'Backend v3', 'Rename');
+    await capture('https://acme.com/2');
+    expect(await screen.findByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Rename resume' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(screen.getByRole('tab', { name: 'Resumes' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('after the first upload, focus stays in the tab (its opener is gone)', async () => {
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    await user.click(within(panel).getByRole('button', { name: 'Upload your first resume' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'Upload a resume' }));
+    await user.upload(sheet.getByLabelText('Resume file'), pickedFile('cv.pdf'));
+    await user.click(uploadButton());
+    await within(panel).findByRole('list', { name: 'Resumes' });
+    await waitFor(() =>
+      expect(within(panel).getByRole('heading', { name: 'Resumes' })).toHaveFocus(),
+    );
+  });
+
+  it('keeps a picked file when the last resume goes elsewhere while the sheet is open', async () => {
+    const resume = await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    const user = userEvent.setup();
+    await openResumesTab(user);
+    const sheet = await openUpload(user);
+    await user.upload(sheet.getByLabelText('Resume file'), pickedFile('Frontend.pdf'));
+    // Deleted in another window: the tab goes back to its empty state behind the sheet.
+    await act(async () => {
+      await db.resumes.update(resume.id, { deletedAt: new Date().toISOString() });
+    });
+    await screen.findByRole('button', { name: 'Upload your first resume', hidden: true });
+    expect(sheet.getByLabelText('Name')).toHaveValue('Frontend');
+  });
+
+  it("can't be closed mid-upload, and ignores a file dropped meanwhile", async () => {
+    let finish!: () => void;
+    const real = resumes.addResume;
+    vi.spyOn(resumes, 'addResume').mockImplementation(
+      (...args) =>
+        new Promise((resolve) => {
+          finish = () => resolve(real(...args));
+        }),
+    );
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    const sheet = await openUpload(user);
+    await user.upload(sheet.getByLabelText('Resume file'), pickedFile('First.pdf'));
+    const submit = uploadButton();
+    await user.click(submit);
+    expect(submit).toHaveTextContent('Uploading…');
+    dropFiles(sheet.getByText('First.pdf').closest('[data-dropzone]')!, [pickedFile('Second.pdf')]);
+    expect(sheet.getByLabelText('Name')).toHaveValue('First');
+    await user.click(sheet.getByRole('button', { name: 'Close' }));
+    expect(sheet.queryByRole('button', { name: 'Discard' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Upload a resume' })).toBeInTheDocument();
+    await act(async () => finish());
+    expect(await within(panel).findByRole('list', { name: 'Resumes' })).toHaveTextContent('First');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a rename that takes the row out of the search leaves focus in the tab', async () => {
+    await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    await addResume(asPicked(pickedFile('cv2.pdf')), { name: 'Backend v2' });
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    await user.type(await within(panel).findByRole('searchbox'), 'backend v3');
+    await menuAction(user, 'Backend v3', 'Rename');
+    const sheet = within(screen.getByRole('dialog', { name: 'Rename resume' }));
+    await user.clear(sheet.getByLabelText('Name'));
+    await user.type(sheet.getByLabelText('Name'), 'Frontend v1{Enter}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() =>
+      expect(within(panel).getByRole('heading', { name: 'Resumes' })).toHaveFocus(),
+    );
+  });
+
+  it('says so when only archived resumes match the search', async () => {
+    await addResume(asPicked(pickedFile('cv.pdf')), { name: 'Backend v3' });
+    const old = await addResume(asPicked(pickedFile('old.pdf')), { name: 'Old one' });
+    await db.resumes.update(old.id, { archived: true });
+    const user = userEvent.setup();
+    const panel = await openResumesTab(user);
+    await user.type(await within(panel).findByRole('searchbox'), 'old');
+    expect(
+      within(panel).getByText('Only archived resumes match. Open Archived to see them.'),
+    ).toBeInTheDocument();
   });
 });

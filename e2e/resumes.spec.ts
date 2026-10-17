@@ -220,3 +220,32 @@ test('rename in a sheet, archive into the accordion, search', async ({ session }
   await expect(page.getByRole('list', { name: 'Resumes' })).toContainText('Backend v3');
   await expect(toggle).toBeHidden();
 });
+
+test('after the first upload, or a rename out of the search, focus stays in the tab', async ({
+  session,
+}) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await page.getByRole('tab', { name: 'Resumes' }).click();
+  await page.getByRole('button', { name: 'Upload your first resume' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Upload a resume' });
+  await sheet
+    .getByLabel('Resume file')
+    .setInputFiles({ name: 'cv.pdf', mimeType: 'application/pdf', buffer: PDF });
+  await sheet.getByLabel('Name', { exact: true }).fill('Backend v3');
+  await sheet.getByRole('button', { name: 'Upload', exact: true }).click();
+  await sheetsClosed(page);
+  const heading = page.getByRole('heading', { name: 'Resumes' });
+  await expect(heading).toBeFocused();
+
+  // Matches the name only (not the file name), so the rename takes it out of the results.
+  await page.getByRole('searchbox', { name: 'Search resumes' }).fill('backend');
+  await resumeAction(page, 'Backend v3', 'Rename');
+  await page
+    .getByRole('dialog', { name: 'Rename resume' })
+    .getByLabel('Name', { exact: true })
+    .fill('Frontend v1');
+  await page.keyboard.press('Enter');
+  await sheetsClosed(page);
+  await expect(heading).toBeFocused();
+});

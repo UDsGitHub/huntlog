@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { NotFoundError } from '@/lib/applications';
 import { formatTimestampDate } from '@/lib/dates';
 import { formatBytes } from '@/lib/format';
@@ -14,7 +14,6 @@ import {
   searchResumes,
   setResumeArchived,
   updateResume,
-  type ResumeErrors,
 } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
 import { MoreMenu } from './MoreMenu';
@@ -33,6 +32,8 @@ import {
 } from './icons';
 import { inert } from './inert';
 import { useCollapsing } from './useCollapsing';
+import { useFieldErrors } from './useFieldErrors';
+import { useFocusRescue } from './useFocusRescue';
 
 interface Props {
   showToast: (toast: Omit<ToastData, 'id'>) => void;
@@ -131,52 +132,29 @@ export function ResumesPanel({
       setRenaming(resume);
       setRenameOpen(true);
     },
+    onFocusLost: keepFocus,
   };
-  const uploadSheet = (
-    <UploadSheet
-      open={uploadOpen && active}
-      onClose={() => onUploadOpenChange(false)}
-      onUploaded={(resume) => {
-        announce(`Uploaded ${resume.name}.`);
-        onUploadOpenChange(false);
-      }}
-    />
-  );
-
-  if (resumes.length === 0) {
-    // Spec §4.6: an empty tab also offers a full-size button, not just the floating one.
-    return (
-      <section aria-labelledby="resumes-heading" className="flex min-w-0 flex-col gap-4">
-        <h2
-          id="resumes-heading"
-          ref={heading}
-          tabIndex={-1}
-          className="section-heading focus:outline-none"
-        >
-          Resumes
-        </h2>
-        <div className="flex flex-col items-stretch gap-3 py-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            No resumes yet. Upload the versions you send, so you always know which one went with
-            each application.
-          </p>
-          <button
-            type="button"
-            onClick={() => onUploadOpenChange(true)}
-            className="btn btn-primary"
-          >
-            <PlusIcon />
-            Upload your first resume
-          </button>
-        </div>
-        {uploadSheet}
-      </section>
-    );
-  }
+  // A sheet whose opener went (the empty state's button after the first upload, a row that a
+  // rename took out of the search): focus stays in the tab, on its heading.
+  const focusIfLost = () => {
+    const focused = document.activeElement;
+    if (
+      !focused ||
+      focused === document.body ||
+      !focused.isConnected ||
+      focused.closest('dialog:not([open])')
+    ) {
+      keepFocus();
+    }
+  };
+  const empty = resumes.length === 0;
 
   return (
-    // Bottom padding keeps the last row clear of the floating + Upload.
-    <section aria-labelledby="resumes-heading" className="flex min-w-0 flex-col gap-3 pb-16">
+    <section
+      aria-labelledby="resumes-heading"
+      // Bottom padding keeps the last row clear of the floating + Upload.
+      className={`flex min-w-0 flex-col ${empty ? 'gap-4' : 'gap-3 pb-16'}`}
+    >
       <h2
         id="resumes-heading"
         ref={heading}
@@ -185,78 +163,98 @@ export function ResumesPanel({
       >
         Resumes
       </h2>
-      <div role="search" aria-label="Find resumes" className="relative min-w-0">
-        <label htmlFor={`${id}-search`} className="sr-only">
-          Search resumes
-        </label>
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          id={`${id}-search`}
-          type="search"
-          autoComplete="off"
-          placeholder="Search by name or file name"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="field pl-8"
-        />
-      </div>
-
-      {activeFound.length > 0 ? (
-        <ul aria-label="Resumes" className="flex flex-col gap-2">
-          {activeFound.map((resume) => (
-            <ResumeRow key={resume.id} resume={resume} {...rowProps} />
-          ))}
-        </ul>
-      ) : found.length === 0 ? (
-        <p className="py-4 text-center text-sm text-muted-foreground">No resumes match.</p>
+      {/* One slot for the content, so the sheets below keep their place (and state) when the
+          first resume arrives or the last one goes. */}
+      {empty ? (
+        <EmptyResumes onUpload={() => onUploadOpenChange(true)} onFocusLost={keepFocus} />
       ) : (
-        archived.length > 0 &&
-        search.trim() === '' && (
-          <p className="text-sm text-muted-foreground">All your resumes are archived.</p>
-        )
-      )}
-
-      {archived.length > 0 && (
-        // An accordion row, like the form's More details: its list slides open and shut.
-        <div className="flex min-w-0 flex-col">
-          <button
-            type="button"
-            aria-expanded={showArchived}
-            aria-controls={`${id}-archived`}
-            onClick={() => setShowArchived((open) => !open)}
-            className="focus-ring flex w-full items-center justify-between gap-2 rounded-sm border-t px-1 py-3 text-left text-sm font-medium"
-          >
-            <span>
-              Archived{' '}
-              <span className="font-normal text-muted-foreground">({archived.length})</span>
-            </span>
-            <ChevronDownIcon
-              className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-180' : ''}`}
+        <>
+          <div role="search" aria-label="Find resumes" className="relative min-w-0">
+            <label htmlFor={`${id}-search`} className="sr-only">
+              Search resumes
+            </label>
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              id={`${id}-search`}
+              type="search"
+              autoComplete="off"
+              placeholder="Search by name or file name"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="field pl-8"
             />
-          </button>
-          <ul
-            id={`${id}-archived`}
-            hidden={!showArchived && !archivedClosing}
-            {...inert(archivedClosing)}
-            data-state={showArchived ? 'open' : 'closing'}
-            aria-label="Archived resumes"
-            className="details-panel flex flex-col gap-2"
-          >
-            {archived.map((resume) => (
-              <ResumeRow key={resume.id} resume={resume} {...rowProps} />
-            ))}
-          </ul>
-        </div>
+          </div>
+
+          {activeFound.length > 0 ? (
+            <ul aria-label="Resumes" className="flex flex-col gap-2">
+              {activeFound.map((resume) => (
+                <ResumeRow key={resume.id} resume={resume} {...rowProps} />
+              ))}
+            </ul>
+          ) : found.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No resumes match.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {search.trim() === ''
+                ? 'All your resumes are archived.'
+                : 'Only archived resumes match. Open Archived to see them.'}
+            </p>
+          )}
+
+          {archived.length > 0 && (
+            // An accordion row, like the form's More details: its list slides open and shut.
+            <div className="flex min-w-0 flex-col">
+              <button
+                type="button"
+                aria-expanded={showArchived}
+                aria-controls={`${id}-archived`}
+                onClick={() => setShowArchived((open) => !open)}
+                className="focus-ring flex w-full items-center justify-between gap-2 rounded-sm border-t px-1 py-3 text-left text-sm font-medium"
+              >
+                <span>
+                  Archived{' '}
+                  <span className="font-normal text-muted-foreground">({archived.length})</span>
+                </span>
+                <ChevronDownIcon
+                  className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-180' : ''}`}
+                />
+              </button>
+              <ul
+                id={`${id}-archived`}
+                hidden={!showArchived && !archivedClosing}
+                {...inert(archivedClosing)}
+                data-state={showArchived ? 'open' : 'closing'}
+                aria-label="Archived resumes"
+                className="details-panel flex flex-col gap-2"
+              >
+                {archived.map((resume) => (
+                  <ResumeRow key={resume.id} resume={resume} {...rowProps} />
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
 
-      {uploadSheet}
+      <UploadSheet
+        open={uploadOpen}
+        onClose={() => onUploadOpenChange(false)}
+        onClosed={focusIfLost}
+        onUploaded={(resume) => {
+          announce(`Uploaded ${resume.name}.`);
+          onUploadOpenChange(false);
+        }}
+      />
       {renaming && (
         <RenameSheet
           key={renaming.id}
           resume={renaming}
-          open={renameOpen && active}
+          open={renameOpen}
           onClose={() => setRenameOpen(false)}
-          onClosed={() => setRenaming(null)}
+          onClosed={() => {
+            setRenaming(null);
+            focusIfLost();
+          }}
           onSaved={() => {
             announce('Saved.');
             setRenameOpen(false);
@@ -267,20 +265,50 @@ export function ResumesPanel({
   );
 }
 
+/** Spec §4.6: an empty tab also offers a full-size button, not just the floating one. */
+function EmptyResumes({
+  onUpload,
+  onFocusLost,
+}: {
+  onUpload: () => void;
+  onFocusLost: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  // Replaced by the list (the first upload, maybe from another window) while focused.
+  useFocusRescue(box, onFocusLost);
+  return (
+    <div ref={box} className="flex flex-col items-stretch gap-3 py-6 text-center">
+      <p className="text-sm text-muted-foreground">
+        No resumes yet. Upload the versions you send, so you always know which one went with each
+        application.
+      </p>
+      <button type="button" onClick={onUpload} className="btn btn-primary">
+        <PlusIcon />
+        Upload your first resume
+      </button>
+    </div>
+  );
+}
+
 function ResumeRow({
   resume,
   announce,
   onDelete,
   onSetArchived,
   onRename,
+  onFocusLost,
 }: {
   resume: Resume;
   announce: (message: string) => void;
   onDelete: (resume: Resume) => Promise<void>;
   onSetArchived: (resume: Resume, archive: boolean) => Promise<void>;
   onRename: (resume: Resume) => void;
+  onFocusLost: () => void;
 }) {
   const id = useId();
+  const item = useRef<HTMLLIElement>(null);
+  // Archived, unarchived, deleted, or out of the search while focused: focus stays in the tab.
+  useFocusRescue(item, onFocusLost);
   async function open() {
     if (!(await openResume(resume))) announce(`${resume.name} isn't available any more.`);
   }
@@ -288,7 +316,7 @@ function ResumeRow({
   const verb = opensInViewer(resume) ? 'Open' : 'Download';
 
   return (
-    <li className="card flex min-w-0 items-start gap-1 p-1">
+    <li ref={item} className="card flex min-w-0 items-start gap-1 p-1">
       {/* The whole card opens (a PDF) or downloads the file; ⋯ has the rest. */}
       <button
         type="button"
@@ -347,10 +375,12 @@ function ResumeRow({
 function UploadSheet({
   open,
   onClose,
+  onClosed,
   onUploaded,
 }: {
   open: boolean;
   onClose: () => void;
+  onClosed: () => void;
   onUploaded: (resume: Resume) => void;
 }) {
   const formId = useId();
@@ -358,10 +388,16 @@ function UploadSheet({
   return (
     <Sheet
       open={open}
-      onClose={onClose}
-      onClosed={() => setState({ dirty: false, saving: false })}
+      // Not mid-upload: a discarded file must not be saved anyway (it's quick).
+      onClose={() => {
+        if (!state.saving) onClose();
+      }}
+      onClosed={() => {
+        setState({ dirty: false, saving: false });
+        onClosed();
+      }}
       title="Upload a resume"
-      dirty={state.dirty}
+      dirty={state.dirty && !state.saving}
       footer={
         <button
           type="submit"
@@ -400,10 +436,11 @@ function RenameSheet({
   const id = useId();
   const [name, setName] = useState(resume.name);
   const [note, setNote] = useState(resume.note ?? '');
-  const [errors, setErrors] = useState<ResumeErrors>({});
   const [saving, setSaving] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
   const noteInput = useRef<HTMLInputElement>(null);
+  const refs = useMemo(() => ({ name: nameInput, note: noteInput }), []);
+  const { fail, described, errorText } = useFieldErrors(id, ['name', 'note'] as const, refs);
   const dirty = name !== resume.name || note !== (resume.note ?? '');
 
   async function save(event: FormEvent) {
@@ -414,13 +451,10 @@ function RenameSheet({
       await updateResume(resume.id, { name, note });
       onSaved();
     } catch (error) {
-      if (error instanceof ResumeValidationError) {
-        setErrors(error.fields);
-        (error.fields.name ? nameInput : noteInput).current?.focus();
-      } else {
+      if (error instanceof ResumeValidationError) fail(error.fields);
+      else {
         if (!(error instanceof NotFoundError)) console.error('updateResume failed', error);
-        setErrors({ name: "Couldn't save. It may have been deleted." });
-        nameInput.current?.focus();
+        fail({ name: "Couldn't save. It may have been deleted." });
       }
     } finally {
       setSaving(false);
@@ -429,18 +463,11 @@ function RenameSheet({
 
   const field = (key: 'name' | 'note') => ({
     id: `${id}-${key}`,
-    'aria-invalid': errors[key] ? (true as const) : undefined,
-    'aria-describedby': errors[key] ? `${id}-${key}-error` : undefined,
     className: 'field',
     type: 'text',
     autoComplete: 'off',
+    ...described(key),
   });
-  const error = (key: 'name' | 'note') =>
-    errors[key] && (
-      <p id={`${id}-${key}-error`} className="field-error">
-        {errors[key]}
-      </p>
-    );
 
   return (
     <Sheet
@@ -457,7 +484,7 @@ function RenameSheet({
           aria-disabled={saving || undefined}
           className="btn btn-primary w-full"
         >
-          Save
+          {saving ? 'Saving…' : 'Save'}
         </button>
       }
     >
@@ -479,7 +506,7 @@ function RenameSheet({
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          {error('name')}
+          {errorText('name')}
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor={`${id}-note`} className="field-label">
@@ -491,7 +518,7 @@ function RenameSheet({
             value={note}
             onChange={(event) => setNote(event.target.value)}
           />
-          {error('note')}
+          {errorText('note')}
         </div>
       </form>
     </Sheet>
