@@ -161,6 +161,10 @@ export function ApplicationForm({
   });
   // Collapsing slides shut before the section is hidden (not under reduced motion).
   const detailsClosing = useCollapsing(detailsOpen);
+  // Only a tap on the row animates. Opening on its own (an error inside, a capture, Edit) is
+  // instant: an error focuses its field at once, and a panel still growing would push that
+  // field out of view.
+  const [detailsAnimate, setDetailsAnimate] = useState(false);
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -240,7 +244,10 @@ export function ApplicationForm({
         // The first invalid field, in screen order (also for errors only storage can catch).
         const first = FIELD_ORDER.find((field) => error.fields[field]);
         // Any error inside More details opens it, even when the first error is above it.
-        if (DETAIL_FIELDS.some((field) => error.fields[field])) setDetailsOpen(true);
+        if (DETAIL_FIELDS.some((field) => error.fields[field])) {
+          setDetailsAnimate(false);
+          setDetailsOpen(true);
+        }
         pendingFocus.current = first ?? null;
         return;
       }
@@ -436,7 +443,10 @@ export function ApplicationForm({
               aria-expanded={detailsOpen}
               aria-controls={`${id}-details`}
               aria-describedby={`${id}-details-hint`}
-              onClick={() => setDetailsOpen((open) => !open)}
+              onClick={() => {
+                setDetailsAnimate(true);
+                setDetailsOpen((open) => !open);
+              }}
               className="focus-ring flex w-full items-center justify-between gap-2 rounded-sm px-1 pt-3 pb-1 text-left text-sm font-medium"
             >
               More details
@@ -460,6 +470,7 @@ export function ApplicationForm({
             // Sliding shut: out of reach already, so focus can't land in it just before it hides.
             {...inert(detailsClosing)}
             data-state={detailsOpen ? 'open' : 'closing'}
+            data-instant={!detailsAnimate || undefined}
             className="details-panel min-w-0"
           >
             {/* The panel animates its height; this is the content it clips. */}

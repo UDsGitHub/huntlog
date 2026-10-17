@@ -1,13 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from 'react';
+import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { listApplications } from '@/lib/applications';
 import { formatLocalDate } from '@/lib/dates';
 import { effectiveWeekStart } from '@/lib/settings';
@@ -28,6 +20,7 @@ import { CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
 import { ActivityChart, GoalRing, OutcomesBar } from './StatsCharts';
+import { useEdgeFade } from './useEdgeFade';
 import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
 import { useSettings } from './useSettings';
@@ -159,32 +152,8 @@ function RangeChips({
 }) {
   const chips = useRef(new Map<RangeKind, HTMLButtonElement>());
   const row = useRef<HTMLDivElement>(null);
-  // With scrollbars hidden (spec §3), an edge with more chips beyond it fades out instead.
-  const [fade, setFade] = useState({ start: false, end: false });
-  useLayoutEffect(() => {
-    const element = row.current;
-    if (!element) return;
-    const update = () => {
-      const start = element.scrollLeft > 1;
-      const end = element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
-      setFade((was) => (was.start === start && was.end === end ? was : { start, end }));
-    };
-    update();
-    element.addEventListener('scroll', update, { passive: true });
-    // Also when the panel's width changes, or the tab is shown (it's sized only then).
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update);
-    observer?.observe(element);
-    return () => {
-      element.removeEventListener('scroll', update);
-      observer?.disconnect();
-    };
-  }, []);
-  const mask =
-    fade.start || fade.end
-      ? `linear-gradient(to right, ${fade.start ? 'transparent, black 1.5rem' : 'black'}, ${
-          fade.end ? 'black calc(100% - 1.5rem), transparent' : 'black'
-        })`
-      : undefined;
+  // Fades as wide as the gutter, so a chip scrolled clear of the edge is never faded.
+  const fade = useEdgeFade(row, 'x', 'var(--tab-gutter)');
 
   function onKeyDown(event: KeyboardEvent) {
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -204,14 +173,13 @@ function RangeChips({
       ref={row}
       role="radiogroup"
       aria-label="Range"
-      data-fade-start={fade.start || undefined}
-      data-fade-end={fade.end || undefined}
-      style={mask ? { maskImage: mask } : undefined}
+      {...fade.attributes}
+      style={fade.style}
       onKeyDown={onKeyDown}
       // Edge to edge across the tab (through its --tab-gutter padding), so chips scroll out under
       // the edge; scroll padding keeps a focused chip clear of it. Room for focus rings above and
       // below.
-      className="-mx-(--tab-gutter) flex min-w-0 scroll-px-(--tab-gutter) gap-1.5 overflow-x-auto px-(--tab-gutter) py-1 [scrollbar-width:none]"
+      className="-mx-(--tab-gutter) flex min-w-0 scroll-px-(--tab-gutter) gap-1.5 overflow-x-auto px-(--tab-gutter) py-1"
     >
       {RANGE_KINDS.map((option) => {
         const pressed = option === kind;

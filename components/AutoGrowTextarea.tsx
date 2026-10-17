@@ -1,4 +1,5 @@
 import { forwardRef, useLayoutEffect, useRef, type TextareaHTMLAttributes } from 'react';
+import { useEdgeFade } from './useEdgeFade';
 
 /** Chrome 123+ sizes a textarea to its content in CSS; checked once. */
 const FIELD_SIZING = (() => {
@@ -18,8 +19,10 @@ const FIELD_SIZING = (() => {
 export const AutoGrowTextarea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement>
->(function AutoGrowTextarea({ value, className = '', ...props }, ref) {
+>(function AutoGrowTextarea({ value, className = '', style, ...props }, ref) {
   const own = useRef<HTMLTextAreaElement | null>(null);
+  // Past about twelve lines it scrolls, with no scrollbar (spec §3): the cut-off edge fades.
+  const fade = useEdgeFade(own, 'y', '1.5rem', value);
   useLayoutEffect(() => {
     const element = own.current;
     if (!element || FIELD_SIZING) return;
@@ -50,6 +53,8 @@ export const AutoGrowTextarea = forwardRef<
       }}
       rows={3}
       value={value}
+      {...fade.attributes}
+      style={{ ...style, ...fade.style }}
       // Never resized by hand (spec §4.2): it sizes itself.
       className={`${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] resize-none`}
     />
