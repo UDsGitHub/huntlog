@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { formatLocalDate, formatShortLocalDate } from '@/lib/dates';
 import type { Activity, ActivityUnit, GoalProgress, Stats } from '@/lib/stats';
 import { STATUS_LABELS } from '@/lib/status';
@@ -22,28 +22,25 @@ export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
   const total = outcomes.reduce((sum, outcome) => sum + outcome.count, 0);
   if (total === 0) return null;
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex min-w-0 flex-col gap-2">
-      <h3 id={`${id}-heading`} className="text-sm font-semibold">
-        Where they stand now
-      </h3>
-      <div
-        aria-hidden="true"
-        className="flex h-3.5 w-full gap-0.5 overflow-hidden rounded-full border border-input bg-background p-px"
-      >
+    <section aria-labelledby={`${id}-heading`} className={chartCard}>
+      <ChartHeader id={`${id}-heading`} title="Where they stand now">
+        Applications from this range, by their status today.
+      </ChartHeader>
+      <div aria-hidden="true" className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full">
         {outcomes.map(({ status, count }) => (
           <div
             key={status}
-            className={`rounded-full ${STATUS_SWATCH[status]}`}
+            className={STATUS_SWATCH[status]}
             style={{ flexGrow: count, flexBasis: 0 }}
           />
         ))}
       </div>
-      <ul className="flex flex-col gap-1 text-xs">
+      <ul className="flex flex-col gap-1.5 text-xs">
         {outcomes.map(({ status, count }) => (
           <li key={status} className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className={`size-2.5 shrink-0 rounded-sm ring-1 ring-input ${STATUS_SWATCH[status]}`}
+              className={`size-2.5 shrink-0 rounded-full ${STATUS_SWATCH[status]}`}
             />
             <span className="min-w-0 flex-1">{outcomeLabel(status)}</span>
             <span className="font-medium tabular-nums">{count}</span>
@@ -51,6 +48,20 @@ export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Each chart sits in a card (shadcn's chart card): a title, a line under it, then the chart. */
+const chartCard = 'card flex min-w-0 flex-col gap-3 p-4';
+
+function ChartHeader({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <h3 id={id} className="text-sm font-semibold">
+        {title}
+      </h3>
+      <p className="text-xs text-muted-foreground">{children}</p>
+    </div>
   );
 }
 
@@ -75,9 +86,6 @@ function axisLabel(unit: ActivityUnit, date: string, crossesYear: boolean): stri
   return crossesYear ? formatLocalDate(date) : formatShortLocalDate(date, 'day-month');
 }
 
-const HEIGHT = 64;
-const GAP_RATIO = 0.25;
-
 /**
  * Applications per day, week, month or year across the range, as bars. `total` is the Applied
  * count shown above, so the two can't disagree. Screen readers get a one-line summary and the
@@ -99,38 +107,34 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
   const last = buckets.at(-1)!.to;
   const crossesYear = first.slice(0, 4) !== last.slice(0, 4);
 
-  // One unit per bar, a fraction of it a gap; the SVG stretches to the panel's width.
-  const width = buckets.length;
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex min-w-0 flex-col gap-2">
-      <h3 id={`${id}-heading`} className="text-sm font-semibold">
-        Applications per {per}
-      </h3>
-      <p className="text-xs text-muted-foreground">{summary}</p>
-      <div aria-hidden="true" className="flex min-w-0 flex-col gap-1">
-        <svg viewBox={`0 0 ${width} ${HEIGHT}`} preserveAspectRatio="none" className="h-16 w-full">
-          <line
-            x1={0}
-            x2={width}
-            y1={HEIGHT - 0.5}
-            y2={HEIGHT - 0.5}
-            className="stroke-border"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
-          {buckets.map((bucket, index) =>
-            bucket.count === 0 ? null : (
-              <rect
+    <section aria-labelledby={`${id}-heading`} className={chartCard}>
+      <ChartHeader id={`${id}-heading`} title={`Applications per ${per}`}>
+        {summary}
+      </ChartHeader>
+      <div aria-hidden="true" className="flex min-w-0 flex-col gap-1.5">
+        {/* HTML bars rather than a stretched SVG, so their rounded tops keep their shape. */}
+        <div className="relative h-24">
+          <div className="absolute inset-x-0 top-0 border-t border-dashed" />
+          <div className="absolute inset-x-0 top-1/2 border-t border-dashed" />
+          <div className="absolute inset-0 flex items-end border-b">
+            {buckets.map((bucket) => (
+              <div
                 key={bucket.from}
-                x={index + GAP_RATIO / 2}
-                y={HEIGHT - (bucket.count / max) * (HEIGHT - 2)}
-                width={1 - GAP_RATIO}
-                height={(bucket.count / max) * (HEIGHT - 2)}
-                className="fill-chart-1"
-              />
-            ),
-          )}
-        </svg>
+                className="flex h-full min-w-0 flex-1 items-end justify-center"
+              >
+                {bucket.count > 0 && (
+                  <div
+                    data-bar=""
+                    // At least 2px, so one application still shows beside a busy day.
+                    className="min-h-0.5 w-3/4 rounded-t-[3px] bg-chart-1"
+                    style={{ height: `${(bucket.count / max) * 100}%` }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{axisLabel(unit, first, crossesYear)}</span>
           <span>{axisLabel(unit, last, crossesYear)}</span>

@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { listApplications } from '@/lib/applications';
-import { formatLocalDate, MIN_YEAR } from '@/lib/dates';
+import { formatLocalDate, MIN_YEAR, todayLocal } from '@/lib/dates';
 import { effectiveWeekStart } from '@/lib/settings';
 import {
   computeStats,
@@ -15,7 +15,11 @@ import {
   type RangeKind,
   type Rate,
 } from '@/lib/stats';
+import { CheckIcon } from './icons';
+import { rovingIndex } from './rovingIndex';
+import { Sheet } from './Sheet';
 import { ActivityChart, GoalRing, OutcomesBar } from './StatsCharts';
+import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
 import { useSettings } from './useSettings';
 
@@ -30,11 +34,14 @@ function rangeText({ from, to }: DateRange): string {
  * The Stats tab (spec §4.7): a range (This week by default, kept while switching tabs), then the
  * headline numbers. Counting lives in `lib/stats.ts`; this only picks the range and shows it.
  */
-export function StatsPanel() {
+export function StatsPanel({ active }: { active: boolean }) {
   const apps = useLiveQuery(() => listApplications(), []);
-  const id = useId();
   const [kind, setKind] = useState<RangeKind>('this-week');
-  const [custom, setCustom] = useState<Partial<DateRange>>({});
+  // The last Custom dates applied (the sheet only applies valid ones).
+  const [custom, setCustom] = useState<DateRange | undefined>();
+  const [customOpen, setCustomOpen] = useState(false);
+  // A capture switching tabs mustn't leave this tab's sheet open behind the next one.
+  if (!active && customOpen) setCustomOpen(false);
   const today = useToday();
   const settings = useSettings();
   // Settings → First day of the week, else the locale's (spec §4.7). Undefined while loading.
@@ -68,15 +75,6 @@ export function StatsPanel() {
 
   if (!apps || !result) return null;
   const { now, range, stats } = result;
-  const errors =
-    kind === 'custom'
-      ? { from: customDateError(custom.from, now), to: customDateError(custom.to, now) }
-      : {};
-
-  function pickKind(next: RangeKind) {
-    if (next === 'custom') setCustom((c) => customStart(c, today));
-    setKind(next);
-  }
 
   return (
     <section aria-labelledby="stats-heading" className="flex min-w-0 flex-col gap-4">
@@ -85,54 +83,27 @@ export function StatsPanel() {
       </h2>
       {progress && <GoalRing progress={progress} />}
 
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <label htmlFor={`${id}-range`} className="field-label">
-            Range
-          </label>
-          <select
-            id={`${id}-range`}
-            value={kind}
-            onChange={(event) => pickKind(event.target.value as RangeKind)}
-            className="field"
-          >
-            {RANGE_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {RANGE_LABELS[option]}
-              </option>
-            ))}
-          </select>
-        </div>
-        {kind === 'custom' && (
-          <fieldset className="flex min-w-0 gap-2">
-            <legend className="sr-only">Custom range</legend>
-            {(['from', 'to'] as const).map((end) => (
-              <div key={end} className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor={`${id}-${end}`} className="field-label">
-                  {end === 'from' ? 'From' : 'To'}
-                </label>
-                <input
-                  id={`${id}-${end}`}
-                  type="date"
-                  min={`${MIN_YEAR}-01-01`}
-                  max={today}
-                  value={custom[end] ?? ''}
-                  onChange={(event) => setCustom((c) => ({ ...c, [end]: event.target.value }))}
-                  aria-invalid={errors[end] ? true : undefined}
-                  aria-describedby={errors[end] ? `${id}-${end}-error` : undefined}
-                  className="field"
-                />
-                {errors[end] && (
-                  <p id={`${id}-${end}-error`} className="field-error">
-                    {errors[end]}
-                  </p>
-                )}
-              </div>
-            ))}
-          </fieldset>
-        )}
+      <div className="flex min-w-0 flex-col gap-1">
+        <RangeChips
+          kind={kind}
+          onPick={setKind}
+          onCustom={() => setCustomOpen(true)}
+          customOpen={customOpen}
+        />
         {range && <p className="text-xs text-muted-foreground">{rangeText(range)}</p>}
       </div>
+      <CustomRangeSheet
+        open={customOpen}
+        onClose={() => setCustomOpen(false)}
+        // The applied dates, or the last 30 days the first time.
+        initial={customStart(custom ?? {}, today)}
+        now={now}
+        onApply={(dates) => {
+          setCustom(dates);
+          setKind('custom');
+          setCustomOpen(false);
+        }}
+      />
 
       {apps.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -165,6 +136,173 @@ export function StatsPanel() {
         )
       )}
     </section>
+  );
+}
+
+/**
+ * The range (spec §4.7): a row of chips that scrolls sideways, one Tab stop. Arrow keys, Home
+ * and End move between chips without changing the range; Enter, Space or a tap picks. Custom
+ * opens its dates in a sheet, so landing on it never pops a sheet up.
+ */
+function RangeChips({
+  kind,
+  onPick,
+  onCustom,
+  customOpen,
+}: {
+  kind: RangeKind;
+  onPick: (kind: RangeKind) => void;
+  onCustom: () => void;
+  customOpen: boolean;
+}) {
+  const chips = useRef(new Map<RangeKind, HTMLButtonElement>());
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const index = RANGE_KINDS.findIndex((k) => chips.current.get(k) === document.activeElement);
+    if (index === -1) return;
+    const to = rovingIndex(event.key, index, RANGE_KINDS.length, {
+      next: 'ArrowRight',
+      previous: 'ArrowLeft',
+    });
+    if (to === undefined) return;
+    event.preventDefault();
+    chips.current.get(RANGE_KINDS[to]!)?.focus();
+  }
+
+  return (
+    <div
+      role="group"
+      aria-label="Range"
+      onKeyDown={onKeyDown}
+      // Edge to edge across the tab (its padding is px-4), so chips scroll out under the edge;
+      // scroll padding keeps a focused chip clear of it. Room above and below for focus rings.
+      className="-mx-4 flex min-w-0 scroll-px-4 gap-1.5 overflow-x-auto px-4 py-1 [scrollbar-width:none]"
+    >
+      {RANGE_KINDS.map((option) => {
+        const pressed = option === kind;
+        return (
+          <button
+            key={option}
+            ref={(element) => {
+              if (element) chips.current.set(option, element);
+              else chips.current.delete(option);
+            }}
+            type="button"
+            aria-pressed={pressed}
+            // Only the chosen chip is a Tab stop; the arrows reach the others.
+            tabIndex={pressed ? 0 : -1}
+            {...(option === 'custom' && {
+              'aria-haspopup': 'dialog' as const,
+              'aria-expanded': customOpen,
+            })}
+            onClick={() => (option === 'custom' ? onCustom() : onPick(option))}
+            className={`chip focus-ring shrink-0 whitespace-nowrap ${pressed ? 'chip-on' : ''}`}
+          >
+            {pressed && <CheckIcon className="size-3.5" />}
+            {option === 'custom' ? 'Custom…' : RANGE_LABELS[option]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Custom's From and To (spec §4.7), applied together by Apply: closing any other way keeps the
+ * range that was showing. Dates the wrong way round are swapped.
+ */
+function CustomRangeSheet({
+  open,
+  onClose,
+  initial,
+  now,
+  onApply,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial: DateRange;
+  now: Date;
+  onApply: (dates: DateRange) => void;
+}) {
+  const formId = useId();
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Custom range"
+      description="Both dates are included."
+      footer={
+        <button type="submit" form={formId} className="btn btn-primary w-full">
+          Apply
+        </button>
+      }
+    >
+      <CustomRangeForm id={formId} initial={initial} now={now} onApply={onApply} />
+    </Sheet>
+  );
+}
+
+/** Mounted only while the sheet is open, so each opening starts from the applied dates. */
+function CustomRangeForm({
+  id,
+  initial,
+  now,
+  onApply,
+}: {
+  id: string;
+  initial: DateRange;
+  now: Date;
+  onApply: (dates: DateRange) => void;
+}) {
+  const [dates, setDates] = useState(initial);
+  const fromInput = useRef<HTMLInputElement>(null);
+  const toInput = useRef<HTMLInputElement>(null);
+  const refs = useMemo(() => ({ from: fromInput, to: toInput }), []);
+  const { fail, clear, described, errorText } = useFieldErrors(id, ['from', 'to'] as const, refs);
+  const today = todayLocal(now);
+
+  function apply(event: FormEvent) {
+    event.preventDefault();
+    const errors = { from: customDateError(dates.from, now), to: customDateError(dates.to, now) };
+    if (errors.from || errors.to) return fail(errors);
+    const { from, to } = dates;
+    onApply(from <= to ? { from, to } : { from: to, to: from });
+  }
+
+  return (
+    <form
+      id={id}
+      onSubmit={apply}
+      noValidate
+      aria-label="Custom range"
+      className="flex min-w-0 gap-2"
+    >
+      {(['from', 'to'] as const).map((end) => (
+        <div key={end} className="flex min-w-0 flex-1 flex-col gap-1">
+          <label htmlFor={`${id}-${end}`} className="field-label">
+            {end === 'from' ? 'From' : 'To'}
+          </label>
+          <input
+            ref={end === 'from' ? fromInput : toInput}
+            id={`${id}-${end}`}
+            type="date"
+            min={`${MIN_YEAR}-01-01`}
+            max={today}
+            value={dates[end]}
+            onChange={(event) => {
+              setDates((current) => ({ ...current, [end]: event.target.value }));
+              clear();
+            }}
+            className="field"
+            {...described(end)}
+          />
+          {errorText(end)}
+        </div>
+      ))}
+      {/* Enter in a date field applies; the visible Apply is in the sheet's footer. */}
+      <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
+    </form>
   );
 }
 

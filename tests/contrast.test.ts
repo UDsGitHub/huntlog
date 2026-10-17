@@ -66,7 +66,7 @@ const GRAPHICS: [string, string][] = [
   ['ring', 'card'],
   ['chart-1', 'background'],
   ['chart-1', 'card'],
-  // Outcome segments and legend swatches (the bar sits on the page background).
+  // Status swatches: timeline dots on the page, outcome segments and legend swatches on a card.
   ...(
     [
       'saved',
@@ -79,7 +79,10 @@ const GRAPHICS: [string, string][] = [
       'withdrawn',
       'ghosted',
     ] as const
-  ).map((status): [string, string] => [`status-${status}`, 'background']),
+  ).flatMap((status): [string, string][] => [
+    [`status-${status}`, 'background'],
+    [`status-${status}`, 'card'],
+  ]),
 ];
 
 describe.each([

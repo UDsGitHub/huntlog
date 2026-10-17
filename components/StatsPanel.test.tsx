@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import * as applications from '@/lib/applications';
 import { addApplication, setStatus, softDeleteApplication } from '@/lib/applications';
+import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
 import { updateSettings } from '@/lib/settings';
 import App from '@/entrypoints/sidepanel/App';
@@ -43,8 +44,21 @@ async function openStats(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('tab', { name: 'Stats' }));
   const panel = screen.getByRole('tabpanel', { name: 'Stats' });
   // The panel renders once its live query has loaded.
-  await within(panel).findByLabelText('Range');
+  await within(panel).findByRole('group', { name: 'Range' });
   return panel;
+}
+
+const chip = (panel: HTMLElement, name: string) =>
+  within(within(panel).getByRole('group', { name: 'Range' })).getByRole('button', { name });
+const pressedChip = (panel: HTMLElement) =>
+  within(within(panel).getByRole('group', { name: 'Range' })).getByRole('button', {
+    pressed: true,
+  });
+const customSheet = () => screen.getByRole('dialog', { name: 'Custom range' });
+
+async function openCustom(user: ReturnType<typeof userEvent.setup>, panel: HTMLElement) {
+  await user.click(chip(panel, 'Custom…'));
+  return customSheet();
 }
 
 /** A headline card by its label (rate labels share their <dt> with the counts line). */
@@ -70,7 +84,7 @@ describe('Stats tab', () => {
 
     const user = userEvent.setup();
     const panel = await openStats(user);
-    expect(within(panel).getByLabelText('Range')).toHaveValue('this-week');
+    expect(pressedChip(panel)).toHaveAccessibleName('This week');
     expect(panel).toHaveTextContent('Oct 11, 2026 – Oct 17, 2026');
     expect(card(panel, 'Applied')).toHaveTextContent('4');
     expect(card(panel, 'Interviews')).toHaveTextContent('1');
@@ -79,7 +93,9 @@ describe('Stats tab', () => {
     expect(card(panel, /Response rate/)).toHaveTextContent('50%');
     expect(card(panel, /Interview rate/)).toHaveTextContent('25%');
 
-    await user.selectOptions(within(panel).getByLabelText('Range'), 'This month');
+    await user.click(chip(panel, 'This month'));
+    expect(pressedChip(panel)).toHaveAccessibleName('This month');
+    expect(chip(panel, 'This week')).toHaveAttribute('aria-pressed', 'false');
     expect(panel).toHaveTextContent('Oct 1, 2026 – Oct 31, 2026');
     expect(card(panel, 'Applied')).toHaveTextContent('5');
     expect(card(panel, /Response rate/)).toHaveTextContent('2 of 5 heard back');
@@ -100,58 +116,156 @@ describe('Stats tab', () => {
     expect(within(panel).queryByRole('region', { name: 'Where they stand now' })).toBeNull();
   });
 
-  it('a custom range starts at the last 30 days and follows the dates typed', async () => {
+  it('picks a range from the chips with one Tab stop; arrows move without picking', async () => {
+    await applied('2026-10-12');
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    const chips = within(within(panel).getByRole('group', { name: 'Range' })).getAllByRole(
+      'button',
+    );
+    expect(chips.map((c) => c.textContent)).toEqual([
+      'This week',
+      'Last 7 days',
+      'This month',
+      'Last 30 days',
+      'This year',
+      'All time',
+      'Custom…',
+    ]);
+    // Only the chosen chip is a Tab stop.
+    expect(chips.map((c) => c.tabIndex)).toEqual([0, -1, -1, -1, -1, -1, -1]);
+    chips[0]!.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(chips[1]).toHaveFocus();
+    expect(pressedChip(panel)).toBe(chips[0]);
+    await user.keyboard('{End}');
+    // Landing on Custom doesn't open its sheet.
+    expect(chips[6]).toHaveFocus();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.keyboard('{ArrowRight}');
+    expect(chips[0]).toHaveFocus();
+    await user.keyboard('{ArrowLeft}{ArrowLeft}{Enter}');
+    expect(pressedChip(panel)).toBe(chips[5]);
+    expect(chips[5]).toHaveAttribute('tabindex', '0');
+    expect(panel).toHaveTextContent('Oct 12, 2026 – Oct 16, 2026');
+  });
+
+  it('Custom opens a sheet on the last 30 days, and Apply shows that range', async () => {
     await applied('2026-09-01');
     await applied('2026-09-20');
     await applied('2026-10-10');
     const user = userEvent.setup();
     const panel = await openStats(user);
-    await user.selectOptions(within(panel).getByLabelText('Range'), 'Custom');
-    const from = within(panel).getByLabelText('From');
-    const to = within(panel).getByLabelText('To');
+    const sheet = await openCustom(user, panel);
+    expect(chip(panel, 'Custom…')).toHaveAttribute('aria-expanded', 'true');
+    const from = within(sheet).getByLabelText('From');
+    const to = within(sheet).getByLabelText('To');
+    expect(from).toHaveFocus();
     expect(from).toHaveValue('2026-09-17');
     expect(to).toHaveValue('2026-10-16');
     expect(to).toHaveAttribute('max', '2026-10-16');
+    expect(to).toHaveAttribute('min', '1970-01-01');
+    // Nothing changes until Apply.
+    expect(pressedChip(panel)).toHaveAccessibleName('This week');
+
+    await user.click(within(sheet).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(pressedChip(panel)).toHaveAccessibleName('Custom…');
+    expect(chip(panel, 'Custom…')).toHaveFocus();
+    expect(panel).toHaveTextContent('Sep 17, 2026 – Oct 16, 2026');
     expect(card(panel, 'Applied')).toHaveTextContent('2');
 
-    await user.clear(from);
-    // Only the field that's wrong is flagged, with its own message.
-    expect(from).toHaveAccessibleDescription('Enter a date.');
-    expect(from).toHaveAttribute('aria-invalid', 'true');
-    expect(to).not.toHaveAttribute('aria-invalid');
-    expect(within(panel).queryByText('Applied', { selector: 'dt' })).toBeNull();
-
-    await user.type(from, '2026-09-01');
+    // Reopened, it shows the applied dates; Enter in a field applies.
+    const again = await openCustom(user, panel);
+    expect(within(again).getByLabelText('From')).toHaveValue('2026-09-17');
+    await user.clear(within(again).getByLabelText('From'));
+    await user.type(within(again).getByLabelText('From'), '2026-09-01{Enter}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(card(panel, 'Applied')).toHaveTextContent('3');
-    expect(from).not.toHaveAttribute('aria-invalid');
   });
 
-  it('says what is wrong with a typed date', async () => {
+  it('swaps dates entered the wrong way round', async () => {
     await applied('2026-10-10');
     const user = userEvent.setup();
     const panel = await openStats(user);
-    await user.selectOptions(within(panel).getByLabelText('Range'), 'Custom');
-    const to = within(panel).getByLabelText('To');
-    expect(to).toHaveAttribute('min', '1970-01-01');
+    const sheet = await openCustom(user, panel);
+    const from = within(sheet).getByLabelText('From');
+    const to = within(sheet).getByLabelText('To');
+    await user.clear(from);
+    await user.type(from, '2026-10-12');
+    await user.clear(to);
+    await user.type(to, '2026-10-01');
+    await user.click(within(sheet).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(panel).toHaveTextContent('Oct 1, 2026 – Oct 12, 2026');
+    const again = await openCustom(user, panel);
+    expect(within(again).getByLabelText('From')).toHaveValue('2026-10-01');
+    expect(within(again).getByLabelText('To')).toHaveValue('2026-10-12');
+  });
+
+  it('says what is wrong with a date on Apply, and keeps the range showing', async () => {
+    await applied('2026-10-10');
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    const sheet = await openCustom(user, panel);
+    const from = within(sheet).getByLabelText('From');
+    const to = within(sheet).getByLabelText('To');
     await user.clear(to);
     await user.type(to, '2026-10-20');
+    await user.clear(from);
+    expect(from).not.toHaveAttribute('aria-invalid');
+    await user.click(within(sheet).getByRole('button', { name: 'Apply' }));
+    // Each field says what's wrong with it, and the first takes focus.
+    expect(from).toHaveAccessibleDescription('Enter a date.');
     expect(to).toHaveAccessibleDescription("This date can't be in the future.");
-    await user.clear(to);
-    await user.type(to, '1969-12-31');
-    expect(to).toHaveAccessibleDescription('Enter a valid date.');
+    expect(from).toHaveFocus();
+    expect(customSheet()).toBeInTheDocument();
+    expect(pressedChip(panel)).toHaveAccessibleName('This week');
+
+    await user.type(from, '1969-12-31');
+    expect(from).not.toHaveAttribute('aria-invalid');
+    await user.click(within(sheet).getByRole('button', { name: 'Apply' }));
+    expect(from).toHaveAccessibleDescription('Enter a valid date.');
   });
 
-  it('refills a half-cleared custom range when Custom is picked again', async () => {
+  it('closing without Apply keeps the range that was showing', async () => {
     await applied('2026-10-10');
     const user = userEvent.setup();
     const panel = await openStats(user);
-    const range = within(panel).getByLabelText('Range');
-    await user.selectOptions(range, 'Custom');
-    await user.clear(within(panel).getByLabelText('From'));
-    await user.selectOptions(range, 'This week');
-    await user.selectOptions(range, 'Custom');
-    expect(within(panel).getByLabelText('From')).toHaveValue('2026-09-17');
-    expect(within(panel).getByLabelText('From')).not.toHaveAttribute('aria-invalid');
+    await user.click(chip(panel, 'This month'));
+    const sheet = await openCustom(user, panel);
+    await user.clear(within(sheet).getByLabelText('From'));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(pressedChip(panel)).toHaveAccessibleName('This month');
+    expect(chip(panel, 'Custom…')).toHaveAttribute('aria-expanded', 'false');
+    expect(chip(panel, 'Custom…')).toHaveFocus();
+    // What was typed is forgotten: it opens on the last 30 days again.
+    const again = await openCustom(user, panel);
+    expect(within(again).getByLabelText('From')).toHaveValue('2026-09-17');
+    expect(within(again).getByLabelText('From')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('a capture closes the Custom sheet, and coming back does not reopen it', async () => {
+    vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+      id: 3,
+    } satisfies Partial<Browser.windows.Window> as never);
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    await user.click(chip(panel, 'This month'));
+    await openCustom(user, panel);
+    await act(async () => {
+      await fakeBrowser.storage.session.set({
+        [draftKey(3)]: createDraft('page', { url: 'https://acme.com/1' }),
+      });
+    });
+    expect(await screen.findByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Custom range' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(screen.getByRole('tab', { name: 'Stats' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(pressedChip(panel)).toHaveAccessibleName('This month');
   });
 
   it('moves on to the new day when the panel is shown again after midnight', async () => {
@@ -169,10 +283,10 @@ describe('Stats tab', () => {
     await applied('2026-10-12');
     const user = userEvent.setup();
     const panel = await openStats(user);
-    await user.selectOptions(within(panel).getByLabelText('Range'), 'All time');
+    await user.click(chip(panel, 'All time'));
     await user.click(screen.getByRole('tab', { name: 'Applications' }));
     await user.click(screen.getByRole('tab', { name: 'Stats' }));
-    expect(within(panel).getByLabelText('Range')).toHaveValue('all-time');
+    expect(pressedChip(panel)).toHaveAccessibleName('All time');
   });
 
   it("shows a message instead of a blank tab when the stats can't load", async () => {
@@ -254,7 +368,7 @@ describe('Stats tab', () => {
       const panel = await openStats(user);
       expect(ring(panel)).toHaveTextContent('3 of 10 this week');
       expect(ring(panel)).toHaveTextContent('7 more to reach your goal.');
-      await user.selectOptions(within(panel).getByLabelText('Range'), 'This month');
+      await user.click(chip(panel, 'This month'));
       expect(card(panel, 'Applied')).toHaveTextContent('4');
       expect(ring(panel)).toHaveTextContent('3 of 10 this week');
     });
