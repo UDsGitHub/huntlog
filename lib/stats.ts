@@ -295,6 +295,15 @@ export function activity(
   return { unit, buckets };
 }
 
+/**
+ * The Applied rule (spec §4.7), shared by the Applied card and the weekly goal so they always
+ * agree: a live application whose Date applied falls in the range. Without a Date applied
+ * (Saved, or Skip), a job isn't counted as applied.
+ */
+function appliedIn(app: Application, range: DateRange): boolean {
+  return !app.deletedAt && inRange(app.appliedAt, range);
+}
+
 export function computeStats(
   apps: readonly Application[],
   range: DateRange,
@@ -306,8 +315,7 @@ export function computeStats(
   for (const app of live) {
     if (reachedIn(app, INTERVIEW_STAGE, range)) interviews++;
     if (reachedIn(app, OFFER_STAGE, range)) offers++;
-    // Without a Date applied (Skip), a job isn't counted as applied (spec §4.7).
-    if (!inRange(app.appliedAt, range)) continue;
+    if (!appliedIn(app, range)) continue;
     applied++;
     if (everIn(app, RESPONSE_STATUSES)) responded++;
     if (everIn(app, INTERVIEW_STAGE)) interviewed++;
@@ -325,5 +333,41 @@ export function computeStats(
       count: counts.get(status)!,
     })),
     activity: activity(live, range, weekStartsOn),
+  };
+}
+
+/** This week against the weekly goal (spec §4.7). */
+export interface GoalProgress {
+  goal: number;
+  /** Applications applied this week. Can pass the goal. */
+  count: number;
+  /** How full the ring is: 0 to 1, full once the goal is reached. */
+  fraction: number;
+  /** How many more reach the goal; 0 once reached. */
+  remaining: number;
+  /** The calendar week counted (whole week, whatever range Stats shows). */
+  week: DateRange;
+}
+
+/**
+ * This week's Applied count against the goal (spec §4.7): applications whose Date applied falls
+ * in the calendar week containing `now`, whatever range the Stats tab shows. Like Applied, a job
+ * without a Date applied (Saved, or Skip) doesn't count, nor does a deleted one.
+ */
+export function weeklyGoalProgress(
+  apps: readonly Application[],
+  now: Date,
+  weekStartsOn: WeekStart,
+  goal: number,
+): GoalProgress {
+  // The same week as the This week range, by definition.
+  const week = resolveRange('this-week', { now, weekStartsOn })!;
+  const count = apps.filter((app) => appliedIn(app, week)).length;
+  return {
+    goal,
+    count,
+    fraction: Math.min(1, count / goal),
+    remaining: Math.max(0, goal - count),
+    week,
   };
 }
