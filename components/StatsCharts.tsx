@@ -180,10 +180,11 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
  * the tab shows. Full once the goal is reached; the count keeps going past it ("12 of 10").
  */
 export function GoalRing({ progress }: { progress: GoalProgress }) {
+  const id = useId();
   const { count, goal, fraction, remaining } = progress;
-  const label = `${count} of ${goal} applications this week`;
+  const label = `${count} of ${goal} ${goal === 1 ? 'application' : 'applications'} this week`;
   return (
-    <section aria-labelledby="goal-heading" className="card flex min-w-0 items-center gap-4 p-4">
+    <section aria-labelledby={`${id}-heading`} className="card flex min-w-0 items-center gap-4 p-4">
       <svg
         role="img"
         aria-label={label}
@@ -205,7 +206,8 @@ export function GoalRing({ progress }: { progress: GoalProgress }) {
             r={RING_RADIUS}
             fill="none"
             strokeWidth="10"
-            strokeLinecap="round"
+            // Square ends: round caps would add length, so 1 of 200 would look 4% full and 199
+            // of 200 would look complete.
             strokeDasharray={RING_LENGTH}
             strokeDashoffset={RING_LENGTH * (1 - fraction)}
             className="stroke-chart-1 transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
@@ -224,10 +226,11 @@ export function GoalRing({ progress }: { progress: GoalProgress }) {
         </text>
       </svg>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <h3 id="goal-heading" className="text-sm font-semibold">
+        <h3 id={`${id}-heading`} className="text-sm font-semibold">
           Weekly goal
         </h3>
-        <p className="text-sm">
+        {/* The ring's own label says this to screen readers; once is enough. */}
+        <p aria-hidden="true" className="text-sm">
           {count} of {goal} this week
         </p>
         <p className="text-xs text-muted-foreground">

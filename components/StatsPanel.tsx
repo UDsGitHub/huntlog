@@ -97,12 +97,13 @@ export function StatsPanel() {
 
   const goal = settings?.weeklyGoal;
   // This week against the goal, whatever range is picked (spec §4.7).
+  const resultNow = result?.now;
   const progress = useMemo(
     () =>
-      apps && goal !== undefined && weekStartsOn !== undefined
-        ? weeklyGoalProgress(apps, new Date(`${today}T12:00:00`), weekStartsOn, goal)
+      apps && resultNow && goal !== undefined && weekStartsOn !== undefined
+        ? weeklyGoalProgress(apps, resultNow, weekStartsOn, goal)
         : undefined,
-    [apps, goal, weekStartsOn, today],
+    [apps, resultNow, goal, weekStartsOn],
   );
 
   if (!apps || !result) return null;

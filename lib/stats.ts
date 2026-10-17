@@ -295,6 +295,15 @@ export function activity(
   return { unit, buckets };
 }
 
+/**
+ * The Applied rule (spec §4.7), shared by the Applied card and the weekly goal so they always
+ * agree: a live application whose Date applied falls in the range. Without a Date applied
+ * (Saved, or Skip), a job isn't counted as applied.
+ */
+function appliedIn(app: Application, range: DateRange): boolean {
+  return !app.deletedAt && inRange(app.appliedAt, range);
+}
+
 export function computeStats(
   apps: readonly Application[],
   range: DateRange,
@@ -306,8 +315,7 @@ export function computeStats(
   for (const app of live) {
     if (reachedIn(app, INTERVIEW_STAGE, range)) interviews++;
     if (reachedIn(app, OFFER_STAGE, range)) offers++;
-    // Without a Date applied (Skip), a job isn't counted as applied (spec §4.7).
-    if (!inRange(app.appliedAt, range)) continue;
+    if (!appliedIn(app, range)) continue;
     applied++;
     if (everIn(app, RESPONSE_STATUSES)) responded++;
     if (everIn(app, INTERVIEW_STAGE)) interviewed++;
@@ -352,9 +360,9 @@ export function weeklyGoalProgress(
   weekStartsOn: WeekStart,
   goal: number,
 ): GoalProgress {
-  const from = startOfWeek(todayLocal(now), weekStartsOn);
-  const week = { from, to: addDays(from, 6) };
-  const count = apps.filter((app) => !app.deletedAt && inRange(app.appliedAt, week)).length;
+  // The same week as the This week range, by definition.
+  const week = resolveRange('this-week', { now, weekStartsOn })!;
+  const count = apps.filter((app) => appliedIn(app, week)).length;
   return {
     goal,
     count,

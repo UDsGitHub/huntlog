@@ -271,6 +271,16 @@ describe('Stats tab', () => {
       expect(ring(panel)).toHaveTextContent('Goal reached, and 1 beyond it.');
     });
 
+    it('says "application" for a goal of one', async () => {
+      await updateSettings({ weeklyGoal: 1 });
+      await applied('2026-10-13');
+      const user = userEvent.setup();
+      const panel = await openStats(user);
+      expect(
+        within(panel).getByRole('img', { name: '1 of 1 application this week' }),
+      ).toBeInTheDocument();
+    });
+
     it('follows the first day of the week', async () => {
       await updateSettings({ weeklyGoal: 5, weekStartsOn: 1 });
       await applied('2026-10-11'); // Sunday: last week when weeks start on Monday
