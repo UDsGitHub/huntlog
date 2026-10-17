@@ -453,129 +453,132 @@ export function ApplicationForm({
           </div>
 
           {/* Hidden, not unmounted: values and field refs survive collapsing. It slides open and
-              shut (instantly under reduced motion). */}
+              shut, its height growing and shrinking (instantly under reduced motion). */}
           <div
             id={`${id}-details`}
             hidden={!detailsOpen && !detailsClosing}
             // Sliding shut: out of reach already, so focus can't land in it just before it hides.
             {...inert(detailsClosing)}
             data-state={detailsOpen ? 'open' : 'closing'}
-            className="details-panel flex min-w-0 flex-col gap-3"
+            className="details-panel min-w-0"
           >
-            <Field label="Location" htmlFor={`${id}-location`}>
-              <input
-                {...control('location')}
-                type="text"
-                autoComplete="off"
-                value={values.location}
-                onChange={(e) => set('location')(e.target.value)}
-              />
-              {message('location')}
-            </Field>
+            {/* The panel animates its height; this is the content it clips. */}
+            <div className="flex min-w-0 flex-col gap-3">
+              <Field label="Location" htmlFor={`${id}-location`}>
+                <input
+                  {...control('location')}
+                  type="text"
+                  autoComplete="off"
+                  value={values.location}
+                  onChange={(e) => set('location')(e.target.value)}
+                />
+                {message('location')}
+              </Field>
 
-            <Field label="Work mode" htmlFor={`${id}-workMode`}>
-              <select
-                {...control('workMode')}
-                value={values.workMode}
-                onChange={(e) => set('workMode')(e.target.value)}
-              >
-                <option value="">Not set</option>
-                {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              {message('workMode')}
-            </Field>
+              <Field label="Work mode" htmlFor={`${id}-workMode`}>
+                <select
+                  {...control('workMode')}
+                  value={values.workMode}
+                  onChange={(e) => set('workMode')(e.target.value)}
+                >
+                  <option value="">Not set</option>
+                  {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {message('workMode')}
+              </Field>
 
-            <fieldset className="flex min-w-0 flex-col gap-2">
-              <legend className="field-label">Salary</legend>
-              {/* Minimum – Maximum on one row, currency and period below. */}
-              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
-                <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
-                  <input
-                    {...control('salaryMin')}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    value={values.salaryMin}
-                    onChange={(e) => set('salaryMin')(e.target.value)}
-                  />
-                  {message('salaryMin')}
-                </Field>
-                <span aria-hidden="true" className="pt-7 text-muted-foreground">
-                  –
-                </span>
-                <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
-                  <input
-                    {...control('salaryMax')}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    value={values.salaryMax}
-                    onChange={(e) => set('salaryMax')(e.target.value)}
-                  />
-                  {message('salaryMax')}
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
-                  <select
-                    {...control('salaryCurrency')}
-                    value={values.salaryCurrency}
-                    onChange={(e) => set('salaryCurrency')(e.target.value)}
-                  >
-                    <optgroup label="Common">
-                      {currencies.common.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
+              <fieldset className="flex min-w-0 flex-col gap-2">
+                <legend className="field-label">Salary</legend>
+                {/* Minimum – Maximum on one row, currency and period below. */}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
+                  <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
+                    <input
+                      {...control('salaryMin')}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={values.salaryMin}
+                      onChange={(e) => set('salaryMin')(e.target.value)}
+                    />
+                    {message('salaryMin')}
+                  </Field>
+                  <span aria-hidden="true" className="pt-7 text-muted-foreground">
+                    –
+                  </span>
+                  <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
+                    <input
+                      {...control('salaryMax')}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={values.salaryMax}
+                      onChange={(e) => set('salaryMax')(e.target.value)}
+                    />
+                    {message('salaryMax')}
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
+                    <select
+                      {...control('salaryCurrency')}
+                      value={values.salaryCurrency}
+                      onChange={(e) => set('salaryCurrency')(e.target.value)}
+                    >
+                      <optgroup label="Common">
+                        {currencies.common.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="All currencies">
+                        {currencies.others.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    {message('salaryCurrency')}
+                  </Field>
+                  <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
+                    <select
+                      {...control('salaryPeriod')}
+                      value={values.salaryPeriod}
+                      onChange={(e) => set('salaryPeriod')(e.target.value)}
+                    >
+                      {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
                         </option>
                       ))}
-                    </optgroup>
-                    <optgroup label="All currencies">
-                      {currencies.others.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                  {message('salaryCurrency')}
-                </Field>
-                <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
-                  <select
-                    {...control('salaryPeriod')}
-                    value={values.salaryPeriod}
-                    onChange={(e) => set('salaryPeriod')(e.target.value)}
-                  >
-                    {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  {message('salaryPeriod')}
-                </Field>
-              </div>
-            </fieldset>
+                    </select>
+                    {message('salaryPeriod')}
+                  </Field>
+                </div>
+              </fieldset>
 
-            <SourceField
-              id={`${id}-source`}
-              value={values.source}
-              onChange={set('source')}
-              error={errors.source}
-              inputRef={register('source')}
-            />
-
-            <Field label="Notes" htmlFor={`${id}-notes`}>
-              <AutoGrowTextarea
-                {...control('notes')}
-                value={values.notes}
-                onChange={(e) => set('notes')(e.target.value)}
+              <SourceField
+                id={`${id}-source`}
+                value={values.source}
+                onChange={set('source')}
+                error={errors.source}
+                inputRef={register('source')}
               />
-              {message('notes')}
-            </Field>
+
+              <Field label="Notes" htmlFor={`${id}-notes`}>
+                <AutoGrowTextarea
+                  {...control('notes')}
+                  value={values.notes}
+                  onChange={(e) => set('notes')(e.target.value)}
+                />
+                {message('notes')}
+              </Field>
+            </div>
           </div>
         </fieldset>
         {duplicates && (

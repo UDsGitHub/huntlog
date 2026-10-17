@@ -55,6 +55,14 @@
 }
 
 @layer base {
+  /* Scrollbars are hidden everywhere (spec §3); areas still scroll by wheel, touch and keys. */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Lines take the token color unless a class says otherwise (shadcn's border-border). */
   *,
   ::before,
@@ -300,7 +308,20 @@
   field-sizing: content;
 }
 
-/* More details (ApplicationForm): slides open and shut. */
+/*
+ * Accordions (More details, Archived resumes): the panel's height grows and shrinks, clipping
+ * its content (no fade). The panel is a one-row grid whose row animates between 0fr and 1fr;
+ * its single child is the content. The clip margin leaves room for the content's focus rings.
+ */
+.details-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.details-panel > * {
+  min-height: 0;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+}
 .details-panel[data-state='open'] {
   animation: details-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -309,14 +330,12 @@
 }
 @keyframes details-in {
   from {
-    opacity: 0;
-    translate: 0 -0.5rem;
+    grid-template-rows: 0fr;
   }
 }
 @keyframes details-out {
   to {
-    opacity: 0;
-    translate: 0 -0.5rem;
+    grid-template-rows: 0fr;
   }
 }
 @media (prefers-reduced-motion: reduce) {

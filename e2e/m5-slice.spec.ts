@@ -63,10 +63,19 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   // which scrolls into view clear of the edge.
   const row = await range.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
   expect(row.scroll).toBeGreaterThan(row.client);
+  // No scrollbar (spec §3): the edge with more chips beyond it fades instead.
+  await expect(range).toHaveAttribute('data-fade-end', 'true');
+  expect(await range.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe('none');
   await range.getByRole('radio', { name: 'This month' }).focus();
   await page.keyboard.press('End');
   const custom = range.getByRole('radio', { name: 'Custom…' });
   await expect(custom).toBeFocused();
+  await expect(range).toHaveAttribute('data-fade-start', 'true');
+  await expect(range).not.toHaveAttribute('data-fade-end');
+  await page.keyboard.press('Home');
+  await expect(range).not.toHaveAttribute('data-fade-start');
+  await expect(range).toHaveAttribute('data-fade-end', 'true');
+  await page.keyboard.press('End');
   const [rowBox, chipBox] = [await range.boundingBox(), await custom.boundingBox()];
   expect(chipBox!.x + chipBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
   await expectNoHorizontalScroll(page);
