@@ -351,6 +351,18 @@ describe('capture prefill', () => {
       expect((await db.applications.toArray())[0]?.notes).toBe('half-written');
     });
 
+    it('dismissing the waiting toast keeps focus in the open Edit sheet', async () => {
+      const user = userEvent.setup();
+      await seedAndOpenDetail(user);
+      await user.click(screen.getByRole('button', { name: 'Edit' }));
+      await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
+      await screen.findByText('Job captured. It opens when you finish editing.');
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+      // Not the page's heading behind the (inert) sheet: a control inside the sheet.
+      const sheet = screen.getByRole('dialog', { name: 'Edit application' });
+      expect(sheet).toContainElement(document.activeElement as HTMLElement);
+    });
+
     it('keeps a deferred capture when Edit is left through View existing', async () => {
       await applications.addApplication({
         url: 'https://other.com/1',
@@ -446,5 +458,21 @@ describe('capture prefill', () => {
     );
     expect(screen.queryByRole('form')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add application' })).toBeEnabled();
+  });
+
+  it('a captured form slides out whole on Back, not remounted mid-way', async () => {
+    // Real slide timing here: the bug was a remount during the slide-out.
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query: string) => ({ matches: false, media: query }) as unknown as MediaQueryList,
+    );
+    await fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() });
+    const user = userEvent.setup();
+    render(<App />);
+    const form = await screen.findByRole('form', { name: 'Add application' });
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    // Still the same form, sliding out (not swapped for a fresh one).
+    expect(form).toBeInTheDocument();
+    expect(form.closest('dialog')).toHaveAttribute('data-state', 'closing');
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
   });
 });

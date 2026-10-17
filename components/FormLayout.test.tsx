@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
+import * as applications from '@/lib/applications';
 import { addApplication } from '@/lib/applications';
 import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
@@ -329,5 +330,47 @@ describe('Remembered defaults', () => {
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
       source: 'LinkedIn',
     });
+  });
+
+  it('sorts a new row into place once its sheet has gone (the list counts as shown again)', async () => {
+    await addApplication({ url: 'https://zeta.com/1', company: 'Zeta' });
+    await addApplication({ url: 'https://beta.com/1', company: 'Beta' });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('list', { name: 'Applications' });
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    await user.click(screen.getByRole('radio', { name: 'Company' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.type(screen.getByLabelText('Company'), 'Gamma');
+    await user.type(screen.getByLabelText('Job posting URL'), 'gamma.com/1{Enter}');
+    const companies = () =>
+      within(screen.getByRole('list', { name: 'Applications' }))
+        .getAllByRole('listitem')
+        .map((li) => li.querySelector('.row-open')?.textContent);
+    await waitFor(() => expect(companies()).toEqual(['Beta', 'Gamma', 'Zeta']));
+  });
+
+  it('keeps the detail behind an Edit out of reach while the Edit loads', async () => {
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /^Acme/ }));
+    await screen.findByRole('heading', { level: 2, name: 'Acme' });
+    // From now on, loading is slow: Edit's load waits until released.
+    let release!: () => void;
+    const loaded = new Promise<void>((resolve) => (release = resolve));
+    const real = applications.getApplication;
+    vi.spyOn(applications, 'getApplication').mockImplementation(async (...args) => {
+      await loaded;
+      return real(...args);
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    // Edit is loading: the detail behind can't start another action meanwhile.
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Acme' }).closest('[inert]'),
+    ).not.toBeNull();
+    act(() => release());
+    expect(await screen.findByRole('dialog', { name: 'Edit application' })).toBeInTheDocument();
   });
 });

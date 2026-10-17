@@ -6,6 +6,7 @@ import {
   useState,
   type FormEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import {
   SALARY_PERIOD_LABELS,
@@ -174,8 +175,16 @@ export function ApplicationForm({
   const storedCurrency = application?.salaryCurrency;
   const currencies = useMemo(() => orderedCurrencies(undefined, storedCurrency), [storedCurrency]);
   // The sheet focuses Company when it opens: the first field, and the first one a capture
-  // leaves empty. (After the sheet records the opener, so focus returns there.)
-  const companyRef = useRef<HTMLInputElement | null>(null);
+  // leaves empty. (After the sheet records the opener, so focus returns there.) A view of the
+  // field refs, not a second copy of them.
+  const companyRef = useMemo<RefObject<HTMLElement>>(
+    () => ({
+      get current() {
+        return fieldRefs.current.company ?? null;
+      },
+    }),
+    [],
+  );
 
   // A hint stays while the field still holds exactly what was captured.
   const hints = {
@@ -190,7 +199,6 @@ export function ApplicationForm({
   };
   const register = (field: InputField) => (element: HTMLElement | null) => {
     fieldRefs.current[field] = element;
-    if (field === 'company') companyRef.current = element as HTMLInputElement | null;
   };
 
   async function handleSubmit(event: FormEvent) {
@@ -313,7 +321,7 @@ export function ApplicationForm({
         {/* Enter in a field submits through the form's default button. The visible Save is in
             the sheet's footer, outside this element (joined by form=), so this hidden one keeps
             Enter working the same everywhere. */}
-        <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
+        <button type="submit" hidden disabled={isSaving} tabIndex={-1} aria-hidden="true" />
         {/* Locked while saving: the save writes what was there when Save was pressed. */}
         <fieldset disabled={isSaving} className="flex min-w-0 flex-col gap-3">
           {readFailed && (

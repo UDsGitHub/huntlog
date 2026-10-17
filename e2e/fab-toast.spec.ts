@@ -19,8 +19,14 @@ test('the floating Add button, the empty state and toasts above it', async ({ se
 
   await page.getByRole('button', { name: 'Add your first application' }).click();
   await expect(page.getByRole('form', { name: 'Add application' })).toBeVisible();
-  // No floating button while the form (and its sticky Save) shows.
-  await expect(fab).toBeHidden();
+  // The form's sheet covers the floating button (it stays behind, for focus to return to).
+  await expect(page.getByRole('dialog', { name: 'Add application' })).toBeVisible();
+  const covered = await fab.evaluate((button) => {
+    const box = button.getBoundingClientRect();
+    const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return !!top?.closest('dialog');
+  });
+  expect(covered).toBe(true);
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
