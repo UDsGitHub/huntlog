@@ -6,6 +6,7 @@ import {
   panelUrl,
   sheetsClosed,
   test,
+  chooseOption,
 } from './fixtures';
 
 async function addJob(page: Page, fields: { url: string; company: string; notes?: string }) {
@@ -35,7 +36,7 @@ test('view, edit, delete with Undo, then delete for good across a restart', asyn
   await page.getByRole('button', { name: 'Edit' }).click();
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill('Lisbon');
-  await page.getByLabel(/Work mode/).selectOption('remote');
+  await chooseOption(page, 'Work mode', 'Remote');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
   await expect(page.getByRole('definition').filter({ hasText: 'Lisbon' })).toBeVisible();

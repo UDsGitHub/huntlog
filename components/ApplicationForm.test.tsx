@@ -4,7 +4,7 @@ import * as applicationInput from '@/lib/applicationInput';
 import * as applications from '@/lib/applications';
 import { todayLocal } from '@/lib/dates';
 import { db } from '@/lib/db';
-import { chooseSource, sourceValue } from '@/tests/formHelpers';
+import { chooseSource, sourceValue, chooseOption } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
@@ -56,9 +56,9 @@ describe('Add view', () => {
     expect(field('Company')).toHaveFocus();
     expect(field('Job posting URL')).toHaveValue('');
     expect(field('Date applied')).toHaveValue(todayLocal());
-    expect(field(/Work mode/)).toHaveValue('');
-    expect(field('Per')).toHaveValue('year');
-    expect(field('Currency')).toHaveValue('USD');
+    expect(field(/Work mode/)).toHaveAttribute('data-value', '');
+    expect(field('Per')).toHaveAttribute('data-value', 'year');
+    expect(field('Currency')).toHaveValue('USD · US Dollar');
   });
 
   it('saves every field, returns to the list and focuses + Add application', async () => {
@@ -68,14 +68,17 @@ describe('Add view', () => {
     await user.type(field('Job posting URL'), 'acme.com/jobs/42');
     await user.type(field('Company'), 'Acme');
     await user.type(field(/Job title/), 'Senior Engineer');
+    await user.click(screen.getByRole('button', { name: /More details/ }));
     await user.type(field(/Location/), 'Berlin');
-    await user.selectOptions(field(/Work mode/), 'hybrid');
+    await chooseOption(user, field(/Work mode/), 'Hybrid');
     await user.clear(field('Date applied'));
     await user.type(field('Date applied'), '2026-10-01');
     await user.type(field('Minimum'), '85,000');
     await user.type(field('Maximum'), '95000');
-    await user.selectOptions(field('Currency'), 'EUR');
-    await user.selectOptions(field('Per'), 'month');
+    // Searchable by code or name.
+    await user.type(field('Currency'), 'euro');
+    await user.click(await screen.findByRole('option', { name: 'EUR · Euro' }));
+    await chooseOption(user, field('Per'), 'Month');
     await chooseSource(user, 'Referral');
     await user.type(field(/Notes/), 'Met the team{Enter}Second line');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -159,12 +162,26 @@ describe('Add view', () => {
     expect(await db.applications.count()).toBe(0);
   });
 
+  it('keeps only number characters in salary, and groups it once left', async () => {
+    const user = userEvent.setup();
+    await openAddForm(user);
+    await user.click(screen.getByRole('button', { name: /More details/ }));
+    await user.type(field('Minimum'), '$85000/yr');
+    expect(field('Minimum')).toHaveValue('85000');
+    await user.tab();
+    expect(field('Minimum')).toHaveValue('85,000');
+    // Invalid text is left as typed, for its error to explain.
+    await user.type(field('Maximum'), '1,2,3');
+    await user.tab();
+    expect(field('Maximum')).toHaveValue('1,2,3');
+  });
+
   it('focuses the first invalid field even when it is lower down', async () => {
     const user = userEvent.setup();
     await openAddForm(user);
     await user.type(field('Job posting URL'), 'https://acme.com/1');
     await user.type(field('Company'), 'Acme');
-    await user.type(field('Minimum'), 'lots');
+    await user.type(field('Minimum'), '1,2,3');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(field('Minimum')).toHaveFocus());
     expect(field('Minimum')).toHaveAccessibleDescription('Enter a number, like 85,000.');

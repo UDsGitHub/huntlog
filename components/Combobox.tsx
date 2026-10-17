@@ -1,6 +1,7 @@
 import { useCallback, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { foldText } from '@/lib/listQuery';
 import { ChevronDownIcon } from './icons';
+import { useDropDirection } from './useDropDirection';
 
 export interface ComboboxOption {
   value: string;
@@ -47,6 +48,8 @@ export function Combobox({
   // Set by a focus from the pointer: the mouseup that follows mustn't undo the selection.
   const keepSelection = useRef(false);
   const input = useRef<HTMLInputElement | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const { direction, measure } = useDropDirection(root);
   const noMatches = useId();
   const setInput = useCallback(
     (element: HTMLInputElement | null) => {
@@ -67,6 +70,7 @@ export function Combobox({
   const setActive = (index: number) => setActiveValue(shown[index]?.value ?? null);
 
   function openList() {
+    measure();
     setOpen(true);
     setActiveValue(query === null ? (chosen?.value ?? null) : (shown[0]?.value ?? null));
   }
@@ -101,7 +105,7 @@ export function Combobox({
   }
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div ref={root} className="relative min-w-0 flex-1">
       <input
         ref={setInput}
         id={id}
@@ -132,6 +136,7 @@ export function Combobox({
         onChange={(event) => {
           const next = event.target.value;
           setQuery(next);
+          if (!open) measure();
           setOpen(true);
           // The first match is highlighted.
           setActiveValue(
@@ -166,7 +171,10 @@ export function Combobox({
           aria-label={listLabel}
           // A press anywhere in the list (its padding, its scrollbar) keeps focus in the field.
           onMouseDown={(event) => event.preventDefault()}
-          className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+          data-direction={direction}
+          className={`absolute inset-x-0 z-20 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg ${
+            direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
         >
           {shown.map((option, index) => (
             <li

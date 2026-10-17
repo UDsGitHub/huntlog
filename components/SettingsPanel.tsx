@@ -14,12 +14,16 @@ import {
 } from '@/lib/settings';
 import {
   ExternalLinkIcon,
+  MinusIcon,
   MonitorIcon,
   MoonIcon,
+  PlusIcon,
   RotateCcwIcon,
   SunIcon,
   Trash2Icon,
 } from './icons';
+import { NumberField } from './NumberField';
+import { Select } from './Select';
 import { Sheet } from './Sheet';
 import { useSettings } from './useSettings';
 
@@ -142,6 +146,20 @@ function GoalCard({
     onChange(number);
   }
 
+  // − and + step from the goal shown (the stored one while what's typed isn't valid), within
+  // 1–200, and save at once: they never turn the goal off or store an invalid value.
+  const typedGoal = parseGoal(typed);
+  const current = isWeeklyGoal(typedGoal) ? typedGoal : (goal ?? DEFAULT_GOAL);
+  function step(by: number) {
+    const next = Math.min(MAX_WEEKLY_GOAL, Math.max(MIN_WEEKLY_GOAL, current + by));
+    setTyped(String(next));
+    setError(null);
+    if (next !== goal && next !== committed.current) {
+      committed.current = next;
+      onChange(next);
+    }
+  }
+
   return (
     <Card title="Weekly goal">
       <div className="flex items-center justify-between gap-3">
@@ -159,21 +177,45 @@ function GoalCard({
           <label htmlFor={`${id}-goal`} className="field-label">
             Applications per week
           </label>
-          <input
-            id={`${id}-goal`}
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            value={typed}
-            onChange={(event) => onType(event.target.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commit();
-            }}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? `${id}-goal-error` : `${id}-goal-hint`}
-            className="field w-24"
-          />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Decrease weekly goal"
+              aria-controls={`${id}-goal`}
+              disabled={current <= MIN_WEEKLY_GOAL}
+              onClick={() => step(-1)}
+              className="btn btn-outline btn-icon"
+            >
+              <MinusIcon />
+            </button>
+            <NumberField
+              id={`${id}-goal`}
+              kind="integer"
+              value={typed}
+              onChange={onType}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commit();
+                else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  step(event.key === 'ArrowUp' ? 1 : -1);
+                }
+              }}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? `${id}-goal-error` : `${id}-goal-hint`}
+              className="field w-16 text-center tabular-nums"
+            />
+            <button
+              type="button"
+              aria-label="Increase weekly goal"
+              aria-controls={`${id}-goal`}
+              disabled={current >= MAX_WEEKLY_GOAL}
+              onClick={() => step(1)}
+              className="btn btn-outline btn-icon"
+            >
+              <PlusIcon />
+            </button>
+          </div>
           {error ? (
             <p id={`${id}-goal-error`} className="field-error">
               {error}
@@ -259,24 +301,18 @@ function DisplayCard({
         <label htmlFor={`${id}-week`} className="field-label">
           First day of the week
         </label>
-        <select
+        <Select
           id={`${id}-week`}
-          value={settings.weekStartsOn ?? ''}
-          onChange={(event) =>
-            onChange({
-              weekStartsOn:
-                event.target.value === '' ? undefined : (Number(event.target.value) as WeekStart),
-            })
+          listLabel="Days"
+          value={settings.weekStartsOn === undefined ? '' : String(settings.weekStartsOn)}
+          onChange={(value) =>
+            onChange({ weekStartsOn: value === '' ? undefined : (Number(value) as WeekStart) })
           }
-          className="field"
-        >
-          <option value="">Locale default ({localeDay})</option>
-          {WEEK_STARTS.map((day) => (
-            <option key={day} value={day}>
-              {DAY_NAMES[day]}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: `Locale default (${localeDay})` },
+            ...WEEK_STARTS.map((day) => ({ value: String(day), label: DAY_NAMES[day] })),
+          ]}
+        />
         <p className="field-hint">Used for This week and the weekly goal.</p>
       </div>
     </Card>

@@ -2,6 +2,7 @@ import {
   test as base,
   chromium,
   type BrowserContext,
+  type Locator,
   type Page,
   type Worker,
 } from '@playwright/test';
@@ -175,4 +176,12 @@ export async function uploadResume(
 export async function resumeAction(page: Page, name: string, action: string) {
   await page.getByRole('button', { name: `More actions for ${name}` }).click();
   await page.getByRole('menuitem', { name: action }).click();
+}
+
+/** Picks an option of a `Select` (spec §3) by its label: opens it, then clicks the option. */
+export async function chooseOption(scope: Page | Locator, label: string | RegExp, option: string) {
+  const select = scope.getByRole('combobox', { name: label, exact: typeof label === 'string' });
+  await select.click();
+  const list = scope.locator(`[id="${await select.getAttribute('aria-controls')}"]`);
+  await list.getByRole('option', { name: option, exact: true }).click();
 }

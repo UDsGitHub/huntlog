@@ -25,8 +25,9 @@ interface Props {
   /**
    * `sheet`: the Resumes tab's upload sheet, with a note. Its Upload button is in the sheet's
    * footer, joined to this form by `formId`.
-   * `inline`: inside the application form (forms can't nest, so it's a group), opened from its
-   * "+" button: Enter uploads here rather than submitting the application.
+   * `inline`: inside the application form (forms can't nest, so it's a group), opened and closed
+   * by its "+"/"−" button: Enter uploads here rather than submitting the application, and Escape
+   * closes the upload (`onCancel`) rather than the form.
    */
   variant: 'sheet' | 'inline';
   onUploaded: (resume: Resume) => void;
@@ -276,20 +277,20 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
         if (event.key === 'Enter' && target instanceof HTMLInputElement && target.type !== 'file') {
           event.preventDefault();
           void upload();
+        } else if (event.key === 'Escape' && !saving) {
+          // Closes the upload, not the application form's sheet around it.
+          event.preventDefault();
+          event.stopPropagation();
+          onCancel?.();
         }
       }}
       className="card flex min-w-0 flex-col gap-2 p-2"
     >
       {fields}
-      <div className="flex gap-2">
-        <button type="button" onClick={() => void upload()} className="btn btn-primary">
-          {saving ? 'Uploading…' : 'Upload and use'}
-        </button>
-        <button type="button" onClick={onCancel} className="btn btn-outline">
-          {/* Not just "Cancel": the application form's own Cancel is on screen too. */}
-          Cancel upload
-        </button>
-      </div>
+      {/* No Cancel: the "−" beside the resume field (or Escape) closes the upload. */}
+      <button type="button" onClick={() => void upload()} className="btn btn-primary self-start">
+        {saving ? 'Uploading…' : 'Upload'}
+      </button>
     </div>
   );
 }

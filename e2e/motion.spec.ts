@@ -75,7 +75,7 @@ test('an error inside More details opens it at once, its field in view', async (
   await sheet.getByLabel('Company').fill('Acme');
   await sheet.getByLabel('Job posting URL').fill('acme.com/1');
   await sheet.getByRole('button', { name: /More details/ }).click();
-  await sheet.getByLabel('Minimum').fill('lots');
+  await sheet.getByLabel('Minimum').fill('1,2,3');
   await sheet.getByRole('button', { name: /More details/ }).click();
   await expect(sheet.getByLabel('Minimum')).toBeHidden();
   await sheet.getByRole('button', { name: 'Save', exact: true }).click();

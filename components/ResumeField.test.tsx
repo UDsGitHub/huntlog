@@ -143,7 +143,7 @@ describe('Resume field', () => {
     expect(within(group).getByLabelText('Resume file')).toHaveFocus();
     await user.upload(within(group).getByLabelText('Resume file'), realFile('Data v2.pdf'));
     expect(within(group).getByLabelText('Name')).toHaveValue('Data v2');
-    await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
+    await user.click(within(group).getByRole('button', { name: 'Upload' }));
 
     await waitFor(() =>
       expect(screen.queryByRole('group', { name: 'Upload a new resume' })).toBeNull(),
@@ -155,17 +155,30 @@ describe('Resume field', () => {
     expect((await db.resumes.toArray())[0]?.name).toBe('Data v2');
   });
 
-  it('keeps the current choice when the inline upload is cancelled', async () => {
+  it('keeps the current choice when the inline upload is closed, by − or Escape', async () => {
     const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' }, db);
     const user = userEvent.setup();
     await openAdd(user, 'Backend v3');
     await pickResume(user, 'Backend v3');
-    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
-    await user.click(screen.getByRole('button', { name: 'Cancel upload' }));
+    const toggle = screen.getByRole('button', { name: 'Upload new resume' });
+    // The + opens the upload and turns into a − that closes it (there's no Cancel).
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    expect(within(group).queryByRole('button', { name: /Cancel/ })).toBeNull();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('group', { name: 'Upload a new resume' })).toBeNull();
     expect(resumeSelect()).toHaveValue('Backend v3');
     expect(resume.id).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Upload new resume' })).toHaveFocus();
+    expect(toggle).toHaveFocus();
+
+    // Escape inside the upload closes just the upload, not the form's sheet.
+    await user.click(toggle);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('group', { name: 'Upload a new resume' })).toBeNull();
+    expect(toggle).toHaveFocus();
+    expect(resumeSelect()).toHaveValue('Backend v3');
     expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
   });
 
@@ -248,7 +261,7 @@ describe('Resume field', () => {
     await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     await user.upload(within(group).getByLabelText('Resume file'), realFile('cv.pdf', DOCX_HEAD));
-    await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
+    await user.click(within(group).getByRole('button', { name: 'Upload' }));
     const fileInput = within(group).getByLabelText('Resume file');
     await waitFor(() => expect(fileInput).toHaveAccessibleDescription(/doesn't look like a PDF/));
     expect(fileInput).toHaveFocus();
@@ -274,7 +287,7 @@ describe('Resume field', () => {
     await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     await user.upload(within(group).getByLabelText('Resume file'), realFile('Data v2.pdf'));
-    await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
+    await user.click(within(group).getByRole('button', { name: 'Upload' }));
     await waitFor(() => expect(resumeSelect()).toHaveValue('Data v2'));
     const [resume] = await db.resumes.toArray();
     // Deleted in another window: no longer offered as a live resume.

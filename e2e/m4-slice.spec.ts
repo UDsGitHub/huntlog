@@ -71,7 +71,7 @@ test('a resume an application uses is archived, not deleted, and still opens', a
   await upload
     .getByLabel('Resume file')
     .setInputFiles({ name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
-  await upload.getByRole('button', { name: 'Upload and use' }).click();
+  await upload.getByRole('button', { name: 'Upload', exact: true }).click();
   await expect(page.getByRole('combobox', { name: /^Resume/ })).toHaveValue('Backend v3');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();

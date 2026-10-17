@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useRef, useState } from 'react';
 import { Combobox } from './Combobox';
-import { PlusIcon } from './icons';
+import { PlusMinusIcon } from './icons';
 import { ResumeUpload } from './ResumeUpload';
 import { formatTimestampDate } from '@/lib/dates';
 import { formatLabel, listResumes } from '@/lib/resumes';
@@ -108,7 +108,8 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
           onClick={() => setUploading((open) => !open)}
           className="btn btn-ghost btn-icon"
         >
-          <PlusIcon />
+          {/* + while closed, − while the upload is open (it toggles it). */}
+          <PlusMinusIcon minus={uploading} />
         </button>
       </div>
       {!value && (

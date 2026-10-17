@@ -31,3 +31,14 @@ export async function chooseSource(user: ReturnType<typeof userEvent.setup>, val
     await user.type(field, value);
   }
 }
+
+/** Picks an option of a `Select` (spec §3) by its label: opens it, then clicks the option. */
+export async function chooseOption(
+  user: ReturnType<typeof userEvent.setup>,
+  select: HTMLElement,
+  label: string,
+) {
+  await user.click(select);
+  const list = document.getElementById(select.getAttribute('aria-controls')!)!;
+  await user.click(within(list).getByRole('option', { name: label }));
+}

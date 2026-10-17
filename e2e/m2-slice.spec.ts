@@ -1,4 +1,4 @@
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, test, chooseOption } from './fixtures';
 
 // M2 slice: add, view, edit and delete an application with every v1 field (except the resume),
 // and get warned about duplicates.
@@ -15,12 +15,13 @@ test('a full application record, end to end, with the duplicate warning', async 
   await page.getByLabel(/Job title/).fill('Senior Engineer');
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel(/Location/).fill('Berlin');
-  await page.getByLabel(/Work mode/).selectOption('hybrid');
+  await chooseOption(page, 'Work mode', 'Hybrid');
   await page.getByLabel('Date applied').fill('2026-10-01');
   await page.getByLabel('Minimum').fill('85,000');
   await page.getByLabel('Maximum').fill('95,000');
-  await page.getByLabel('Currency').selectOption('EUR');
-  await page.getByLabel('Per').selectOption('year');
+  await page.getByLabel('Currency').fill('eur');
+  await page.getByRole('option', { name: 'EUR · Euro' }).click();
+  await chooseOption(page, 'Per', 'Year');
   await page
     .getByRole('group', { name: /^Source/ })
     .getByRole('button', { name: 'Referral' })

@@ -154,6 +154,19 @@ export function orderedCurrencies(
   return lists;
 }
 
+/**
+ * A currency as the picker shows it: its code and name ("EUR · Euro"), so it can be found by
+ * either. Just the code when the runtime has no name for it.
+ */
+export function currencyLabel(code: string, locale?: string): string {
+  try {
+    const name = new Intl.DisplayNames(locale, { type: 'currency' }).of(code);
+    return name && name !== code ? `${code} · ${name}` : code;
+  } catch {
+    return code;
+  }
+}
+
 /** The first day of the week: 0 Sunday, 1 Monday, 6 Saturday (spec §5 Settings). */
 export type WeekStart = 0 | 1 | 6;
 

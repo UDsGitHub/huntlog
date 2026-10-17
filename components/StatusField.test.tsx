@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { addApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
+import { chooseOption } from '@/tests/formHelpers';
 
 beforeEach(async () => {
   // Sheets open and close at once, so focus and views settle without waiting for a slide.
@@ -28,16 +29,25 @@ describe('Status in the form', () => {
     const user = userEvent.setup();
     await openAdd(user);
     const status = screen.getByLabelText('Status');
-    expect(status).toHaveValue('applied');
+    expect(status).toHaveAttribute('data-value', 'applied');
+    expect(status).toHaveTextContent('Applied');
     expect(status.closest('[hidden]')).toBeNull();
-    const groups = [...status.querySelectorAll('optgroup')].map((g) => [
-      g.label,
-      [...g.querySelectorAll('option')].map((o) => o.value),
-    ]);
+    await user.click(status);
+    const list = screen.getByRole('listbox', { name: 'Statuses' });
+    const groups = within(list)
+      .getAllByRole('group')
+      .map((group) => [
+        group.getAttribute('aria-labelledby') &&
+          document.getElementById(group.getAttribute('aria-labelledby')!)!.textContent,
+        within(group)
+          .getAllByRole('option')
+          .map((option) => option.textContent),
+      ]);
     expect(groups).toEqual([
-      ['Active', ['saved', 'applied', 'screening', 'interviewing', 'offer']],
-      ['Closed', ['accepted', 'rejected', 'withdrawn', 'ghosted']],
+      ['Active', ['Saved', 'Applied', 'Screening', 'Interviewing', 'Offer']],
+      ['Closed', ['Accepted', 'Rejected', 'Withdrawn', 'Ghosted']],
     ]);
+    expect(within(list).getByRole('option', { selected: true })).toHaveTextContent('Applied');
   });
 
   it('logs a job as Saved, with Date applied hidden and not stored', async () => {
@@ -45,7 +55,7 @@ describe('Status in the form', () => {
     await openAdd(user);
     await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
     await user.type(screen.getByLabelText('Company'), 'Acme');
-    await user.selectOptions(screen.getByLabelText('Status'), 'saved');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Saved');
     expect(dateHidden()).toBe(true);
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -59,7 +69,7 @@ describe('Status in the form', () => {
   it('shows Date applied again, not required, for Withdrawn', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    await user.selectOptions(screen.getByLabelText('Status'), 'withdrawn');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Withdrawn');
     expect(dateHidden()).toBe(false);
     expect(screen.getByLabelText('Date applied')).not.toHaveAttribute('aria-required');
     expect(screen.getByText('Date applied').parentElement).not.toHaveTextContent('*');
@@ -70,7 +80,7 @@ describe('Status in the form', () => {
     await openAdd(user);
     await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
     await user.type(screen.getByLabelText('Company'), 'Acme');
-    await user.selectOptions(screen.getByLabelText('Status'), 'interviewing');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Interviewing');
     await user.clear(screen.getByLabelText(/Date applied/));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByLabelText(/Date applied/)).toHaveFocus());
@@ -82,8 +92,8 @@ describe('Status in the form', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    expect(screen.getByLabelText('Status')).toHaveValue('applied');
-    await user.selectOptions(screen.getByLabelText('Status'), 'interviewing');
+    expect(screen.getByLabelText('Status')).toHaveAttribute('data-value', 'applied');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Interviewing');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     const detail = await screen.findByRole('region', { name: 'Acme' });
@@ -106,7 +116,7 @@ describe('Status in the form', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.selectOptions(screen.getByLabelText('Status'), 'saved');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Saved');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
     expect((await db.applications.get(app.id))?.appliedAt).toBe('2026-09-01');
@@ -119,7 +129,7 @@ describe('Status in the form', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.selectOptions(screen.getByLabelText('Status'), 'applied');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Applied');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
     expect((await db.applications.get(app.id))?.appliedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);

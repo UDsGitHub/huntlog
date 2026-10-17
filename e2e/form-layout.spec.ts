@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, test, chooseOption } from './fixtures';
 
 // The service worker has the raw `chrome` global; borrow WXT's typings for it.
 declare const chrome: typeof browser;
@@ -57,7 +57,7 @@ test('More details opens on a hidden error, and the field is in view', async ({ 
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByRole('button', { name: 'More details' }).click();
-  await page.getByLabel('Minimum').fill('lots');
+  await page.getByLabel('Minimum').fill('1,2,3');
   await page.getByRole('button', { name: 'More details' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
@@ -103,7 +103,7 @@ test('remembered source and work mode survive a panel reload', async ({ session 
     .getByRole('group', { name: /^Source/ })
     .getByRole('button', { name: 'Referral' })
     .click();
-  await page.getByLabel(/Work mode/).selectOption('remote');
+  await chooseOption(page, 'Work mode', 'Remote');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Acme/ })).toBeVisible();
   // The defaults are written just after the save; wait for them before reloading.
@@ -130,7 +130,7 @@ test('a job logged as Saved has no date applied', async ({ session }) => {
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
-  await page.getByLabel('Status', { exact: true }).selectOption('saved');
+  await chooseOption(page, 'Status', 'Saved');
   await expect(page.getByLabel(/Date applied/)).toBeHidden();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await page.getByRole('button', { name: /^Acme/ }).click();

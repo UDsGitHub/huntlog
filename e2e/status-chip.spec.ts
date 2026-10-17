@@ -1,11 +1,20 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, panelUrl, sheetsClosed, test } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  panelUrl,
+  sheetsClosed,
+  test,
+  chooseOption,
+} from './fixtures';
+import { STATUS_LABELS } from '../lib/status';
+import type { Status } from '../lib/types';
 
-async function addJob(page: Page, company: string, status?: string) {
+async function addJob(page: Page, company: string, status?: Status) {
   await page.getByRole('button', { name: 'Add application', exact: true }).click();
   await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/jobs/1`);
   await page.getByLabel('Company').fill(company);
-  if (status) await page.getByLabel('Status', { exact: true }).selectOption(status);
+  if (status) await chooseOption(page, 'Status', STATUS_LABELS[status]);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^${company}`) })).toBeVisible();
   await sheetsClosed(page);
