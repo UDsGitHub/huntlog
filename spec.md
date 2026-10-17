@@ -40,7 +40,7 @@ A Chrome extension that helps job seekers log every application they send, remem
 
 | Surface                     | Purpose                                                                                             |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. A tab bar with icons at the top. |
+| **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. A header (the name and a Settings gear) and a tab bar at the top. |
 | **Context menu**            | "Add job to Job Log" on any page (reads the page), and "Add linked job to Job Log" on links (captures only the link URL). |
 | **Keyboard shortcut**       | `Alt+Shift+J` (user-configurable) works the same as the page context-menu item.                     |
 | **Toolbar icon**            | Opens the side panel (`openPanelOnActionClick`).                                                    |
@@ -48,7 +48,9 @@ A Chrome extension that helps job seekers log every application they send, remem
 
 The side panel is roughly 320–400 px wide, so every screen is designed mobile-first for that width.
 
-**Tab bar:** at the top of the panel, with Applications, Stats, Resumes and Settings, each with an icon and a label. Switching tabs slides the next section into view like a mobile tab switcher (instant when the user prefers reduced motion). Each tab keeps its state, including its scroll position, while another is shown; a capture always switches to Applications, where its form opens. Arrow keys, Home and End move between tabs.
+**Header:** the product name on the left and a **Settings** gear button on the right. Settings opens as a near-full-height sheet over the current tab (§4.8). A capture closes it, like any sheet the capture leaves behind; a delete or reset still running then reports its outcome in a toast.
+
+**Tab bar:** under the header, with Applications, Stats and Resumes, each an icon beside its label in one row. Switching tabs slides the next section into view like a mobile tab switcher (instant when the user prefers reduced motion). Each tab keeps its state, including its scroll position, while another is shown; a capture always switches to Applications, where its form opens. Arrow keys, Home and End move between tabs.
 
 **Look and shared patterns** (decided in the M6 UI review):
 - The look follows shadcn/ui: zinc neutrals with a near-black primary (near-white in dark), subtle borders and rounded cards. It's built by hand; no UI library is installed, to keep the panel small.
@@ -56,7 +58,12 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
   - **Sheets without typing** (status, filters, menus) also close on a click outside them.
   - **Sheets that hold typing** (Add/Edit, upload, rename, typed confirmations) don't close on an outside click, and leaving one with unsaved changes asks before discarding them. A capture is the exception (§4.1).
 - **Floating button:** the Applications and Resumes tabs have a floating action button at the bottom right (**+ Add**, **+ Upload**). Toasts sit above it.
-- **Toasts** slide in and out. While a sheet is open, a toast shows inside it, at its bottom above its content, so it stays visible and usable; a sheet makes the rest of the panel inert.
+- **Discarding changes** asks in a small dialog centered over the sheet ("Discard your changes?", with Keep editing and Discard), with focus inside it.
+- **Selects** are shadcn-style: a button showing the choice that opens a list of options (keyboard: arrows, Home/End, typing a letter, Enter, Escape), not the browser's native select. Long lists (currency, resume) are searchable dropdowns.
+- **Number fields** accept only what a number in the user's locale can contain: digits, plus for amounts the locale's grouping and decimal separators (other characters are dropped as typed or pasted, so a pasted "$85,000" becomes "85,000"). The salary parsing rules in §5 still apply on top (decimals, rejecting ambiguous separators). Not `type="number"`, which takes "e", changes on scroll, and can't show grouping. Amounts are shown with the locale's grouping once the field is left; small counts such as the weekly goal have − and + buttons.
+- **Scrollbars** are hidden everywhere; areas still scroll by wheel, touch and keyboard (a scroll area with nothing focusable inside is itself focusable). Where hidden content would otherwise go unnoticed, such as the Stats range chips, the overflowing edge fades out to show there's more.
+- **Accordions** (More details, Archived resumes) animate their height open and closed, clipping their content, with no fade.
+- **Toasts** have their message on the left and their action and close button grouped tightly on the right. They slide in and out. While a sheet is open, a toast shows inside it, at its bottom above its content, so it stays visible and usable; a sheet makes the rest of the panel inert.
 
 ## 4. Core flows
 
@@ -80,12 +87,12 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 **Form layout** (Add and Edit), designed so the common case fits a 320px panel without scrolling. The form is a near-full-height sheet with a back button and the title in its header:
 
-- **Top section:** Company, Job title, Job posting URL, then Status and Date applied side by side on one row (Status takes the row when Date applied is hidden for Saved), then Resume (optional). Required fields are marked with an asterisk, explained by a "* Required" note; Date applied's asterisk follows the status.
-- **Resume** is a searchable dropdown (a combobox: type to filter, each option shows its name, plus format and upload date where names repeat), with "No resume" first. A **+** icon button beside it opens the inline upload.
+- **Top section:** Company, Job title, Job posting URL, then Status and Date applied side by side on one row (Status takes the row when Date applied is hidden for Saved), then Resume. Required fields are marked with an asterisk, explained by a "Fields marked * are required." note; Date applied's asterisk follows the status. Optional fields have just their label (no "(optional)").
+- **Resume** is a searchable dropdown (a combobox: type to filter, each option shows its name, plus format and upload date where names repeat), with "No resume" first. A ghost **+** icon button beside it opens the inline upload; while it's open the icon turns (animated) into a **−** that closes it. The inline upload's button says **Upload**, and it has no separate Cancel.
 - **More details**, an accordion row that is collapsed by default and animates open and closed: Location, Work mode, Salary, Source, Notes. Its row hints at what's inside ("Location, salary, notes…"). It opens on its own when a field inside has a validation error or was auto-filled by a capture, and in Edit when any field inside has a value.
-- **Salary** shows a dash between the min and max fields.
-- **Source** is a row of chips: LinkedIn, Indeed, Company site, Referral, Recruiter, and **Other…**, which reveals a text field for any other source.
-- **Notes** starts three lines tall and grows with its text, up to about twelve lines, then scrolls.
+- **Salary** shows a dash between the min and max fields, both number fields (§3). Currency is a searchable dropdown (the owner's choice over a datalist, since Chrome draws a datalist unstyled and can't put common currencies first), and Per (year, month, hour), Work mode and Status are selects (§3).
+- **Source** is a row of chips: LinkedIn, Indeed, Company site, Referral, Recruiter, and **Other**, which reveals a text field for any other source.
+- **Notes** starts three lines tall and grows with its text, up to about twelve lines, then scrolls. It can't be resized by hand.
 - **Save** is a full-width button that stays visible at the bottom of the sheet (a sticky bar), however long the form is. Leaving is the header's back button (or Escape); with unsaved changes it first asks to discard them. Clicking outside the sheet doesn't close it.
 - **Currency** lists the locale's default plus USD, EUR and GBP first, then every other code.
 - **Remembered defaults:** a new manual Add starts with the source and work mode of the last *new* application (edits don't count), stored in `chrome.storage.local`. After a manual Add they're remembered exactly, blanks included. After a capture, only the values it has replace the old ones, since a capture's blanks mean "not captured". They never prefill a capture, which only fills what it captured, or Edit.
@@ -98,21 +105,21 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 - **Leaving Saved without a Date applied:** moving to Applied sets Date applied to today with no extra step. Moving to Screening, Interviewing, Offer, Accepted, Rejected or Ghosted means an application happened, so the sheet asks "When did you apply?" (default today) with **Set date** and **Skip**; Skip leaves it empty. Moving to Withdrawn doesn't ask. This is the one case where a status change takes a second interaction; it exists because Date applied drives the Applied count and the response and interview rates (§4.7).
 - The detail view shows the full status timeline as a vertical stepper, and each entry's date can be edited (for example, to backfill an interview date). Stats count each stage on the day it was first reached (§4.7), so without this, a status logged late or entered when starting mid-search would land on the wrong day or week. Dates are read-only until the entry's pencil button opens a date field with explicit Save and Cancel (Enter saves); nothing is saved just by picking a date.
 
-**Detail view:** a full page that slides in from the right. Its header has a back button, the company, an Edit (pencil) button, and a ⋯ menu holding Delete. The job posting opens from a full-width button that names its site (for example `boards.greenhouse.io ↗`).
+**Detail view:** a full page that slides in from the right. Its header has a back button, the company, an Edit button (the square-pen icon), and a ⋯ menu holding Delete. The job posting opens from a full-width button that names its site (for example `boards.greenhouse.io ↗`).
 
 
 
 ### 4.4 Browse & find
 
 - **Search** sits above the list, with a filter button beside it. It matches company, title, location, and notes, ignoring case and accents; every word typed must appear (in any of those fields). Characters such as `C++` or `.NET` match literally.
-- **The filter button** opens a sheet with sort, a date range and status filters. Changes apply as they're made; the sheet has Reset and Done. The button shows a count of active filters: one for a date range other than Any time, plus one for a status filter (whatever chips are on). Sort is never counted. Whenever search or filters hide rows, the list shows "Showing N of M" with a way to clear them.
-  - **Sort:** last activity (default, newest first), date applied, or company.
+- **The filter button** opens a sheet with sort, a date range and status filters. Changes apply only when the user taps **Apply**; closing the sheet any other way discards them, and **Reset** clears the sheet's choices (still to be applied). The button is a ghost icon button. The button shows a count of active filters: one for a date range other than Any time, plus one for a status filter (whatever chips are on). Sort is never counted. Whenever search or filters hide rows, the list shows "Showing N of M" with a way to clear them.
+  - **Sort:** last activity (default, newest first), date applied, or company, as a segmented choice whose selection marker slides between options.
   - **Date applied:** Any time (default), This week, This month, Last 30 days, or Custom, with the same boundaries as the Stats ranges (§4.7). A job without a Date applied is hidden while a date range is set.
   - **Status:** a wrapping list of chips, one per status, any number of which can be on. **Active** (Saved, Applied, Screening, Interviewing, Offer) and **Closed** (Accepted, Rejected, Withdrawn, Ghosted) chips turn on their whole group. With no status chip on, every status shows.
 - Search, filters and sort are kept while the user opens an application and comes back. While the list is on screen, a row whose status changes keeps its place and stays visible, even if it no longer matches the status filter, so it never jumps or vanishes from under the pointer. Order and membership refresh when the search, filters or sort change or the list is shown again; new applications appear at the top, newest first.
 - **Row layout:**
   - **Header line:** the company and the status chip. A long company name is cut off with an ellipsis, and hovering shows it in full.
-  - **Below,** on the left: location and work mode, then the job title, then "Applied Oct 1, 2026" ("Added …", from when it was logged, for a job without a Date applied). Lines with nothing to show are left out.
+  - **Below,** on the left: location and work mode, then the job title, then "Applied Oct 1, 2026" ("Added …", from when it was logged, for a job without a Date applied). Lines with nothing to show are left out. This column stops short of the link icon (space between them, and a gap), so long text doesn't run up against it.
   - **On the right of those lines:** a link icon that opens the posting.
   - **The whole card** opens the application, apart from the chip and the link icon, which keep their own actions.
 - **Dates** are shown in the user's locale format (e.g. "Oct 1, 2026"), here and in the detail view. The resume isn't on the row; the detail view shows it.
@@ -127,9 +134,9 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 
 ### 4.6 Resume library
 
-- The **Resumes** tab lets the user upload a resume (PDF, DOCX, DOC, TXT, or RTF, up to 10 MB), give it a display name such as "Backend v3", and add an optional note. Its floating **+ Upload** button opens the upload in a sheet.
+- The **Resumes** tab lets the user upload a resume (PDF, DOCX, DOC, TXT, or RTF, up to 10 MB), give it a display name (e.g. "Software Engineer 2026"), and add an optional note. Its floating **+ Upload** button opens the upload in a sheet.
 - **Uploader** (the same one in the sheet and in the application form): a dashed drop zone ("Choose a file or drag it here"), clickable as a whole, with a visible **Choose file…** button. Once a file is picked, it shows the file's name, format and size, with **Change file**. Dropping more than one file is refused. A file dropped anywhere else in the panel is ignored rather than opened.
-- **List:** a search box above the list matches display names and original file names (every word, ignoring case and accents), in the archived list too. Tapping a row opens or downloads the resume. Each row shows a file icon, the name, and its format, size and upload date, and has a ⋯ menu with Rename, Archive or Unarchive, and Delete. Rename edits the name and note in a sheet.
+- **List:** a search box above the list matches display names and original file names (every word, ignoring case and accents), in the archived list too. Tapping a row opens or downloads the resume. Each row shows a file icon, the name, its format and size, and its upload date on its own line, and has a vertical ⋮ menu button (no background or hover fill) with Rename, Archive or Unarchive, and Delete. Rename edits the name and note in a sheet.
 - The file is stored as a Blob in IndexedDB.
 - Each application references a resume by ID through a searchable dropdown (§4.2). Next to it, a **+** ("Upload new resume") button opens a compact upload in the form, so a resume can be added mid-flow; it's saved and selected. (A button rather than a dropdown option, so arrowing through the options never opens an upload.)
 - **View:** PDFs open in a new extension tab via a blob URL. Other formats download.
@@ -146,7 +153,7 @@ URL normalization lowercases the host, strips `utm_*`, `ref`, `refId`, `trk`, `t
 
 This is a side-panel tab.
 
-- **Range picker:** a scrolling row of chips: This week (default), Last 7 days, This month, Last 30 days, This year, All time, Custom (whose From and To open in a sheet).
+- **Range picker:** a scrolling row of chips (the chosen one is scrolled back into view whenever the tab is shown again): This week (default), Last 7 days, This month, Last 30 days, This year, All time, Custom (whose From and To open in a sheet).
   - The row is one Tab stop; the arrow keys, Home and End move between chips without changing the range, and Enter, Space or a tap picks one, so the keyboard never opens the Custom sheet by passing over it.
   - The Custom sheet opens on the dates last applied (the last 30 days the first time) and changes the range only on Apply; closing it any other way keeps the range that was showing. Dates entered the wrong way round are swapped, and an empty or out-of-bounds date is flagged on Apply.
   - This week, This month and This year are whole calendar periods, so the chart shows the days still ahead. Last 7 and Last 30 days end today. All time runs from the first date logged (a Date applied or a status entry) to today. Custom is a From and To date, both included, from 1970 up to today.
@@ -162,22 +169,22 @@ This is a side-panel tab.
 - **Charts** each sit in a card with a title and a one-line summary.
 - **Outcomes breakdown:** a stacked bar of how applications in the range currently stand, with Rejected as one segment. It is labeled neutrally ("Closed – not selected") and never shown as a headline number.
 - **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, up to 53 weeks per week (weeks start on the user's first day of the week), up to 5 years per month, and longer ones per year, so a long Custom or All time range still has bars wide enough to see.
-- **Weekly goal (optional):** the user sets N per week in Settings (1 to 200). A progress ring at the top of the Stats tab shows this week's Applied count against N ("3 of 10"), whatever range is picked. Past the goal, the ring stays full and the count keeps going ("12 of 10"). Weeks start on the locale's first day of the week, which can be overridden in Settings. Where the ring finally sits is an open question for the design review (§12).
+- **Weekly goal (optional):** the user sets N per week in Settings (1 to 200). The first card under the range picker shows the range's **Applied** count as a large number, with a small ring beside it showing this week's Applied count against N ("4 of 10 this week"), whatever range is picked (labeled as this week, so it isn't read as the range's). This card replaces the Applied headline card; Interviews and Offers follow as two cards, then the rate cards as before. Past the goal, the ring stays full and the count keeps going ("12 of 10"). Weeks start on the locale's first day of the week, which can be overridden in Settings. Without a goal, the large Applied number shows alone.
 - **Tone:** copy stays factual and encouraging. Rejections are never highlighted in red.
 
 
 
 ### 4.8 Settings
 
-A Settings tab of grouped cards. Changes save as they're made and apply in every open window.
+Opened from the gear in the header as a near-full-height sheet of grouped cards. Changes save as they're made and apply in every open window.
 
-- **Weekly goal:** off, or a number from 1 to 200.
+- **Weekly goal:** off, or a number from 1 to 200 (a number field with − and +). The switch turns the goal on (at 5) and off; − stops at 1 and + at 200 (each disabled there), so the buttons never turn it off or store an invalid value.
 - **Display:**
   - **Theme:** System (default), Light, or Dark, as a three-way segmented control.
   - **First day of the week:** the locale's default (named, e.g. "Locale default (Monday)"), Sunday, Monday, or Saturday.
 - **Your data:**
   - Export / Import (§6).
-  - **Delete all data:** permanently deletes every application and resume (with its file), and the remembered form defaults. Settings stay. The user must type `DELETE` before the button works.
+  - **Delete all data** (a solid destructive button)**:** permanently deletes every application and resume (with its file), and the remembered form defaults. Settings stay. The user must type `DELETE` before the button works.
   - **Reset settings:** puts the weekly goal, first day of the week and theme back to their defaults, after a confirmation. It has an "Also delete all my data" checkbox, off by default. Ticking it adds the same typed `DELETE` confirmation and changes the button to "Reset and delete everything". Unticking clears what was typed.
 - **About:** a link to the privacy policy (a page bundled with the extension), a link to the third-party notices (font and icon licenses), and the version.
 
@@ -355,8 +362,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 12. Open questions
 
-- **Product name and icon:** "Job Log" is a working title, and store name availability needs checking. A shortlist of about 8 names, each with an availability check, goes to the post-M6 design review; the icon follows the chosen name.
-- **Weekly goal ring placement:** at the top of Stats for now; the design review compares it with a large Applied number with the ring beside it.
+- **Product name and icon:** decided in the post-M6 review: **Huntlog**. A web search found no Web Store listing under it on 2026-10-17 (Huntr is a near neighbour); the rename PR first confirms it with the store's own search and hands back if it's taken. The rename and an icon land in a v0.6.x PR, which also replaces "Job Log" throughout this spec.
 - **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
 - **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
 
