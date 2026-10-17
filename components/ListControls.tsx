@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode, type Ref } from 'react';
-import { MIN_YEAR, todayLocal } from '@/lib/dates';
+import { todayLocal } from '@/lib/dates';
 import {
   activeFilterCount,
   DEFAULT_QUERY,
@@ -15,6 +15,7 @@ import {
 } from '@/lib/listQuery';
 import { customDateError, customStart } from '@/lib/stats';
 import { STATUS_LABELS, STATUSES } from '@/lib/status';
+import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon, SearchIcon, SlidersHorizontalIcon } from './icons';
 import { Sheet } from './Sheet';
 
@@ -249,37 +250,15 @@ function DateFilterField({
         layout="chips"
       />
       {dates.kind === 'custom' && (
-        <fieldset className="flex min-w-0 gap-2">
-          <legend className="sr-only">Custom dates</legend>
-          {(['from', 'to'] as const).map((end) => (
-            <div key={end} className="flex min-w-0 flex-1 flex-col gap-1">
-              <label htmlFor={`${id}-${end}`} className="field-label">
-                {end === 'from' ? 'From' : 'To'}
-              </label>
-              <input
-                id={`${id}-${end}`}
-                type="date"
-                min={`${MIN_YEAR}-01-01`}
-                max={today}
-                value={dates[end] ?? ''}
-                onChange={(event) =>
-                  onChange({
-                    ...query,
-                    dates: { ...dates, [end]: event.target.value || undefined },
-                  })
-                }
-                aria-invalid={errors[end] ? true : undefined}
-                aria-describedby={errors[end] ? `${id}-${end}-error` : undefined}
-                className="field"
-              />
-              {errors[end] && (
-                <p id={`${id}-${end}-error`} className="field-error">
-                  {errors[end]}
-                </p>
-              )}
-            </div>
-          ))}
-        </fieldset>
+        <DateRangeFields
+          id={id}
+          value={dates}
+          today={today}
+          errors={errors}
+          onChange={(end, date) =>
+            onChange({ ...query, dates: { ...dates, [end]: date || undefined } })
+          }
+        />
       )}
       {filtering && (
         <p className="field-hint">Jobs without a date applied (such as Saved ones) are hidden.</p>

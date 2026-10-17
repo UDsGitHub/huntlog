@@ -31,8 +31,8 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
 
   await page.getByRole('tab', { name: 'Stats' }).click();
   const stats = page.getByRole('tabpanel', { name: 'Stats' });
-  const range = stats.getByRole('group', { name: 'Range' });
-  await expect(range.getByRole('button', { pressed: true })).toHaveText('This week');
+  const range = stats.getByRole('radiogroup', { name: 'Range' });
+  await expect(range.getByRole('radio', { checked: true })).toHaveText('This week');
   const numbers = stats.getByRole('definition');
   // A card: the innermost element holding both its term and its number.
   const card = (label: RegExp) =>
@@ -46,7 +46,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await expect(numbers).toHaveCount(5);
   await expectNoHorizontalScroll(page);
 
-  await range.getByRole('button', { name: 'This month' }).click();
+  await range.getByRole('radio', { name: 'This month' }).click();
   await expect(stats).toContainText('Oct 1, 2026 – Oct 31, 2026');
   await expect(value(/^Applied$/)).toHaveText('3');
   await expect(card(/^Response rate/)).toContainText('1 of 3 heard back');
@@ -63,9 +63,9 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   // which scrolls into view clear of the edge.
   const row = await range.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
   expect(row.scroll).toBeGreaterThan(row.client);
-  await range.getByRole('button', { name: 'This month' }).focus();
+  await range.getByRole('radio', { name: 'This month' }).focus();
   await page.keyboard.press('End');
-  const custom = range.getByRole('button', { name: 'Custom…' });
+  const custom = range.getByRole('radio', { name: 'Custom…' });
   await expect(custom).toBeFocused();
   const [rowBox, chipBox] = [await range.boundingBox(), await custom.boundingBox()];
   expect(chipBox!.x + chipBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
@@ -80,7 +80,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await sheet.getByLabel('From').fill('2026-10-10');
   await sheet.getByRole('button', { name: 'Apply' }).click();
   await expect(page.locator('dialog[open]')).toHaveCount(0);
-  await expect(range.getByRole('button', { pressed: true })).toHaveText('Custom…');
+  await expect(range.getByRole('radio', { checked: true })).toHaveText('Custom…');
   await expect(stats).toContainText('Oct 10, 2026 – Oct 16, 2026');
   await expect(value(/^Applied$/)).toHaveText('2');
 });

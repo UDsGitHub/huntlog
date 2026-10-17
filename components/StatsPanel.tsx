@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { listApplications } from '@/lib/applications';
-import { formatLocalDate, MIN_YEAR, todayLocal } from '@/lib/dates';
+import { formatLocalDate } from '@/lib/dates';
 import { effectiveWeekStart } from '@/lib/settings';
 import {
   computeStats,
@@ -15,6 +15,7 @@ import {
   type RangeKind,
   type Rate,
 } from '@/lib/stats';
+import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
@@ -74,7 +75,7 @@ export function StatsPanel({ active }: { active: boolean }) {
   );
 
   if (!apps || !result) return null;
-  const { now, range, stats } = result;
+  const { range, stats } = result;
 
   return (
     <section aria-labelledby="stats-heading" className="flex min-w-0 flex-col gap-4">
@@ -84,12 +85,7 @@ export function StatsPanel({ active }: { active: boolean }) {
       {progress && <GoalRing progress={progress} />}
 
       <div className="flex min-w-0 flex-col gap-1">
-        <RangeChips
-          kind={kind}
-          onPick={setKind}
-          onCustom={() => setCustomOpen(true)}
-          customOpen={customOpen}
-        />
+        <RangeChips kind={kind} onPick={setKind} onCustom={() => setCustomOpen(true)} />
         {range && <p className="text-xs text-muted-foreground">{rangeText(range)}</p>}
       </div>
       <CustomRangeSheet
@@ -97,7 +93,7 @@ export function StatsPanel({ active }: { active: boolean }) {
         onClose={() => setCustomOpen(false)}
         // The applied dates, or the last 30 days the first time.
         initial={customStart(custom ?? {}, today)}
-        now={now}
+        today={today}
         onApply={(dates) => {
           setCustom(dates);
           setKind('custom');
@@ -140,20 +136,18 @@ export function StatsPanel({ active }: { active: boolean }) {
 }
 
 /**
- * The range (spec §4.7): a row of chips that scrolls sideways, one Tab stop. Arrow keys, Home
- * and End move between chips without changing the range; Enter, Space or a tap picks. Custom
- * opens its dates in a sheet, so landing on it never pops a sheet up.
+ * The range (spec §4.7): a radio group of chips that scrolls sideways, one Tab stop. Arrow keys,
+ * Home and End move between chips without changing the range (as in a toggle group); Enter,
+ * Space or a tap picks. Custom opens its dates in a sheet, so landing on it never pops one up.
  */
 function RangeChips({
   kind,
   onPick,
   onCustom,
-  customOpen,
 }: {
   kind: RangeKind;
   onPick: (kind: RangeKind) => void;
   onCustom: () => void;
-  customOpen: boolean;
 }) {
   const chips = useRef(new Map<RangeKind, HTMLButtonElement>());
 
@@ -172,12 +166,13 @@ function RangeChips({
 
   return (
     <div
-      role="group"
+      role="radiogroup"
       aria-label="Range"
       onKeyDown={onKeyDown}
-      // Edge to edge across the tab (its padding is px-4), so chips scroll out under the edge;
-      // scroll padding keeps a focused chip clear of it. Room above and below for focus rings.
-      className="-mx-4 flex min-w-0 scroll-px-4 gap-1.5 overflow-x-auto px-4 py-1 [scrollbar-width:none]"
+      // Edge to edge across the tab (through its --tab-gutter padding), so chips scroll out under
+      // the edge; scroll padding keeps a focused chip clear of it. Room for focus rings above and
+      // below.
+      className="-mx-(--tab-gutter) flex min-w-0 scroll-px-(--tab-gutter) gap-1.5 overflow-x-auto px-(--tab-gutter) py-1 [scrollbar-width:none]"
     >
       {RANGE_KINDS.map((option) => {
         const pressed = option === kind;
@@ -189,13 +184,10 @@ function RangeChips({
               else chips.current.delete(option);
             }}
             type="button"
-            aria-pressed={pressed}
+            role="radio"
+            aria-checked={pressed}
             // Only the chosen chip is a Tab stop; the arrows reach the others.
             tabIndex={pressed ? 0 : -1}
-            {...(option === 'custom' && {
-              'aria-haspopup': 'dialog' as const,
-              'aria-expanded': customOpen,
-            })}
             onClick={() => (option === 'custom' ? onCustom() : onPick(option))}
             className={`chip focus-ring shrink-0 whitespace-nowrap ${pressed ? 'chip-on' : ''}`}
           >
@@ -216,13 +208,13 @@ function CustomRangeSheet({
   open,
   onClose,
   initial,
-  now,
+  today,
   onApply,
 }: {
   open: boolean;
   onClose: () => void;
   initial: DateRange;
-  now: Date;
+  today: string;
   onApply: (dates: DateRange) => void;
 }) {
   const formId = useId();
@@ -238,7 +230,7 @@ function CustomRangeSheet({
         </button>
       }
     >
-      <CustomRangeForm id={formId} initial={initial} now={now} onApply={onApply} />
+      <CustomRangeForm id={formId} initial={initial} today={today} onApply={onApply} />
     </Sheet>
   );
 }
@@ -247,59 +239,43 @@ function CustomRangeSheet({
 function CustomRangeForm({
   id,
   initial,
-  now,
+  today,
   onApply,
 }: {
   id: string;
   initial: DateRange;
-  now: Date;
+  today: string;
   onApply: (dates: DateRange) => void;
 }) {
   const [dates, setDates] = useState(initial);
   const fromInput = useRef<HTMLInputElement>(null);
   const toInput = useRef<HTMLInputElement>(null);
   const refs = useMemo(() => ({ from: fromInput, to: toInput }), []);
-  const { fail, clear, described, errorText } = useFieldErrors(id, ['from', 'to'] as const, refs);
-  const today = todayLocal(now);
+  const { errors, fail, clear } = useFieldErrors(id, ['from', 'to'] as const, refs);
 
   function apply(event: FormEvent) {
     event.preventDefault();
-    const errors = { from: customDateError(dates.from, now), to: customDateError(dates.to, now) };
-    if (errors.from || errors.to) return fail(errors);
+    const now = new Date(`${today}T12:00:00`);
+    const found = { from: customDateError(dates.from, now), to: customDateError(dates.to, now) };
+    if (found.from || found.to) return fail(found);
     const { from, to } = dates;
     onApply(from <= to ? { from, to } : { from: to, to: from });
   }
 
   return (
-    <form
-      id={id}
-      onSubmit={apply}
-      noValidate
-      aria-label="Custom range"
-      className="flex min-w-0 gap-2"
-    >
-      {(['from', 'to'] as const).map((end) => (
-        <div key={end} className="flex min-w-0 flex-1 flex-col gap-1">
-          <label htmlFor={`${id}-${end}`} className="field-label">
-            {end === 'from' ? 'From' : 'To'}
-          </label>
-          <input
-            ref={end === 'from' ? fromInput : toInput}
-            id={`${id}-${end}`}
-            type="date"
-            min={`${MIN_YEAR}-01-01`}
-            max={today}
-            value={dates[end]}
-            onChange={(event) => {
-              setDates((current) => ({ ...current, [end]: event.target.value }));
-              clear();
-            }}
-            className="field"
-            {...described(end)}
-          />
-          {errorText(end)}
-        </div>
-      ))}
+    <form id={id} onSubmit={apply} noValidate aria-label="Custom range" className="min-w-0">
+      <DateRangeFields
+        id={id}
+        value={dates}
+        today={today}
+        errors={errors}
+        refs={refs}
+        onChange={(end, date) => {
+          setDates((current) => ({ ...current, [end]: date }));
+          // Only this field's error goes: the other one may still be wrong.
+          clear(end);
+        }}
+      />
       {/* Enter in a date field applies; the visible Apply is in the sheet's footer. */}
       <button type="submit" hidden tabIndex={-1} aria-hidden="true" />
     </form>

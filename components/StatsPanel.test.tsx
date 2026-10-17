@@ -44,15 +44,15 @@ async function openStats(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('tab', { name: 'Stats' }));
   const panel = screen.getByRole('tabpanel', { name: 'Stats' });
   // The panel renders once its live query has loaded.
-  await within(panel).findByRole('group', { name: 'Range' });
+  await within(panel).findByRole('radiogroup', { name: 'Range' });
   return panel;
 }
 
 const chip = (panel: HTMLElement, name: string) =>
-  within(within(panel).getByRole('group', { name: 'Range' })).getByRole('button', { name });
+  within(within(panel).getByRole('radiogroup', { name: 'Range' })).getByRole('radio', { name });
 const pressedChip = (panel: HTMLElement) =>
-  within(within(panel).getByRole('group', { name: 'Range' })).getByRole('button', {
-    pressed: true,
+  within(within(panel).getByRole('radiogroup', { name: 'Range' })).getByRole('radio', {
+    checked: true,
   });
 const customSheet = () => screen.getByRole('dialog', { name: 'Custom range' });
 
@@ -95,7 +95,7 @@ describe('Stats tab', () => {
 
     await user.click(chip(panel, 'This month'));
     expect(pressedChip(panel)).toHaveAccessibleName('This month');
-    expect(chip(panel, 'This week')).toHaveAttribute('aria-pressed', 'false');
+    expect(chip(panel, 'This week')).toHaveAttribute('aria-checked', 'false');
     expect(panel).toHaveTextContent('Oct 1, 2026 – Oct 31, 2026');
     expect(card(panel, 'Applied')).toHaveTextContent('5');
     expect(card(panel, /Response rate/)).toHaveTextContent('2 of 5 heard back');
@@ -120,8 +120,8 @@ describe('Stats tab', () => {
     await applied('2026-10-12');
     const user = userEvent.setup();
     const panel = await openStats(user);
-    const chips = within(within(panel).getByRole('group', { name: 'Range' })).getAllByRole(
-      'button',
+    const chips = within(within(panel).getByRole('radiogroup', { name: 'Range' })).getAllByRole(
+      'radio',
     );
     expect(chips.map((c) => c.textContent)).toEqual([
       'This week',
@@ -157,7 +157,6 @@ describe('Stats tab', () => {
     const user = userEvent.setup();
     const panel = await openStats(user);
     const sheet = await openCustom(user, panel);
-    expect(chip(panel, 'Custom…')).toHaveAttribute('aria-expanded', 'true');
     const from = within(sheet).getByLabelText('From');
     const to = within(sheet).getByLabelText('To');
     expect(from).toHaveFocus();
@@ -222,6 +221,11 @@ describe('Stats tab', () => {
     expect(customSheet()).toBeInTheDocument();
     expect(pressedChip(panel)).toHaveAccessibleName('This week');
 
+    // Fixing one date leaves the other's error showing.
+    await user.type(from, '2026-10-01');
+    expect(from).not.toHaveAttribute('aria-invalid');
+    expect(to).toHaveAccessibleDescription("This date can't be in the future.");
+    await user.clear(from);
     await user.type(from, '1969-12-31');
     expect(from).not.toHaveAttribute('aria-invalid');
     await user.click(within(sheet).getByRole('button', { name: 'Apply' }));
@@ -238,7 +242,6 @@ describe('Stats tab', () => {
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(pressedChip(panel)).toHaveAccessibleName('This month');
-    expect(chip(panel, 'Custom…')).toHaveAttribute('aria-expanded', 'false');
     expect(chip(panel, 'Custom…')).toHaveFocus();
     // What was typed is forgotten: it opens on the last 30 days again.
     const again = await openCustom(user, panel);
