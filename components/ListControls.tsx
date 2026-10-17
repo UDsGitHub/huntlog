@@ -77,7 +77,7 @@ export function ListControls({
         onClick={() => setOpen(true)}
         aria-label={count ? `Filters, ${count} on` : 'Filters'}
         aria-haspopup="dialog"
-        className="btn btn-outline btn-icon relative"
+        className="btn btn-ghost btn-icon relative"
       >
         <SlidersHorizontalIcon />
         {count > 0 && (

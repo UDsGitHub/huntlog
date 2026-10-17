@@ -255,8 +255,8 @@ export function ResumesPanel({
             setRenaming(null);
             focusIfLost();
           }}
-          onSaved={() => {
-            announce('Saved.');
+          onSaved={(saved) => {
+            announce(`Renamed to ${saved.name}.`);
             setRenameOpen(false);
           }}
         />
@@ -312,7 +312,7 @@ function ResumeRow({
   async function open() {
     if (!(await openResume(resume))) announce(`${resume.name} isn't available any more.`);
   }
-  const details = `${formatLabel(resume.fileName)} · ${formatBytes(resume.size)} · Uploaded ${formatTimestampDate(resume.createdAt)}`;
+  const details = `${formatLabel(resume.fileName)} · ${formatBytes(resume.size)}`;
   const verb = opensInViewer(resume) ? 'Open' : 'Download';
 
   return (
@@ -330,8 +330,10 @@ function ResumeRow({
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="text-sm font-medium break-words">{resume.name}</span>
-          <span id={`${id}-details`} className="text-xs text-muted-foreground">
-            {details}
+          {/* The upload date on its own line, so it never breaks mid-date at 320px. */}
+          <span id={`${id}-details`} className="flex flex-col text-xs text-muted-foreground">
+            <span>{details}</span>
+            <span>Uploaded {formatTimestampDate(resume.createdAt)}</span>
           </span>
           {resume.note && (
             <span id={`${id}-note`} className="text-xs break-words text-muted-foreground">
@@ -341,6 +343,7 @@ function ResumeRow({
         </span>
       </button>
       <MoreMenu
+        vertical
         label={`More actions for ${resume.name}`}
         items={[
           {
@@ -431,7 +434,7 @@ function RenameSheet({
   open: boolean;
   onClose: () => void;
   onClosed: () => void;
-  onSaved: () => void;
+  onSaved: (resume: Resume) => void;
 }) {
   const id = useId();
   const [name, setName] = useState(resume.name);
@@ -448,8 +451,7 @@ function RenameSheet({
     if (saving) return;
     setSaving(true);
     try {
-      await updateResume(resume.id, { name, note });
-      onSaved();
+      onSaved(await updateResume(resume.id, { name, note }));
     } catch (error) {
       if (error instanceof ResumeValidationError) fail(error.fields);
       else {
@@ -510,7 +512,7 @@ function RenameSheet({
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor={`${id}-note`} className="field-label">
-            Note <span className="font-normal text-muted-foreground">(optional)</span>
+            Note
           </label>
           <input
             ref={noteInput}

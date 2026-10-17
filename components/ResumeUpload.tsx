@@ -210,7 +210,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
           id={`${id}-name`}
           type="text"
           autoComplete="off"
-          placeholder="e.g. Backend v3"
+          placeholder="e.g. Software Engineer 2026"
           value={name}
           onChange={(event) => {
             setName(event.target.value);
@@ -225,7 +225,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
       {variant === 'sheet' && (
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor={`${id}-note`} className="field-label">
-            Note <span className="font-normal text-muted-foreground">(optional)</span>
+            Note
           </label>
           <input
             ref={noteInput}

@@ -112,17 +112,21 @@ describe('More details', () => {
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 
-  it('marks required fields with an asterisk, keeping "(optional)" on the rest', async () => {
+  it('marks required fields with an asterisk, and the rest with just their label', async () => {
     const user = userEvent.setup();
     await openAdd(user);
     expect(screen.getByLabelText('Company')).toHaveAttribute('aria-required', 'true');
     expect(screen.getByLabelText('Job posting URL')).toHaveAttribute('aria-required', 'true');
     expect(screen.getByLabelText('Date applied')).toHaveAttribute('aria-required', 'true');
     expect(screen.getByText('Fields marked * are required.')).toBeInTheDocument();
-    expect(screen.getByLabelText(/Job title/)).toHaveAccessibleName('Job title (optional)');
-    // Withdrawn doesn't need a Date applied: the asterisk gives way to "(optional)".
+    expect(screen.getByLabelText(/Job title/)).toHaveAccessibleName('Job title');
+    expect(screen.queryByText(/\(optional\)/)).toBeNull();
+    // Withdrawn doesn't need a Date applied: its asterisk goes, and it's no longer required.
     await user.selectOptions(screen.getByLabelText('Status'), 'withdrawn');
-    expect(screen.getByLabelText(/Date applied/)).toHaveAccessibleName('Date applied (optional)');
+    const date = screen.getByLabelText(/Date applied/);
+    expect(date).toHaveAccessibleName('Date applied');
+    expect(date).not.toHaveAttribute('aria-required');
+    expect(screen.getByText('Date applied').parentElement).not.toHaveTextContent('*');
   });
 
   it('puts Status and Date applied on one row, Status alone for Saved', async () => {

@@ -82,7 +82,12 @@ describe('Resumes tab', () => {
 
     const list = await within(panel).findByRole('list', { name: 'Resumes' });
     expect(list).toHaveTextContent('Backend v3');
-    expect(list).toHaveTextContent(/PDF · 108 bytes · Uploaded/);
+    // The upload date has its own line, so it never wraps mid-date.
+    expect(list).toHaveTextContent(/PDF · 108 bytes/);
+    const row = within(list).getByRole('button', { name: 'Open Backend v3' });
+    expect(
+      [...row.querySelectorAll(`[id$="-details"] > span`)].map((line) => line.textContent),
+    ).toEqual(['PDF · 108 bytes', expect.stringMatching(/^Uploaded /)]);
     expect(list).toHaveTextContent('For SRE roles');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('button', { name: 'Upload resume' })).toHaveFocus();
@@ -226,10 +231,12 @@ describe('Resumes tab', () => {
     expect(sheet.getByLabelText('Name')).toHaveValue('Renamed elsewhere');
     expect(sheet.getByLabelText('Name')).toHaveFocus();
     await user.clear(sheet.getByLabelText('Name'));
-    await user.type(sheet.getByLabelText('Name'), 'Backend v4');
+    // Spaces around the name are trimmed, and the announcement says the saved name.
+    await user.type(sheet.getByLabelText('Name'), '  Backend v4 ');
     await user.clear(sheet.getByLabelText(/Note/));
     await user.click(sheet.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('status')).toHaveTextContent('Renamed to Backend v4.');
     // The live list shows the new name once the write lands; focus stayed on that row's ⋯.
     await waitFor(() =>
       expect(
@@ -313,7 +320,7 @@ describe('Resumes tab', () => {
     const user = userEvent.setup();
     const panel = await openResumesTab(user);
     const row = await within(panel).findByRole('button', { name: 'Open Backend v3' });
-    expect(row).toHaveAccessibleDescription(/^PDF · 108 bytes · Uploaded .+ SRE$/);
+    expect(row).toHaveAccessibleDescription(/^PDF · 108 bytes ?Uploaded .+ SRE$/);
     await user.click(row);
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith({

@@ -223,8 +223,9 @@ function Row({
           <StatusChip application={app} onPick={onStatusPick} />
         </div>
       </div>
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      {/* The text column stops well short of the link icon, so long text doesn't crowd it. */}
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <div className="flex max-w-[85%] min-w-0 flex-1 flex-col gap-0.5">
           {where && <span className="truncate text-xs text-muted-foreground">{where}</span>}
           {app.title && <span className="text-sm break-words">{app.title}</span>}
           <span className="text-xs text-muted-foreground">

@@ -348,7 +348,7 @@ export function ApplicationForm({
             {message('company')}
           </Field>
 
-          <Field label="Job title" optional htmlFor={`${id}-title`}>
+          <Field label="Job title" htmlFor={`${id}-title`}>
             <input
               id={`${id}-title`}
               name="title"
@@ -403,12 +403,7 @@ export function ApplicationForm({
 
             {/* Hidden for Saved: nothing was applied for yet (spec §4.2, §5). */}
             <div hidden={dateHidden} className="min-w-0">
-              <Field
-                label="Date applied"
-                required={!dateOptional}
-                optional={dateOptional}
-                htmlFor={`${id}-appliedAt`}
-              >
+              <Field label="Date applied" required={!dateOptional} htmlFor={`${id}-appliedAt`}>
                 <input
                   {...control('appliedAt')}
                   type="date"
@@ -467,7 +462,7 @@ export function ApplicationForm({
             data-state={detailsOpen ? 'open' : 'closing'}
             className="details-panel flex min-w-0 flex-col gap-3"
           >
-            <Field label="Location" optional htmlFor={`${id}-location`}>
+            <Field label="Location" htmlFor={`${id}-location`}>
               <input
                 {...control('location')}
                 type="text"
@@ -478,7 +473,7 @@ export function ApplicationForm({
               {message('location')}
             </Field>
 
-            <Field label="Work mode" optional htmlFor={`${id}-workMode`}>
+            <Field label="Work mode" htmlFor={`${id}-workMode`}>
               <select
                 {...control('workMode')}
                 value={values.workMode}
@@ -495,9 +490,7 @@ export function ApplicationForm({
             </Field>
 
             <fieldset className="flex min-w-0 flex-col gap-2">
-              <legend className="field-label">
-                Salary <span className="font-normal text-muted-foreground">(optional)</span>
-              </legend>
+              <legend className="field-label">Salary</legend>
               {/* Minimum – Maximum on one row, currency and period below. */}
               <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
                 <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
@@ -575,7 +568,7 @@ export function ApplicationForm({
               inputRef={register('source')}
             />
 
-            <Field label="Notes" optional htmlFor={`${id}-notes`}>
+            <Field label="Notes" htmlFor={`${id}-notes`}>
               <AutoGrowTextarea
                 {...control('notes')}
                 value={values.notes}
@@ -607,7 +600,6 @@ function Field({
   label,
   htmlFor,
   required,
-  optional,
   small,
   children,
 }: {
@@ -615,8 +607,6 @@ function Field({
   htmlFor: string;
   /** Marked with an asterisk; the field itself says "required" to screen readers. */
   required?: boolean;
-  /** Labelled "(optional)", as before (spec §4.2 keeps both markers). */
-  optional?: boolean;
   small?: boolean;
   children: ReactNode;
 }) {
@@ -626,7 +616,6 @@ function Field({
       <div className="flex items-baseline gap-0.5">
         <label htmlFor={htmlFor} className={small ? 'text-xs font-medium' : 'field-label'}>
           {label}
-          {optional && <span className="font-normal text-muted-foreground"> (optional)</span>}
         </label>
         {required && (
           <span aria-hidden="true" className="text-sm font-medium text-destructive">

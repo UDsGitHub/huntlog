@@ -299,11 +299,7 @@ function DataCard({ onDataDeleted, notify, active }: Props) {
         Everything is stored only in this browser. Export and import arrive in a later version.
       </p>
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen('delete')}
-          className="btn btn-destructive-outline"
-        >
+        <button type="button" onClick={() => setOpen('delete')} className="btn btn-destructive">
           <Trash2Icon />
           Delete all data
         </button>
@@ -539,7 +535,11 @@ function ResetSheet({
           }}
           className={`btn w-full ${alsoDelete ? 'btn-destructive' : 'btn-primary'}`}
         >
-          {action.busy ? 'Working…' : alsoDelete ? 'Reset and delete everything' : 'Reset settings'}
+          {action.busy
+            ? 'Resetting…'
+            : alsoDelete
+              ? 'Reset and delete everything'
+              : 'Reset settings'}
         </button>
       }
     >
