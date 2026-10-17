@@ -48,14 +48,17 @@ interface Props {
   onDataDeleted: () => void;
   /** A short confirmation, shown as a toast. */
   notify: (message: string) => void;
-  /** The Settings tab is selected. Its sheets close when it isn't (e.g. a capture switched tabs). */
+  /**
+   * The Settings sheet is open. Its own sheets close as soon as it isn't (e.g. a capture closed
+   * it), rather than staying modal while it slides out.
+   */
   active: boolean;
 }
 
 /**
- * The Settings tab (spec §4.8): cards for the weekly goal, display, your data, and about. Every
- * change saves as it's made and applies in every open window (settings live in storage, and
- * `useSettings` follows changes from anywhere).
+ * Settings (spec §4.8), the content of the sheet the header's gear opens: cards for the weekly
+ * goal, display, your data, and about. Every change saves as it's made and applies in every open
+ * window (settings live in storage, and `useSettings` follows changes from anywhere).
  */
 export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
   const settings = useSettings();
@@ -73,10 +76,8 @@ export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
 
   if (!settings) return null;
   return (
-    <section aria-labelledby="settings-heading" className="flex min-w-0 flex-col gap-4 pb-4">
-      <h2 id="settings-heading" className="section-heading">
-        Settings
-      </h2>
+    // The sheet's title names it.
+    <div className="flex min-w-0 flex-col gap-4">
       {saveError && (
         <p role="alert" className="field-error">
           {saveError}
@@ -86,7 +87,7 @@ export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
       <DisplayCard settings={settings} onChange={(patch) => void save(patch)} />
       <DataCard onDataDeleted={onDataDeleted} notify={notify} active={active} />
       <AboutCard />
-    </section>
+    </div>
   );
 }
 
@@ -314,8 +315,9 @@ function DisplayCard({
 /** Delete all data, and Reset settings (spec §4.8), each confirmed in a sheet. */
 function DataCard({ onDataDeleted, notify, active }: Props) {
   const [open, setOpen] = useState<'delete' | 'reset' | null>(null);
-  // Leaving the tab (a capture) closes its sheet: hidden behind another tab, it would stay modal
-  // and block the panel. A delete still running reports its outcome in a toast.
+  // Settings closing (a capture) closes its sheet too, at once: left open while Settings slides
+  // out, it would stay modal over the panel. A delete still running reports its outcome in a
+  // toast.
   if (!active && open !== null) setOpen(null);
   const finish = (message: string) => {
     setOpen(null);

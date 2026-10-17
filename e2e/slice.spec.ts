@@ -48,6 +48,9 @@ test('works with the keyboard alone', async ({ session }) => {
   // Wait for the list, so Tab order is final.
   await expect(page.getByText('No applications yet.')).toBeVisible();
 
+  // The header's Settings gear, then the selected tab.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('tab', { name: 'Applications' })).toBeFocused();
   // The empty list's own button comes first, then the floating + Add.

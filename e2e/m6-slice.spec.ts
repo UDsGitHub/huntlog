@@ -20,11 +20,13 @@ test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ sess
     await expect(page.getByRole('listitem').filter({ hasText: company })).toBeVisible();
   }
 
-  await page.getByRole('tab', { name: 'Settings' }).click();
-  const settings = page.getByRole('tabpanel', { name: 'Settings' });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = page.getByRole('dialog', { name: 'Settings' });
   await settings.getByRole('switch', { name: 'Set a weekly goal' }).click();
   await settings.getByLabel('Applications per week').fill('10');
   await settings.getByLabel('Applications per week').press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(settings).toBeHidden();
 
   await page.getByRole('tab', { name: 'Stats' }).click();
   const stats = page.getByRole('tabpanel', { name: 'Stats' });
@@ -34,10 +36,12 @@ test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ sess
   );
   await expectNoHorizontalScroll(page);
 
-  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await settings.locator('label', { hasText: 'Dark' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('tab', { name: 'Stats' }).click();
+  await expectNoHorizontalScroll(page);
+  await settings.getByRole('button', { name: 'Close' }).click();
+  await expect(settings).toBeHidden();
   await expect(stats.getByRole('img', { name: '3 of 10 applications this week' })).toBeVisible();
   // The dark tokens are in use: the page no longer has the light background.
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe(

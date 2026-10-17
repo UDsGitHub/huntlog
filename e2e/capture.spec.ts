@@ -173,7 +173,6 @@ test("a capture closes another tab's open sheet, so it can't block the panel aft
   const { panel, windowId } = await openPanel(session);
   for (const [tab, opener, sheet] of [
     ['Resumes', 'Upload resume', 'Upload a resume'],
-    ['Settings', 'Delete all data', 'Delete all data?'],
     ['Stats', 'Custom…', 'Custom range'],
   ] as const) {
     await panel.getByRole('tab', { name: tab }).click();
@@ -193,4 +192,23 @@ test("a capture closes another tab's open sheet, so it can't block the panel aft
     await panel.keyboard.press('Escape');
     await expect(panel.locator('dialog[open]')).toHaveCount(0);
   }
+});
+
+test('a capture closes Settings and a confirmation open on top of it', async ({ session }) => {
+  const { panel, windowId } = await openPanel(session);
+  await panel.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = panel.getByRole('dialog', { name: 'Settings' });
+  await settings.getByRole('button', { name: 'Delete all data' }).click();
+  await expect(panel.getByRole('dialog', { name: 'Delete all data?' })).toBeVisible();
+  await writeDraft(session, windowId, pageDraft());
+  await expect(form(panel).url).toHaveValue(JOB_URL);
+  // Both sheets go: only the capture's form is left.
+  await expect(panel.locator('dialog[open]')).toHaveCount(1);
+  await expect(settings).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Back' }).click();
+  await expect(panel.locator('dialog[open]')).toHaveCount(0);
+  // Focus lands on the floating + Add, not lost with the control Settings had focused.
+  await expect(panel.getByRole('button', { name: 'Add application', exact: true })).toBeFocused();
+  await panel.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(settings).toBeVisible();
 });

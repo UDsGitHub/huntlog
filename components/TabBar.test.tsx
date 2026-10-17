@@ -26,7 +26,7 @@ async function leaveForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Tab bar', () => {
-  it('shows Applications, Stats, Resumes and Settings, Applications selected, wired to its panel', async () => {
+  it('shows Applications, Stats and Resumes, Applications selected, wired to its panel', async () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     const tablist = screen.getByRole('tablist', { name: 'Job Log sections' });
@@ -34,7 +34,12 @@ describe('Tab bar', () => {
       within(tablist)
         .getAllByRole('tab')
         .map((t) => t.textContent),
-    ).toEqual(['Applications', 'Stats', 'Resumes', 'Settings']);
+    ).toEqual(['Applications', 'Stats', 'Resumes']);
+    // Settings isn't a tab: it's the header's gear.
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    );
     expect(tab('Applications')).toHaveAttribute('aria-selected', 'true');
     expect(tab('Resumes')).toHaveAttribute('aria-selected', 'false');
     const panel = screen.getByRole('tabpanel', { name: 'Applications' });
@@ -122,13 +127,11 @@ describe('Tab bar', () => {
     await user.keyboard('{ArrowRight}');
     expect(tab('Resumes')).toHaveFocus();
     await user.keyboard('{ArrowRight}');
-    expect(tab('Settings')).toHaveFocus();
-    await user.keyboard('{ArrowRight}');
     expect(tab('Applications')).toHaveFocus();
     await user.keyboard('{End}');
-    expect(tab('Settings')).toHaveFocus();
+    expect(tab('Resumes')).toHaveFocus();
     await user.keyboard('{Home}{ArrowLeft}');
-    expect(tab('Settings')).toHaveFocus();
+    expect(tab('Resumes')).toHaveFocus();
   });
 
   it('stays in place behind a form sheet', async () => {

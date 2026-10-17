@@ -279,6 +279,7 @@ export function Sheet({
           </div>
           <div
             ref={body}
+            data-sheet-body=""
             {...inert(panelInert)}
             className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
           >

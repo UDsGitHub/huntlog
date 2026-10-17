@@ -14,11 +14,29 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
 
-  // Every label fits its tab at 320px, none cut off.
-  for (const name of ['Applications', 'Stats', 'Resumes', 'Settings']) {
-    const label = page.getByRole('tab', { name }).locator('span');
-    expect(await label.evaluate((e) => e.scrollWidth > e.clientWidth), name).toBe(false);
+  // Every label fits its tab at 320px beside its icon, on one row, none cut off.
+  for (const name of ['Applications', 'Stats', 'Resumes']) {
+    const tab = page.getByRole('tab', { name });
+    const label = tab.locator('span').last();
+    // Fractional widths: scrollWidth rounds, hiding a label cut off by a fraction of a pixel.
+    const room = await label.evaluate((e) => {
+      const text = document.createRange();
+      text.selectNodeContents(e);
+      return e.getBoundingClientRect().width - text.getBoundingClientRect().width;
+    });
+    expect(room, name).toBeGreaterThanOrEqual(0);
+    const [icon, text] = [await tab.locator('svg').boundingBox(), await label.boundingBox()];
+    expect(icon!.x + icon!.width, name).toBeLessThanOrEqual(text!.x);
+    expect(Math.abs(icon!.y + icon!.height / 2 - (text!.y + text!.height / 2)), name).toBeLessThan(
+      2,
+    );
   }
+  // Settings is the gear in the title row, not a tab.
+  await expect(page.getByRole('tab')).toHaveCount(3);
+  const title = await page.getByRole('heading', { level: 1 }).boundingBox();
+  const gear = await page.getByRole('button', { name: 'Settings', exact: true }).boundingBox();
+  expect(Math.abs(gear!.y + gear!.height / 2 - (title!.y + title!.height / 2))).toBeLessThan(2);
+  expect(gear!.x + gear!.width).toBeGreaterThan(300);
 
   await page.getByRole('tab', { name: 'Resumes' }).click();
   await expect(page.getByRole('tabpanel', { name: 'Resumes' })).toContainText('No resumes yet.');

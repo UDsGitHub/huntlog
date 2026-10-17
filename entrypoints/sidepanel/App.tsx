@@ -18,6 +18,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { focusOpenSheet, Sheet } from '@/components/Sheet';
 import { StatsPanel } from '@/components/StatsPanel';
 import { StatusSheetProvider } from '@/components/StatusSheet';
+import { useSettings } from '@/components/useSettings';
 import { panelState, TabPanel, useTabSlide } from '@/components/TabPanels';
 import { useTheme } from '@/components/useTheme';
 import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
@@ -44,13 +45,12 @@ import {
 } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
-type TabId = 'applications' | 'stats' | 'resumes' | 'settings';
+type TabId = 'applications' | 'stats' | 'resumes';
 const TAB_PREFIX = 'section';
 const TABS: Tab<TabId>[] = [
-  { id: 'applications', label: 'Applications', icon: <BriefcaseIcon className="size-5" /> },
-  { id: 'stats', label: 'Stats', icon: <ChartColumnIcon className="size-5" /> },
-  { id: 'resumes', label: 'Resumes', icon: <FileTextIcon className="size-5" /> },
-  { id: 'settings', label: 'Settings', icon: <SettingsIcon className="size-5" /> },
+  { id: 'applications', label: 'Applications', icon: <BriefcaseIcon /> },
+  { id: 'stats', label: 'Stats', icon: <ChartColumnIcon /> },
+  { id: 'resumes', label: 'Resumes', icon: <FileTextIcon /> },
 ];
 
 const TAB_ORDER = TABS.map((tab) => tab.id);
@@ -77,11 +77,22 @@ export default function App() {
   const tabRef = useRef(tab);
   // The Resumes tab's upload sheet, opened by its floating + Upload (rendered out here).
   const [uploadOpen, setUploadOpen] = useState(false);
+  // Settings, a sheet over whatever tab is showing (spec §3), opened by the header's gear.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // From opening until it has finished sliding out: the page behind is inert meanwhile, so focus
+  // meant for it (the restored row after Undo, + Add) waits until then.
+  const [settingsShown, setSettingsShown] = useState(false);
+  // Loaded once for the whole panel (useTheme reads them too): Settings opens with its cards.
+  const settingsLoaded = useSettings() !== undefined;
+  if (settingsOpen && settingsLoaded && !settingsShown) setSettingsShown(true);
   const selectTab = useCallback((next: TabId) => {
     tabRef.current = next;
     setTab(next);
     // Leaving the tab (a capture) closes the sheet; coming back doesn't reopen it.
     if (next !== 'resumes') setUploadOpen(false);
+    // Only a capture or a toast's action switches tabs, and what they show must not stay
+    // hidden under Settings.
+    setSettingsOpen(false);
   }, []);
   const slide = useTabSlide(tab, TAB_ORDER);
   const [view, setView] = useState<View>({ name: 'list' });
@@ -169,6 +180,8 @@ export default function App() {
    */
   const isCurrent = (v: View) => viewRef.current === v;
   const sectionState = (id: TabId) => panelState(id, tab, slide.leaving);
+  // A sheet covers the page (a form, or Settings until it has gone): focus can't go to it yet.
+  const pageInert = Boolean(sheetView) || settingsShown;
 
   function announce(text: string) {
     setAnnouncement(({ count }) => ({ text, count: count + 1 }));
@@ -285,12 +298,13 @@ export default function App() {
     // The toast's button had focus and is gone; put focus somewhere sensible. After Undo, the
     // restored row takes it once the restore finishes.
     if (reason !== 'dismiss') return;
+    // Behind an open sheet (Settings, a form) the page is inert: focus stays in the sheet.
+    if (focusOpenSheet()) return;
     if (tabRef.current !== 'applications') {
       document.getElementById(tabId(TAB_PREFIX, tabRef.current))?.focus();
     } else if (viewRef.current.name === 'list') {
       setFocusTarget({ kind: 'add' });
-    } else if (!focusOpenSheet()) {
-      // Behind an open sheet the page is inert: focus stays in the sheet instead.
+    } else {
       heading.current?.focus();
     }
   }
@@ -304,10 +318,23 @@ export default function App() {
     // One status sheet for every chip in the panel (spec §4.3).
     <StatusSheetProvider>
       <main className="flex h-dvh flex-col">
-        <div className="flex shrink-0 flex-col gap-4 px-4 pt-4">
-          <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
-            Job Log
-          </h1>
+        {/* The tab bar spans the panel's full width: three labels beside their icons need it at
+            320px. */}
+        <div className="flex shrink-0 flex-col gap-1 pt-3">
+          <div className="flex items-center justify-between gap-2 px-4">
+            <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+              Job Log
+            </h1>
+            <button
+              type="button"
+              aria-label="Settings"
+              aria-haspopup="dialog"
+              onClick={() => setSettingsOpen(true)}
+              className="btn btn-ghost btn-icon -mr-2"
+            >
+              <SettingsIcon />
+            </button>
+          </div>
           {/* One live region for the whole panel, mounted before anything is announced. */}
           <p role="status" className="sr-only">
             {/* A zero-width space alternates so a repeated message still changes the region. */}
@@ -373,7 +400,7 @@ export default function App() {
                       onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
                       // Not while a sheet is on screen: the page behind it is inert until it's gone.
                       focusRowId={
-                        !sheetView && focusTarget?.kind === 'row' ? focusTarget.id : undefined
+                        !pageInert && focusTarget?.kind === 'row' ? focusTarget.id : undefined
                       }
                       awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
                       onRowFocused={clearFocusTarget}
@@ -422,20 +449,21 @@ export default function App() {
               onUploadOpenChange={setUploadOpen}
             />
           </TabPanel>
-          <TabPanel
-            state={sectionState('settings')}
-            direction={slide.direction}
-            role="tabpanel"
-            id={panelId(TAB_PREFIX, 'settings')}
-            aria-labelledby={tabId(TAB_PREFIX, 'settings')}
-          >
-            <SettingsPanel
-              onDataDeleted={handleDataDeleted}
-              notify={(message) => showToast({ message })}
-              active={tab === 'settings'}
-            />
-          </TabPanel>
         </div>
+        {/* Not dismissible: it holds a text field (the weekly goal). */}
+        <Sheet
+          open={settingsOpen && settingsLoaded}
+          onClose={() => setSettingsOpen(false)}
+          onClosed={() => setSettingsShown(false)}
+          title="Settings"
+          size="full"
+        >
+          <SettingsPanel
+            onDataDeleted={handleDataDeleted}
+            notify={(message) => showToast({ message })}
+            active={settingsOpen}
+          />
+        </Sheet>
         {/* Add and Edit open as a sheet over the list or detail view (spec §4.2). */}
         {sheetView?.name === 'add' && (prefill || formDefaults) && (
           // Remount per capture: a new capture replaces whatever is in the form (spec §4.1). A
@@ -499,7 +527,7 @@ export default function App() {
         {/* Stays mounted under an Add sheet: it's where focus returns when that closes. */}
         {tab === 'applications' && base.name === 'list' && view.name !== 'edit' && (
           <AddButton
-            focus={!sheetView && focusTarget?.kind === 'add'}
+            focus={!pageInert && focusTarget?.kind === 'add'}
             onFocused={clearFocusTarget}
             onClick={openAdd}
           />

@@ -52,29 +52,30 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Set date | `components/StatusSheet.tsx:272` |
 | Skip | `components/StatusSheet.tsx:275` |
 | Choose another status | `components/StatusSheet.tsx:280` |
-| Your captured job is ready. | `entrypoints/sidepanel/App.tsx:139` |
-| Job captured. It opens when you finish editing. | `entrypoints/sidepanel/App.tsx:183` |
-| Deleted ${application.company}. | `entrypoints/sidepanel/App.tsx:212` |
-| Restored ${application.company}. | `entrypoints/sidepanel/App.tsx:218` |
-| Couldn't undo the delete. | `entrypoints/sidepanel/App.tsx:227` |
-| Moved ${application.company} to ${STATUS_LABELS[pick.status]}. | `entrypoints/sidepanel/App.tsx:242` |
-| ${application.company} is back to ${STATUS_LABELS[change.before.status]}. | `entrypoints/sidepanel/App.tsx:250` |
-| Couldn't undo: ${application.company} changed since. | `entrypoints/sidepanel/App.tsx:251` |
-| Couldn't undo the status change. | `entrypoints/sidepanel/App.tsx:264` |
-| Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'} | `entrypoints/sidepanel/App.tsx:274` |
-| Couldn't change the status of ${application.company}. | `entrypoints/sidepanel/App.tsx:279` |
-| Job Log | `entrypoints/sidepanel/App.tsx:309` |
-| Job Log sections | `entrypoints/sidepanel/App.tsx:322` |
-| Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:453` |
-| Saved changes. | `entrypoints/sidepanel/App.tsx:485` |
-| Upload resume | `entrypoints/sidepanel/App.tsx:509` |
-| Upload | `entrypoints/sidepanel/App.tsx:510` |
-| Add application | `entrypoints/sidepanel/App.tsx:535` |
-| Add | `entrypoints/sidepanel/App.tsx:536` |
-| Edit application | `entrypoints/sidepanel/App.tsx:578` |
-| This application isn't available any more. | `entrypoints/sidepanel/App.tsx:581` |
-| Job captured. Check the auto-filled fields. | `entrypoints/sidepanel/App.tsx:601` |
-| Add the job details below. | `entrypoints/sidepanel/App.tsx:602` |
+| Your captured job is ready. | `entrypoints/sidepanel/App.tsx:150` |
+| Job captured. It opens when you finish editing. | `entrypoints/sidepanel/App.tsx:196` |
+| Deleted ${application.company}. | `entrypoints/sidepanel/App.tsx:225` |
+| Restored ${application.company}. | `entrypoints/sidepanel/App.tsx:231` |
+| Couldn't undo the delete. | `entrypoints/sidepanel/App.tsx:240` |
+| Moved ${application.company} to ${STATUS_LABELS[pick.status]}. | `entrypoints/sidepanel/App.tsx:255` |
+| ${application.company} is back to ${STATUS_LABELS[change.before.status]}. | `entrypoints/sidepanel/App.tsx:263` |
+| Couldn't undo: ${application.company} changed since. | `entrypoints/sidepanel/App.tsx:264` |
+| Couldn't undo the status change. | `entrypoints/sidepanel/App.tsx:277` |
+| Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'} | `entrypoints/sidepanel/App.tsx:287` |
+| Couldn't change the status of ${application.company}. | `entrypoints/sidepanel/App.tsx:292` |
+| Job Log | `entrypoints/sidepanel/App.tsx:326` |
+| Settings | `entrypoints/sidepanel/App.tsx:330` |
+| Job Log sections | `entrypoints/sidepanel/App.tsx:349` |
+| Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:481` |
+| Saved changes. | `entrypoints/sidepanel/App.tsx:513` |
+| Upload resume | `entrypoints/sidepanel/App.tsx:537` |
+| Upload | `entrypoints/sidepanel/App.tsx:538` |
+| Add application | `entrypoints/sidepanel/App.tsx:563` |
+| Add | `entrypoints/sidepanel/App.tsx:564` |
+| Edit application | `entrypoints/sidepanel/App.tsx:606` |
+| This application isn't available any more. | `entrypoints/sidepanel/App.tsx:609` |
+| Job captured. Check the auto-filled fields. | `entrypoints/sidepanel/App.tsx:629` |
+| Add the job details below. | `entrypoints/sidepanel/App.tsx:630` |
 | Saved | `lib/status.ts:18` |
 | Applied | `lib/status.ts:19` |
 | Screening | `lib/status.ts:20` |
@@ -311,45 +312,44 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:70` |
-| Settings | `components/SettingsPanel.tsx:78` |
-| Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:138` |
-| Weekly goal | `components/SettingsPanel.tsx:172` |
-| Set a weekly goal | `components/SettingsPanel.tsx:175` |
-| Applications per week | `components/SettingsPanel.tsx:186` |
-| Decrease weekly goal | `components/SettingsPanel.tsx:191` |
-| Increase weekly goal | `components/SettingsPanel.tsx:219` |
-| Stats shows how this week is going against it. | `components/SettingsPanel.tsx:234` |
-| Display | `components/SettingsPanel.tsx:285` |
-| Theme | `components/SettingsPanel.tsx:287` |
-| First day of the week | `components/SettingsPanel.tsx:294` |
-| Locale default (${localeDay}) | `components/SettingsPanel.tsx:304` |
-| Used for This week and the weekly goal. | `components/SettingsPanel.tsx:308` |
-| Your data | `components/SettingsPanel.tsx:325` |
-| Everything is stored only in this browser. Export and import arrive in a later version. | `components/SettingsPanel.tsx:327` |
-| Delete all data | `components/SettingsPanel.tsx:332` |
-| Reset settings | `components/SettingsPanel.tsx:336` |
-| All your data was deleted. | `components/SettingsPanel.tsx:343` |
-| Settings reset, and all your data deleted. | `components/SettingsPanel.tsx:351` |
-| Settings reset. | `components/SettingsPanel.tsx:351` |
-| Type | `components/SettingsPanel.tsx:365` |
-| to confirm | `components/SettingsPanel.tsx:365` |
-| Your data was deleted, but the settings couldn't be reset. Try again. | `components/SettingsPanel.tsx:426` |
-| Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them. | `components/SettingsPanel.tsx:429` |
-| Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:431` |
-| Delete all data? | `components/SettingsPanel.tsx:479` |
-| This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:480` |
-| Deleting… | `components/SettingsPanel.tsx:496` |
-| Reset settings? | `components/SettingsPanel.tsx:537` |
-| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:538` |
-| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:560` |
-| Resetting… | `components/SettingsPanel.tsx:569` |
-| Reset and delete everything | `components/SettingsPanel.tsx:571` |
-| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:588` |
-| About | `components/SettingsPanel.tsx:616` |
-| Privacy policy | `components/SettingsPanel.tsx:620` |
-| Third-party notices | `components/SettingsPanel.tsx:626` |
-| Job Log | `components/SettingsPanel.tsx:631` |
+| Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:73` |
+| Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:139` |
+| Weekly goal | `components/SettingsPanel.tsx:173` |
+| Set a weekly goal | `components/SettingsPanel.tsx:176` |
+| Applications per week | `components/SettingsPanel.tsx:187` |
+| Decrease weekly goal | `components/SettingsPanel.tsx:192` |
+| Increase weekly goal | `components/SettingsPanel.tsx:220` |
+| Stats shows how this week is going against it. | `components/SettingsPanel.tsx:235` |
+| Display | `components/SettingsPanel.tsx:286` |
+| Theme | `components/SettingsPanel.tsx:288` |
+| First day of the week | `components/SettingsPanel.tsx:295` |
+| Locale default (${localeDay}) | `components/SettingsPanel.tsx:305` |
+| Used for This week and the weekly goal. | `components/SettingsPanel.tsx:309` |
+| Your data | `components/SettingsPanel.tsx:327` |
+| Everything is stored only in this browser. Export and import arrive in a later version. | `components/SettingsPanel.tsx:329` |
+| Delete all data | `components/SettingsPanel.tsx:334` |
+| Reset settings | `components/SettingsPanel.tsx:338` |
+| All your data was deleted. | `components/SettingsPanel.tsx:345` |
+| Settings reset, and all your data deleted. | `components/SettingsPanel.tsx:353` |
+| Settings reset. | `components/SettingsPanel.tsx:353` |
+| Type | `components/SettingsPanel.tsx:367` |
+| to confirm | `components/SettingsPanel.tsx:367` |
+| Your data was deleted, but the settings couldn't be reset. Try again. | `components/SettingsPanel.tsx:428` |
+| Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them. | `components/SettingsPanel.tsx:431` |
+| Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:433` |
+| Delete all data? | `components/SettingsPanel.tsx:481` |
+| This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:482` |
+| Deleting… | `components/SettingsPanel.tsx:498` |
+| Reset settings? | `components/SettingsPanel.tsx:539` |
+| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:540` |
+| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:562` |
+| Resetting… | `components/SettingsPanel.tsx:571` |
+| Reset and delete everything | `components/SettingsPanel.tsx:573` |
+| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:590` |
+| About | `components/SettingsPanel.tsx:618` |
+| Privacy policy | `components/SettingsPanel.tsx:622` |
+| Third-party notices | `components/SettingsPanel.tsx:628` |
+| Job Log | `components/SettingsPanel.tsx:633` |
 | Job Log: third-party notices | `entrypoints/notices/index.html:6` |
 | Job Log bundles the following open-source work. Nothing is loaded from the internet. | `entrypoints/notices/index.html:32` |
 | Geist font | `entrypoints/notices/index.html:34` |
@@ -378,11 +378,11 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] resize-none | `components/AutoGrowTextarea.tsx:59` |
 | Back | `components/Sheet.tsx:253` |
 | Close | `components/Sheet.tsx:273` |
-| Discard your changes? | `components/Sheet.tsx:315` |
-| What you've changed here won't be saved. | `components/Sheet.tsx:318` |
-| Keep editing | `components/Sheet.tsx:328` |
-| Discard | `components/Sheet.tsx:338` |
-| ${index * 100}% 0 | `components/TabBar.tsx:94` |
+| Discard your changes? | `components/Sheet.tsx:316` |
+| What you've changed here won't be saved. | `components/Sheet.tsx:319` |
+| Keep editing | `components/Sheet.tsx:329` |
+| Discard | `components/Sheet.tsx:339` |
+| ${index * 100}% 0 | `components/TabBar.tsx:95` |
 | Dismiss | `components/Toast.tsx:190` |
 | Add job to Job Log | `entrypoints/background.ts:11` |
 | Add linked job to Job Log | `entrypoints/background.ts:13` |
