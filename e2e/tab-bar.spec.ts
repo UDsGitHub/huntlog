@@ -14,6 +14,12 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto(panelUrl(session.extensionId));
 
+  // Every label fits its tab at 320px, none cut off.
+  for (const name of ['Applications', 'Stats', 'Resumes', 'Settings']) {
+    const label = page.getByRole('tab', { name }).locator('span');
+    expect(await label.evaluate((e) => e.scrollWidth > e.clientWidth), name).toBe(false);
+  }
+
   await page.getByRole('tab', { name: 'Resumes' }).click();
   await expect(page.getByRole('tabpanel', { name: 'Resumes' })).toContainText('No resumes yet.');
   // With real CSS, the section that slid out ends up out of sight.

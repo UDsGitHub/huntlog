@@ -5,7 +5,14 @@ import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
 import { Fab } from '@/components/Fab';
-import { BriefcaseIcon, ChartColumnIcon, FileTextIcon, PlusIcon } from '@/components/icons';
+import {
+  BriefcaseIcon,
+  ChartColumnIcon,
+  FileTextIcon,
+  PlusIcon,
+  SettingsIcon,
+} from '@/components/icons';
+import { SettingsPanel } from '@/components/SettingsPanel';
 import { StatsPanel } from '@/components/StatsPanel';
 import { panelState, TabPanel, useTabSlide } from '@/components/TabPanels';
 import { useTheme } from '@/components/useTheme';
@@ -28,12 +35,13 @@ import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
-type TabId = 'applications' | 'stats' | 'resumes';
+type TabId = 'applications' | 'stats' | 'resumes' | 'settings';
 const TAB_PREFIX = 'section';
 const TABS: Tab<TabId>[] = [
   { id: 'applications', label: 'Applications', icon: <BriefcaseIcon className="size-5" /> },
   { id: 'stats', label: 'Stats', icon: <ChartColumnIcon className="size-5" /> },
   { id: 'resumes', label: 'Resumes', icon: <FileTextIcon className="size-5" /> },
+  { id: 'settings', label: 'Settings', icon: <SettingsIcon className="size-5" /> },
 ];
 
 const TAB_ORDER = TABS.map((tab) => tab.id);
@@ -143,6 +151,14 @@ export default function App() {
   function openAdd() {
     setFormSession((n) => n + 1);
     navigate({ name: 'add' });
+  }
+
+  /** Delete all data finished (spec §4.8): back to an empty list, forgetting what was in flight. */
+  function handleDataDeleted() {
+    deferredCapture.current = false;
+    setFocusTarget(null);
+    setFormDefaults({});
+    navigate({ name: 'list' });
   }
 
   function toList(focus: FocusTarget) {
@@ -396,6 +412,18 @@ export default function App() {
           className="focus-ring-inset"
         >
           <ResumesPanel showToast={showToast} announce={announce} />
+        </TabPanel>
+        <TabPanel
+          state={sectionState('settings')}
+          direction={slide.direction}
+          role="tabpanel"
+          id={panelId(TAB_PREFIX, 'settings')}
+          aria-labelledby={tabId(TAB_PREFIX, 'settings')}
+        >
+          <SettingsPanel
+            onDataDeleted={handleDataDeleted}
+            notify={(message) => showToast({ message })}
+          />
         </TabPanel>
       </div>
       {/* Outside the sections: a fixed element inside a sliding (transformed) one would move
