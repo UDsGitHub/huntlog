@@ -3,6 +3,7 @@ import {
   FORM_DEFAULTS_KEY,
   parseFormDefaults,
   readFormDefaults,
+  onFormDefaultsChanged,
   rememberFormDefaults,
 } from './formDefaults';
 
@@ -75,5 +76,18 @@ describe('reading and remembering', () => {
     vi.spyOn(fakeBrowser.storage.local, 'set').mockRejectedValue(new Error('quota'));
     await expect(readFormDefaults()).resolves.toEqual({});
     await expect(rememberFormDefaults({ source: 'X' })).resolves.toEqual({ source: 'X' });
+  });
+});
+
+describe('onFormDefaultsChanged', () => {
+  it('reports new defaults and their removal, until unsubscribed', async () => {
+    const seen: unknown[] = [];
+    const stop = onFormDefaultsChanged((defaults) => seen.push(defaults));
+    await rememberFormDefaults({ source: 'Referral' });
+    await fakeBrowser.storage.local.remove(FORM_DEFAULTS_KEY);
+    await fakeBrowser.storage.local.set({ other: 1 });
+    stop();
+    await rememberFormDefaults({ source: 'Indeed' });
+    expect(seen).toEqual([{ source: 'Referral' }, {}]);
   });
 });

@@ -38,11 +38,16 @@ test('a saved job is listed and survives a browser restart', async ({ userDataDi
 test('works with the keyboard alone', async ({ session }) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
+  // Wait for the list, so Tab order is final.
+  await expect(page.getByText('No applications yet.')).toBeVisible();
 
   await page.keyboard.press('Tab');
   await expect(page.getByRole('tab', { name: 'Applications' })).toBeFocused();
+  // The empty list's own button comes first, then the floating + Add.
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Add application' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Add your first application' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Add application', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByLabel('Job posting URL')).toBeFocused();
   await page.keyboard.type('example.com/jobs/7');
@@ -51,7 +56,7 @@ test('works with the keyboard alone', async ({ session }) => {
   await page.keyboard.press('Enter');
 
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Keyboard Co');
-  await expect(page.getByRole('button', { name: 'Add application' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Add application', exact: true })).toBeFocused();
 });
 
 test('fits a 320px panel with no horizontal scroll', async ({ session }) => {

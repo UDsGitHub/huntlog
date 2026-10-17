@@ -19,7 +19,7 @@ const tab = (name: string) => screen.getByRole('tab', { name });
 const panel = (id: string) => document.getElementById(`section-panel-${id}`)!;
 
 describe('Tab bar', () => {
-  it('shows Applications, Stats and Resumes, Applications selected, wired to its panel', async () => {
+  it('shows Applications, Stats, Resumes and Settings, Applications selected, wired to its panel', async () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     const tablist = screen.getByRole('tablist', { name: 'Job Log sections' });
@@ -27,7 +27,7 @@ describe('Tab bar', () => {
       within(tablist)
         .getAllByRole('tab')
         .map((t) => t.textContent),
-    ).toEqual(['Applications', 'Stats', 'Resumes']);
+    ).toEqual(['Applications', 'Stats', 'Resumes', 'Settings']);
     expect(tab('Applications')).toHaveAttribute('aria-selected', 'true');
     expect(tab('Resumes')).toHaveAttribute('aria-selected', 'false');
     const panel = screen.getByRole('tabpanel', { name: 'Applications' });
@@ -115,11 +115,13 @@ describe('Tab bar', () => {
     await user.keyboard('{ArrowRight}');
     expect(tab('Resumes')).toHaveFocus();
     await user.keyboard('{ArrowRight}');
+    expect(tab('Settings')).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
     expect(tab('Applications')).toHaveFocus();
     await user.keyboard('{End}');
-    expect(tab('Resumes')).toHaveFocus();
+    expect(tab('Settings')).toHaveFocus();
     await user.keyboard('{Home}{ArrowLeft}');
-    expect(tab('Resumes')).toHaveFocus();
+    expect(tab('Settings')).toHaveFocus();
   });
 
   it('is hidden while a form is open, and back after', async () => {

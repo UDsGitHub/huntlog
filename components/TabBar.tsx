@@ -82,7 +82,7 @@ export function TabBar<Id extends string>({
             aria-controls={panelId(idPrefix, tab.id)}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(tab.id)}
-            className={`focus-ring flex min-w-0 flex-col items-center gap-1 rounded-t-md px-1 pt-1.5 pb-2 text-xs font-medium transition-colors ${
+            className={`focus-ring flex min-w-0 flex-col items-center gap-1 rounded-t-md px-0.5 pt-1.5 pb-2 text-[0.6875rem] font-medium tracking-tight transition-colors ${
               active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >

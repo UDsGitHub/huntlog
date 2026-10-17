@@ -103,7 +103,7 @@
 }
 
 @utility btn {
-  @apply focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors select-none disabled:opacity-50;
+  @apply focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors select-none disabled:opacity-50 aria-disabled:cursor-wait aria-disabled:opacity-50;
 }
 @utility btn-sm {
   @apply rounded-md px-2.5 py-1 text-xs;
