@@ -344,6 +344,20 @@ describe('Stats tab', () => {
     expect(card(panel, 'Applied')).toHaveTextContent('1');
   });
 
+  it('leads with the Applied number alone, then Interviews and Offers as two cards', async () => {
+    await applied('2026-10-13');
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    const headline = within(panel).getByLabelText('Headline numbers');
+    expect(
+      within(headline)
+        .getAllByRole('term')
+        .map((term) => term.textContent),
+    ).toEqual(['Interviews', 'Offers']);
+    expect(headline).not.toContainElement(card(panel, 'Applied'));
+    expect(within(panel).queryByRole('region', { name: 'Weekly goal' })).toBeNull();
+  });
+
   describe('weekly goal ring', () => {
     const ring = (panel: HTMLElement) =>
       within(panel).queryByRole('region', { name: 'Weekly goal' });
@@ -370,7 +384,7 @@ describe('Stats tab', () => {
       const user = userEvent.setup();
       const panel = await openStats(user);
       expect(ring(panel)).toHaveTextContent('3 of 10 this week');
-      expect(ring(panel)).toHaveTextContent('7 more to reach your goal.');
+      expect(ring(panel)).toHaveAccessibleDescription('7 more to reach your goal.');
       await user.click(chip(panel, 'This month'));
       expect(card(panel, 'Applied')).toHaveTextContent('4');
       expect(ring(panel)).toHaveTextContent('3 of 10 this week');
@@ -382,10 +396,10 @@ describe('Stats tab', () => {
       await applied('2026-10-13');
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(ring(panel)).toHaveTextContent('Goal reached. Nice work.');
+      expect(ring(panel)).toHaveAccessibleDescription('Goal reached. Nice work.');
       await applied('2026-10-14');
       await waitFor(() => expect(ring(panel)).toHaveTextContent('3 of 2 this week'));
-      expect(ring(panel)).toHaveTextContent('Goal reached, and 1 beyond it.');
+      expect(ring(panel)).toHaveAccessibleDescription('Goal reached, and 1 beyond it.');
     });
 
     it('says "application" for a goal of one', async () => {

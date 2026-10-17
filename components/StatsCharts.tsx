@@ -164,28 +164,45 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
 const RING_RADIUS = 40;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
+/** What the weekly goal card says under the numbers: how far to go, or that it's reached. */
+export function goalMessage({ count, goal, remaining }: GoalProgress): string {
+  if (remaining > 0) return `${remaining} more to reach your goal.`;
+  return count > goal ? `Goal reached, and ${count - goal} beyond it.` : 'Goal reached. Nice work.';
+}
+
 /**
- * The weekly goal ring (spec §4.7): this week's applications against the goal, whatever range
- * the tab shows. Full once the goal is reached; the count keeps going past it ("12 of 10").
+ * The weekly goal ring (spec §4.7), beside the Applied number: this week's applications against
+ * the goal, whatever range the tab shows. Full once the goal is reached; the count keeps going
+ * past it ("12 of 10"). `describedBy` names the line that says how far there is to go.
  */
-export function GoalRing({ progress }: { progress: GoalProgress }) {
+export function GoalRing({
+  progress,
+  describedBy,
+}: {
+  progress: GoalProgress;
+  describedBy?: string;
+}) {
   const id = useId();
-  const { count, goal, fraction, remaining } = progress;
+  const { count, goal, fraction } = progress;
   const label = `${count} of ${goal} ${goal === 1 ? 'application' : 'applications'} this week`;
   return (
-    <section aria-labelledby={`${id}-heading`} className="card flex min-w-0 items-center gap-4 p-4">
+    <section
+      aria-labelledby={`${id}-heading`}
+      aria-describedby={describedBy}
+      className="flex shrink-0 items-center gap-2.5"
+    >
       <svg
         role="img"
         aria-label={label}
         viewBox="0 0 100 100"
-        className="size-24 shrink-0 -rotate-90"
+        className="size-14 shrink-0 -rotate-90"
       >
         <circle
           cx="50"
           cy="50"
           r={RING_RADIUS}
           fill="none"
-          strokeWidth="10"
+          strokeWidth="12"
           className="stroke-border"
         />
         {count > 0 && (
@@ -194,7 +211,7 @@ export function GoalRing({ progress }: { progress: GoalProgress }) {
             cy="50"
             r={RING_RADIUS}
             fill="none"
-            strokeWidth="10"
+            strokeWidth="12"
             // Square ends: round caps would add length, so 1 of 200 would look 4% full and 199
             // of 200 would look complete.
             strokeDasharray={RING_LENGTH}
@@ -202,32 +219,15 @@ export function GoalRing({ progress }: { progress: GoalProgress }) {
             className="stroke-chart-1 transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
           />
         )}
-        <text
-          x="50"
-          y="50"
-          textAnchor="middle"
-          dominantBaseline="central"
-          transform="rotate(90 50 50)"
-          aria-hidden="true"
-          className="fill-foreground text-[1.375rem] font-semibold"
-        >
-          {count}
-        </text>
       </svg>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <h3 id={`${id}-heading`} className="text-sm font-semibold">
+      <div className="flex min-w-0 flex-col">
+        <h3 id={`${id}-heading`} className="text-xs text-muted-foreground">
           Weekly goal
         </h3>
         {/* The ring's own label says this to screen readers; once is enough. */}
-        <p aria-hidden="true" className="text-sm">
-          {count} of {goal} this week
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {remaining > 0
-            ? `${remaining} more to reach your goal.`
-            : count > goal
-              ? `Goal reached, and ${count - goal} beyond it.`
-              : 'Goal reached. Nice work.'}
+        <p aria-hidden="true" className="text-sm font-semibold tabular-nums">
+          {count} of {goal}{' '}
+          <span className="block text-xs font-normal text-muted-foreground">this week</span>
         </p>
       </div>
     </section>
