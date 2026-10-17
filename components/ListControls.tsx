@@ -1,7 +1,8 @@
-import { useId, useState, type ReactNode, type Ref } from 'react';
+import { useId, useRef, useState, type ReactNode, type Ref } from 'react';
 import { todayLocal } from '@/lib/dates';
 import {
   activeFilterCount,
+  sameFiltersAndSort,
   DEFAULT_QUERY,
   groupState,
   toggleGroup,
@@ -17,6 +18,7 @@ import { customDateError, customStart } from '@/lib/stats';
 import { STATUS_LABELS, STATUSES } from '@/lib/status';
 import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon, SearchIcon, SlidersHorizontalIcon } from './icons';
+import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -44,7 +46,10 @@ export function ListControls({
   context,
   onChange,
   searchRef,
+  active = true,
 }: {
+  /** False while a form sheet takes over (a capture): the filter sheet closes, its draft gone. */
+  active?: boolean;
   query: ListQuery;
   /** Today and the first day of the week, as the list filters with them. */
   context: QueryContext;
@@ -53,6 +58,7 @@ export function ListControls({
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  if (!active && open) setOpen(false);
   const count = activeFilterCount(query, context);
   return (
     <div role="search" aria-label="Find applications" className="flex min-w-0 gap-2">
@@ -101,8 +107,9 @@ export function ListControls({
 }
 
 /**
- * Sort, Date applied and Status (spec §4.4). Changes apply as they're made; Reset clears the
- * filters and the sort (not the search), Done closes.
+ * Sort, Date applied and Status (spec §4.4), chosen as a draft: only Apply changes the list, and
+ * closing the sheet any other way (Escape, ×, a click outside) discards the draft. Reset clears
+ * the draft's filters and sort (still to be applied); the search isn't part of the sheet.
  */
 function FilterSheet({
   open,
@@ -117,8 +124,31 @@ function FilterSheet({
   onChange: (query: ListQuery) => void;
   onClose: () => void;
 }) {
-  const changed =
-    query.statuses.length > 0 || query.dates.kind !== 'any' || query.sort !== DEFAULT_QUERY.sort;
+  const [draft, setDraft] = useState(query);
+  // Each opening starts from what the list shows.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDraft(query);
+  }
+  const sheet = useRef<HTMLDivElement>(null);
+  function apply() {
+    // A Custom range with a missing or impossible date isn't applied: the sheet stays open on
+    // the date that's wrong (its error already says why), as Stats' Custom range does.
+    if (
+      draft.dates.kind === 'custom' &&
+      (customDateError(draft.dates.from, context.now) ||
+        customDateError(draft.dates.to, context.now))
+    ) {
+      sheet.current?.querySelector<HTMLElement>('input[aria-invalid="true"]')?.focus();
+      return;
+    }
+    // Only a real change applies, so a frozen list isn't refreshed for nothing (spec §4.4).
+    if (!sameFiltersAndSort(draft, query)) onChange({ ...draft, search: query.search });
+    onClose();
+  }
+  const resettable =
+    draft.statuses.length > 0 || draft.dates.kind !== 'any' || draft.sort !== DEFAULT_QUERY.sort;
   return (
     <Sheet
       open={open}
@@ -129,67 +159,56 @@ function FilterSheet({
         <div className="flex gap-2">
           <button
             type="button"
-            disabled={!changed}
-            onClick={() => onChange({ ...withoutFilters(query), sort: DEFAULT_QUERY.sort })}
+            disabled={!resettable}
+            onClick={() => setDraft({ ...withoutFilters(draft), sort: DEFAULT_QUERY.sort })}
             className="btn btn-outline flex-1"
           >
             Reset
           </button>
-          <button type="button" onClick={onClose} className="btn btn-primary flex-1">
-            Done
+          <button type="button" onClick={apply} className="btn btn-primary flex-1">
+            Apply
           </button>
         </div>
       }
     >
-      <ChoiceGroup
+      <SegmentedControl
         legend="Sort by"
         options={(Object.keys(SORT_LABELS) as SortKey[]).map((value) => ({
           value,
           label: SORT_LABELS[value],
         }))}
-        value={query.sort}
-        onChange={(sort) => onChange({ ...query, sort })}
-        layout="segmented"
+        value={draft.sort}
+        onChange={(sort) => setDraft({ ...draft, sort })}
       />
-      <DateFilterField query={query} context={context} onChange={onChange} />
-      <StatusChips query={query} onChange={onChange} />
+      <div ref={sheet} className="contents">
+        <DateFilterField query={draft} context={context} onChange={setDraft} />
+        <StatusChips query={draft} onChange={setDraft} />
+      </div>
     </Sheet>
   );
 }
 
-/** A single choice as native radios (arrow keys move between them), drawn as chips or segments. */
+/** A single choice as native radios (arrow keys move between them), drawn as chips. */
 function ChoiceGroup<Value extends string>({
   legend,
   options,
   value,
   onChange,
-  layout,
 }: {
   legend: string;
   options: { value: Value; label: string }[];
   value: Value;
   onChange: (value: Value) => void;
-  layout: 'segmented' | 'chips';
 }) {
   const name = useId();
   return (
     <fieldset className="flex min-w-0 flex-col gap-1.5">
       <legend className="field-label mb-1.5">{legend}</legend>
-      <div
-        className={
-          layout === 'segmented'
-            ? 'grid grid-cols-3 gap-1 rounded-lg bg-muted p-1'
-            : 'flex flex-wrap gap-1.5'
-        }
-      >
+      <div className="flex flex-wrap gap-1.5">
         {options.map((option) => (
           <label
             key={option.value}
-            className={
-              layout === 'segmented'
-                ? 'flex cursor-pointer items-center justify-center rounded-md px-2 py-1.5 text-center text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring'
-                : 'chip has-[:checked]:chip-on has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring'
-            }
+            className="chip has-[:checked]:chip-on has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring"
           >
             <input
               type="radio"
@@ -247,7 +266,6 @@ function DateFilterField({
             dates: kind === 'custom' ? { kind, ...customStart(dates, today) } : { ...dates, kind },
           })
         }
-        layout="chips"
       />
       {dates.kind === 'custom' && (
         <DateRangeFields

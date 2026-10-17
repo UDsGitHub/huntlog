@@ -1,4 +1,5 @@
 import {
+  sameFiltersAndSort,
   activeFilterCount,
   dateFilterRange,
   DEFAULT_QUERY,
@@ -337,5 +338,32 @@ describe('filter count and clearing', () => {
       dates: { kind: 'this-week' },
     });
     expect(withoutFilters(query)).toEqual(q({ search: 'acme', sort: 'company' }));
+  });
+});
+
+describe('sameFiltersAndSort', () => {
+  const base = { ...DEFAULT_QUERY, statuses: ['applied'] as Status[] };
+  it('ignores the search, and Custom dates kept while a preset is picked', () => {
+    expect(sameFiltersAndSort(base, { ...base, search: 'acme' })).toBe(true);
+    expect(
+      sameFiltersAndSort(base, {
+        ...base,
+        dates: { kind: 'any', from: '2026-09-01', to: '2026-09-30' },
+      }),
+    ).toBe(true);
+  });
+  it('sees a different sort, statuses, date filter or Custom range', () => {
+    expect(sameFiltersAndSort(base, { ...base, sort: 'company' })).toBe(false);
+    expect(sameFiltersAndSort(base, { ...base, statuses: ['applied', 'saved'] })).toBe(false);
+    expect(sameFiltersAndSort(base, { ...base, statuses: [] })).toBe(false);
+    expect(sameFiltersAndSort(base, { ...base, dates: { kind: 'this-week' } })).toBe(false);
+    const custom = {
+      ...base,
+      dates: { kind: 'custom' as const, from: '2026-09-01', to: '2026-09-30' },
+    };
+    expect(sameFiltersAndSort(custom, { ...custom })).toBe(true);
+    expect(
+      sameFiltersAndSort(custom, { ...custom, dates: { ...custom.dates, to: '2026-10-01' } }),
+    ).toBe(false);
   });
 });

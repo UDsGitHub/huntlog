@@ -2,6 +2,8 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { addApplication, saveApplication, setStatus } from '@/lib/applications';
 import { db } from '@/lib/db';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { createDraft, draftKey } from '@/lib/captureDraft';
 import App from '@/entrypoints/sidepanel/App';
 
 beforeEach(async () => {
@@ -57,6 +59,22 @@ async function openFilters(user: User) {
   return screen.getByRole('dialog', { name: 'Filter and sort' });
 }
 
+/** Applies the sheet's choices (only Apply changes the list, spec §4.4). */
+async function apply(user: User, sheet: HTMLElement) {
+  await user.click(within(sheet).getByRole('button', { name: 'Apply' }));
+}
+
+/** Opens the sheet, presses each named chip or radio, and applies. */
+async function filterBy(user: User, ...names: string[]) {
+  const sheet = await openFilters(user);
+  for (const name of names) {
+    const control =
+      within(sheet).queryByRole('radio', { name }) ?? within(sheet).getByRole('button', { name });
+    await user.click(control);
+  }
+  await apply(user, sheet);
+}
+
 describe('List controls', () => {
   beforeEach(() => {
     // Sheets close at once, so tests don't wait for their slide.
@@ -75,8 +93,9 @@ describe('List controls', () => {
     const sheet = await openFilters(user);
     expect(within(sheet).getByRole('radio', { name: 'Last activity' })).toBeChecked();
     await user.click(within(sheet).getByRole('radio', { name: 'Date applied' }));
+    await apply(user, sheet);
     expect(rows()).toEqual(['Société Générale', 'Acme', 'Gamma', 'beta']);
-    await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
+    await filterBy(user, 'Company');
     expect(rows()).toEqual(['Acme', 'beta', 'Gamma', 'Société Générale']);
     // Sort isn't a filter: no count, nothing hidden.
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
@@ -86,20 +105,15 @@ describe('List controls', () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    const sheet = await openFilters(user);
-    const press = (name: string) => user.click(within(sheet).getByRole('button', { name }));
-
-    await press('Closed');
+    await filterBy(user, 'Closed');
     expect(rows()).toEqual(['Gamma']);
     expect(screen.getByText('Showing 1 of 4')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeInTheDocument();
-    await press('Closed');
-    await press('Active');
+    await filterBy(user, 'Closed', 'Active');
     expect(rows()).toEqual(['beta', 'Société Générale', 'Acme']);
-    await press('Active');
-    await press('Saved');
+    await filterBy(user, 'Active', 'Saved');
     expect(rows()).toEqual(['beta']);
-    await press('Rejected');
+    await filterBy(user, 'Rejected');
     expect(rows()).toEqual(['Gamma', 'beta']);
   });
 
@@ -128,11 +142,13 @@ describe('List controls', () => {
       await seed();
       const user = userEvent.setup();
       await renderList();
-      const sheet = await openFilters(user);
+      let sheet = await openFilters(user);
       await user.click(within(sheet).getByRole('radio', { name: 'Last 30 days' }));
-      expect(rows()).toEqual(['Société Générale']);
       expect(within(sheet).getByText(/Jobs without a date applied/)).toBeInTheDocument();
+      await apply(user, sheet);
+      expect(rows()).toEqual(['Société Générale']);
 
+      sheet = await openFilters(user);
       await user.click(within(sheet).getByRole('radio', { name: 'Custom' }));
       // Starts from the last 30 days, already valid: no errors before anything is typed.
       const from = within(sheet).getByLabelText('From');
@@ -140,51 +156,140 @@ describe('List controls', () => {
       expect(from).toHaveValue('2026-09-17');
       expect(to).toHaveValue('2026-10-16');
       expect(from).not.toHaveAttribute('aria-invalid');
-      expect(rows()).toEqual(['Société Générale']);
 
       await user.clear(from);
-      // Unfinished: filters nothing, and isn't counted.
-      expect(rows()).toHaveLength(4);
       expect(from).toHaveAccessibleDescription('Enter a date.');
-      expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
-      expect(screen.queryByText(/^Showing/)).toBeNull();
       expect(within(sheet).queryByText(/Jobs without a date applied/)).toBeNull();
+      // An unfinished range isn't applied: the sheet stays open on the date that's wrong.
+      await user.click(to);
+      await apply(user, sheet);
+      expect(sheet).toHaveAttribute('open');
+      expect(from).toHaveFocus();
+      // The list keeps what was applied before (Last 30 days).
+      expect(rows()).toEqual(['Société Générale']);
 
-      await user.type(from, '2026-08-01');
-      await user.clear(to);
-      await user.type(to, '2026-09-05');
+      await user.type(within(sheet).getByLabelText('From'), '2026-08-01');
+      await user.clear(within(sheet).getByLabelText('To'));
+      await user.type(within(sheet).getByLabelText('To'), '2026-09-05');
+      await apply(user, sheet);
       expect(rows()).toEqual(['Gamma', 'Acme']);
       // A preset keeps the Custom range for later.
+      sheet = await openFilters(user);
       await user.click(within(sheet).getByRole('radio', { name: 'This month' }));
       await user.click(within(sheet).getByRole('radio', { name: 'Custom' }));
       expect(within(sheet).getByLabelText('From')).toHaveValue('2026-08-01');
       expect(within(sheet).getByLabelText('To')).toHaveValue('2026-09-05');
+      await apply(user, sheet);
       expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('Reset clears the filters and sort; Done and Escape close the sheet', async () => {
+  it('changes nothing until Apply; Escape or a click outside discards the choices', async () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
     let sheet = await openFilters(user);
     await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
     await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
-    await user.click(within(sheet).getByRole('radio', { name: 'This week' }));
+    // Still a draft: the list and the button's count are as they were.
+    expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale', 'Acme']);
+    expect(screen.getByRole('button', { name: 'Filters', hidden: true })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(sheet).not.toHaveAttribute('open');
+    expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale', 'Acme']);
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveFocus();
+
+    // Reopened, it starts from what the list shows, not the discarded draft.
+    sheet = await openFilters(user);
+    expect(within(sheet).getByRole('radio', { name: 'Last activity' })).toBeChecked();
+    expect(within(sheet).getByRole('button', { name: 'Closed' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Close' }));
+    expect(rows()).toHaveLength(4);
+  });
+
+  it('Reset clears the choices, applied only with Apply', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await filterBy(user, 'Company', 'Closed', 'This week');
     expect(screen.getByRole('button', { name: 'Filters, 2 on' })).toBeInTheDocument();
+    const sheet = await openFilters(user);
     await user.click(within(sheet).getByRole('button', { name: 'Reset' }));
     expect(within(sheet).getByRole('radio', { name: 'Last activity' })).toBeChecked();
     expect(within(sheet).getByRole('radio', { name: 'Any time' })).toBeChecked();
     expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeDisabled();
-    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    // Not yet applied.
+    expect(screen.getByRole('button', { name: 'Filters, 2 on', hidden: true })).toBeInTheDocument();
+    await apply(user, sheet);
     expect(sheet).not.toHaveAttribute('open');
     expect(screen.getByRole('button', { name: 'Filters' })).toHaveFocus();
+    expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale', 'Acme']);
+  });
 
-    sheet = await openFilters(user);
-    await user.keyboard('{Escape}');
-    expect(sheet).not.toHaveAttribute('open');
+  it('Apply keeps the search, which the sheet leaves alone', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await user.type(screen.getByLabelText('Search'), 'a');
+    await filterBy(user, 'Active');
+    expect(screen.getByLabelText('Search')).toHaveValue('a');
+    expect(rows()).toEqual(['beta', 'Société Générale', 'Acme']);
+  });
+
+  it('slides the sort marker to the chosen option', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    const marker = sheet.querySelector<HTMLElement>('[data-marker]')!;
+    expect(marker.style.transform).toBe('translateX(calc(0 * (100% + var(--seg-gap))))');
+    await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
+    expect(marker.style.transform).toBe('translateX(calc(2 * (100% + var(--seg-gap))))');
+    expect(marker).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it("an Apply that changes nothing in effect doesn't refresh the frozen list", async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await filterBy(user, 'Applied');
+    expect(rows()).toEqual(['Société Générale', 'Acme']);
+    const acme = (await db.applications.toArray()).find((a) => a.company === 'Acme')!;
+    await act(async () => {
+      await setStatus(acme.id, 'offer');
+    });
+    await waitFor(() => expect(chipOf('Acme')).toHaveTextContent('Offer'));
+    // Custom then back to Any time leaves Custom dates behind, with the same effect.
+    await filterBy(user, 'Custom', 'Any time');
+    expect(rows()).toEqual(['Société Générale', 'Acme']);
+  });
+
+  it('a capture closes the filter sheet, its draft discarded', async () => {
+    await seed();
+    vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+      id: 3,
+    } satisfies Partial<Browser.windows.Window> as never);
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
+    await act(async () => {
+      await fakeBrowser.storage.session.set({
+        [draftKey(3)]: createDraft('page', { url: 'https://acme.com/new' }),
+      });
+    });
+    expect(await screen.findByRole('dialog', { name: 'Add application' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Filter and sort' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(rows()).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
 
   it('searches company, title, location and notes, ignoring accents', async () => {
@@ -206,9 +311,7 @@ describe('List controls', () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    const sheet = await openFilters(user);
-    await user.click(within(sheet).getByRole('button', { name: 'Offer' }));
-    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    await filterBy(user, 'Offer');
     expect(screen.getByText('No applications match.')).toBeInTheDocument();
     expect(screen.queryByText(/No applications yet/)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
@@ -220,10 +323,7 @@ describe('List controls', () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    const sheet = await openFilters(user);
-    await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
-    await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
-    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    await filterBy(user, 'Company', 'Closed');
     await user.type(screen.getByLabelText('Search'), 'gam');
     await user.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByLabelText('Search')).toHaveValue('');
@@ -274,9 +374,7 @@ describe('List controls', () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    let sheet = await openFilters(user);
-    await user.click(within(sheet).getByRole('button', { name: 'Applied' }));
-    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    await filterBy(user, 'Applied');
     expect(rows()).toEqual(['Société Générale', 'Acme']);
     const chip = chipOf('Acme');
     await user.click(chip);
@@ -289,10 +387,8 @@ describe('List controls', () => {
     expect(rows()).toEqual(['Société Générale', 'Acme']);
     expect(chip).toHaveFocus();
     // Changing the query refreshes membership.
-    sheet = await openFilters(user);
-    await user.click(within(sheet).getByRole('button', { name: 'Applied' }));
-    await user.click(within(sheet).getByRole('button', { name: 'Applied' }));
-    expect(rows()).toEqual(['Société Générale']);
+    await filterBy(user, 'Saved');
+    expect(rows()).toEqual(['beta', 'Société Générale']);
   });
 
   it('keeps focus in the controls after Clear search and filters', async () => {

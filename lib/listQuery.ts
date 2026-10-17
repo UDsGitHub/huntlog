@@ -49,6 +49,22 @@ function ordered(statuses: Iterable<Status>): Status[] {
   return STATUSES.filter((status) => chosen.has(status));
 }
 
+/**
+ * Whether two queries' filters and sort have the same effect (search aside): the same sort,
+ * statuses and date filter, where the Custom dates count only while Custom is the filter (they
+ * are kept for later otherwise). The filter sheet's Apply skips an equivalent draft, so it never
+ * refreshes a frozen list for nothing.
+ */
+export function sameFiltersAndSort(a: ListQuery, b: ListQuery): boolean {
+  return (
+    a.sort === b.sort &&
+    a.statuses.length === b.statuses.length &&
+    a.statuses.every((status, index) => status === b.statuses[index]) &&
+    a.dates.kind === b.dates.kind &&
+    (a.dates.kind !== 'custom' || (a.dates.from === b.dates.from && a.dates.to === b.dates.to))
+  );
+}
+
 /** One status chip pressed: on if it was off, off if it was on. */
 export function toggleStatus(statuses: readonly Status[], status: Status): Status[] {
   return statuses.includes(status)

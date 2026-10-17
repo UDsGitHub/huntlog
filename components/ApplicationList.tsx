@@ -40,6 +40,8 @@ interface Props {
   awaitRow?: boolean;
   /** The requested row isn't in the list any more (deleted meanwhile). */
   onRowMissing?: () => void;
+  /** False while a form sheet takes over (a capture): the filter sheet closes. */
+  active?: boolean;
 }
 
 export function ApplicationList({
@@ -54,6 +56,7 @@ export function ApplicationList({
   onRowFocused,
   awaitRow,
   onRowMissing,
+  active = true,
 }: Props) {
   const applications = useLiveQuery(() => listApplications(), []);
   const settings = useSettings();
@@ -142,7 +145,13 @@ export function ApplicationList({
   }
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ListControls query={query} context={context} onChange={onQueryChange} searchRef={search} />
+      <ListControls
+        query={query}
+        context={context}
+        onChange={onQueryChange}
+        searchRef={search}
+        active={active}
+      />
       {narrowed && visible.length > 0 && (
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>

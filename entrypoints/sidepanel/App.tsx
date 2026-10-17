@@ -378,6 +378,8 @@ export default function App() {
                       awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
                       onRowFocused={clearFocusTarget}
                       onRowMissing={focusAddInstead}
+                      // A capture's form takes over: the filter sheet (and its draft) closes.
+                      active={!sheetView}
                     />
                   </ErrorBoundary>
                 </section>

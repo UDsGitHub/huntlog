@@ -23,6 +23,7 @@ import {
   Trash2Icon,
 } from './icons';
 import { NumberField } from './NumberField';
+import { SegmentedControl } from './SegmentedControl';
 import { Select } from './Select';
 import { Sheet } from './Sheet';
 import { useSettings } from './useSettings';
@@ -282,29 +283,12 @@ function DisplayCard({
   const localeDay = DAY_NAMES[localeWeekStart()];
   return (
     <Card title="Display">
-      {/* Native radios: arrow keys move between them, and the group is announced as one. */}
-      <fieldset className="flex min-w-0 flex-col gap-1.5">
-        <legend className="field-label mb-1.5">Theme</legend>
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
-          {THEME_OPTIONS.map((option) => (
-            <label
-              key={option.value}
-              className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring"
-            >
-              <input
-                type="radio"
-                name={`${id}-theme`}
-                value={option.value}
-                checked={settings.theme === option.value}
-                onChange={() => onChange({ theme: option.value })}
-                className="sr-only"
-              />
-              {option.icon}
-              {option.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <SegmentedControl
+        legend="Theme"
+        options={THEME_OPTIONS}
+        value={settings.theme}
+        onChange={(theme) => onChange({ theme })}
+      />
       <div className="flex flex-col gap-1">
         <label htmlFor={`${id}-week`} className="field-label">
           First day of the week
