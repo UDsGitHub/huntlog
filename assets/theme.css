@@ -26,6 +26,8 @@
   --card-foreground: #09090b;
   --popover: #ffffff;
   --popover-foreground: #09090b;
+  /* The dimming behind a sheet, and behind a dialog over one. */
+  --scrim: #00000080;
   --primary: #18181b;
   --primary-foreground: #fafafa;
   --secondary: #f4f4f5;
@@ -85,6 +87,7 @@
   --card-foreground: #fafafa;
   --popover: #18181b;
   --popover-foreground: #fafafa;
+  --scrim: #000000a6;
   --primary: #fafafa;
   --primary-foreground: #18181b;
   --secondary: #27272a;

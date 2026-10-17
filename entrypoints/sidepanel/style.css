@@ -176,7 +176,7 @@
 
 /* Bottom sheet (components/Sheet.tsx): slides up over a dimmed page. */
 .sheet::backdrop {
-  background: rgb(0 0 0 / 0.5);
+  background: var(--scrim);
 }
 .sheet[data-state='open'] .sheet-panel {
   animation: sheet-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
@@ -194,7 +194,7 @@
 /* The discard question (components/Sheet.tsx): fades in over the sheet, its card growing
    slightly into place (shadcn's alert dialog). */
 .discard-overlay {
-  background: rgb(0 0 0 / 0.4);
+  background: var(--scrim);
   animation: fade-in 150ms ease-out;
 }
 .discard-dialog {

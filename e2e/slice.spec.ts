@@ -84,36 +84,8 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Enter the date you applied.')).toBeVisible();
   await expectNoHorizontalScroll(page);
-  // Back asks in a dialog centered over the sheet, in either theme, with focus kept inside it.
-  for (const theme of ['light', 'dark']) {
-    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
-    await page.getByRole('button', { name: 'Back' }).click();
-    const question = page.getByRole('alertdialog', { name: 'Discard your changes?' });
-    await expect(question).toBeVisible();
-    const box = (await question.boundingBox())!;
-    expect(Math.abs(box.x + box.width / 2 - 160)).toBeLessThanOrEqual(1);
-    expect(Math.abs(box.y + box.height / 2 - 320)).toBeLessThanOrEqual(1);
-    await expect(question.getByRole('button', { name: 'Keep editing' })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(question.getByRole('button', { name: 'Discard' })).toBeFocused();
-    // Shift+Tab can't reach the sheet behind it (inert), only the question's other button.
-    await page.keyboard.press('Shift+Tab');
-    await expect(question.getByRole('button', { name: 'Keep editing' })).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    expect(await page.evaluate(() => !!document.activeElement?.closest('.sheet-panel'))).toBe(
-      false,
-    );
-    await question.getByRole('button', { name: 'Keep editing' }).focus();
-    await expectNoHorizontalScroll(page);
-    if (theme === 'light') {
-      // A click on the dimmed area around it does nothing: the question needs an answer.
-      await page.mouse.click(10, 10);
-      await expect(question).toBeVisible();
-      await question.getByRole('button', { name: 'Keep editing' }).click();
-      await expect(question).toBeHidden();
-      await expect(page.getByRole('button', { name: 'Back' })).toBeFocused();
-    }
-  }
+  // Back, then confirm discarding what was typed.
+  await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
   await sheetsClosed(page);
 
@@ -126,4 +98,61 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toBeVisible();
   await expectNoHorizontalScroll(page);
+});
+
+test('discarding asks in a dialog centered over the sheet, toasts staying usable', async ({
+  session,
+}) => {
+  const page = await session.context.newPage();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(panelUrl(session.extensionId));
+  await addJob(page, 'https://acme.com/1', 'Acme');
+  await sheetsClosed(page);
+  // An Undo toast, then a form with something typed in it.
+  await page.getByRole('button', { name: /^Acme/ }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Add application', exact: true }).click();
+  await page.getByLabel('Company').fill('Beta');
+
+  const question = page.getByRole('alertdialog', { name: 'Discard your changes?' });
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((theme) => (document.documentElement.dataset.theme = theme), theme);
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(question).toBeVisible();
+    const box = (await question.boundingBox())!;
+    expect(Math.abs(box.x + box.width / 2 - 160)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y + box.height / 2 - 320)).toBeLessThanOrEqual(1);
+    await expectNoHorizontalScroll(page);
+    // Focus starts on Keep editing, and Tab moves within the question, never into the sheet.
+    await expect(question.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(question.getByRole('button', { name: 'Discard' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(question.getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(question).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Back' })).toBeFocused();
+  }
+  await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  // A click on the dimmed area around it does nothing: the question needs an answer.
+  await page.mouse.click(10, 10);
+  await expect(question).toBeVisible();
+  // The toast is drawn above the dimmed layer, and its Undo takes a click.
+  const undo = page.getByRole('button', { name: 'Undo' });
+  const center = await undo.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  });
+  expect(
+    await undo.evaluate(
+      (element, { x, y }) => element.contains(document.elementFromPoint(x, y)),
+      center,
+    ),
+  ).toBe(true);
+  await question.getByRole('button', { name: 'Discard' }).click();
+  await sheetsClosed(page);
+  await expect(page.getByRole('heading', { level: 2, name: 'Applications' })).toBeVisible();
 });

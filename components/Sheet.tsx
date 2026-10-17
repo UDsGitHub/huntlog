@@ -100,10 +100,10 @@ export function Sheet({
   const [mounted, setMounted] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) {
-      setConfirming(false);
-      setMounted(true);
-    }
+    // Closing (Discard, or from outside, e.g. a capture) ends the question too: it doesn't
+    // float over the slide-out.
+    setConfirming(false);
+    if (open) setMounted(true);
   }
   const onClosedRef = useRef(onClosed);
   useEffect(() => {
@@ -179,10 +179,11 @@ export function Sheet({
   useLayoutEffect(() => {
     if (confirming) keepEditing.current?.focus();
     else if (confirmFrom.current) {
-      confirmFrom.current.focus();
+      // Keep editing goes back to where focus was; a close doesn't (focus returns to the opener).
+      if (open) confirmFrom.current.focus();
       confirmFrom.current = null;
     }
-  }, [confirming]);
+  }, [confirming, open]);
 
   function requestClose() {
     if (!open || confirming) return;
@@ -284,11 +285,12 @@ export function Sheet({
             {children}
           </div>
           <div className="relative shrink-0">
-            {/* Toasts render here while this sheet is open: just above the footer. Never inert. */}
+            {/* Toasts render here while this sheet is open: just above the footer. Never inert,
+                and above the discard question's dimmed layer, so a toast stays usable. */}
             <div
               ref={toastRegion}
               aria-live="polite"
-              className="pointer-events-none absolute inset-x-3 bottom-full mb-2 flex justify-center"
+              className="pointer-events-none absolute inset-x-3 bottom-full z-20 mb-2 flex justify-center"
             />
             {footer && (
               <div {...inert(panelInert)} className="border-t bg-background px-4 py-3">
@@ -299,16 +301,14 @@ export function Sheet({
         </div>
       )}
       {/* Centered over the sheet, on a dimmed layer that keeps clicks off the sheet (a click on
-          it does nothing: the question needs an answer). Gone as soon as the sheet starts
-          closing, rather than sliding out with it. */}
-      {mounted && open && confirming && (
-        <div className="discard-overlay absolute inset-0 flex items-center justify-center p-4">
+          it does nothing: the question needs an answer). Toasts stay above it and usable. */}
+      {mounted && confirming && (
+        <div className="discard-overlay absolute inset-0 z-10 flex items-center justify-center p-4">
           <div
             role="alertdialog"
-            aria-modal="true"
             aria-labelledby={`${id}-discard`}
             aria-describedby={`${id}-discard-description`}
-            className="discard-dialog flex w-full max-w-xs flex-col gap-4 rounded-lg border bg-background p-5 shadow-lg"
+            className="discard-dialog flex w-full max-w-xs flex-col gap-4 rounded-lg border bg-popover p-5 text-popover-foreground shadow-lg"
           >
             <div className="flex flex-col gap-1.5">
               <h3 id={`${id}-discard`} className="text-base font-semibold">
