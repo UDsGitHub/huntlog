@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { formatLocalDate, formatShortLocalDate } from '@/lib/dates';
 import type { Activity, ActivityUnit, GoalProgress, Stats } from '@/lib/stats';
 import { STATUS_LABELS } from '@/lib/status';
+import { STATUS_SWATCH } from './statusColors';
 import type { Status } from '@/lib/types';
 
 /**
@@ -14,22 +15,6 @@ import type { Status } from '@/lib/types';
 export function outcomeLabel(status: Status): string {
   return status === 'rejected' ? 'Closed – not selected' : STATUS_LABELS[status];
 }
-
-// Literal class names, so Tailwind finds them. Every status gets its own color, so a segment
-// matches its legend row: blues for progress, greens for offers, distinct calm grays and
-// browns for the closed ones (Rejected is never red). Segments are separated by gaps and the
-// bar is outlined, so even the lighter ones read against the panel.
-const OUTCOME_COLORS: Record<Status, string> = {
-  saved: 'bg-status-saved',
-  applied: 'bg-status-applied',
-  screening: 'bg-status-screening',
-  interviewing: 'bg-status-interviewing',
-  offer: 'bg-status-offer',
-  accepted: 'bg-status-accepted',
-  rejected: 'bg-status-rejected',
-  withdrawn: 'bg-status-withdrawn',
-  ghosted: 'bg-status-ghosted',
-};
 
 /** Where the applications applied in the range stand now: a stacked bar and its legend. */
 export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
@@ -48,7 +33,7 @@ export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
         {outcomes.map(({ status, count }) => (
           <div
             key={status}
-            className={`rounded-full ${OUTCOME_COLORS[status]}`}
+            className={`rounded-full ${STATUS_SWATCH[status]}`}
             style={{ flexGrow: count, flexBasis: 0 }}
           />
         ))}
@@ -58,7 +43,7 @@ export function OutcomesBar({ outcomes }: { outcomes: Stats['outcomes'] }) {
           <li key={status} className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className={`size-2.5 shrink-0 rounded-sm ring-1 ring-input ${OUTCOME_COLORS[status]}`}
+              className={`size-2.5 shrink-0 rounded-sm ring-1 ring-input ${STATUS_SWATCH[status]}`}
             />
             <span className="min-w-0 flex-1">{outcomeLabel(status)}</span>
             <span className="font-medium tabular-nums">{count}</span>

@@ -237,7 +237,7 @@ describe('List controls', () => {
     await renderList();
     await user.type(screen.getByLabelText('Search'), 'acme');
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: '← Back to applications' }));
+    await user.click(await screen.findByRole('button', { name: 'Back to applications' }));
     await screen.findByRole('list', { name: 'Applications' });
     expect(screen.getByLabelText('Search')).toHaveValue('acme');
     expect(rows()).toEqual(['Acme']);
@@ -256,7 +256,7 @@ describe('List controls', () => {
     expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale', 'Acme']);
 
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: '← Back to applications' }));
+    await user.click(await screen.findByRole('button', { name: 'Back to applications' }));
     await screen.findByRole('list', { name: 'Applications' });
     expect(rows()).toEqual(['Acme', 'Gamma', 'beta', 'Société Générale']);
   });
@@ -309,7 +309,8 @@ describe('List controls', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(screen.getByRole('button', { name: /^Gamma/ }));
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.type(await screen.findByLabelText('Search'), 'acme');
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(() =>

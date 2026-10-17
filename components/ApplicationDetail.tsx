@@ -4,6 +4,9 @@ import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
 import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
 import { formatSalary } from '@/lib/format';
+import { ArrowLeftIcon, ExternalLinkIcon, PencilIcon, Trash2Icon } from './icons';
+import { MoreMenu } from './MoreMenu';
+import { toUnicodeHost } from '@/lib/punycode';
 import { StatusChip, type StatusPick } from './StatusChip';
 import { StatusTimeline } from './StatusTimeline';
 import { getResume } from '@/lib/resumes';
@@ -20,6 +23,23 @@ interface Props {
   onStatusPick: (application: Application, pick: StatusPick) => void;
 }
 
+/**
+ * A posting's site, for its button: the host without "www." (e.g. boards.greenhouse.io), with an
+ * international domain shown as written, not in its xn-- form.
+ */
+export function postingSite(href: string): string {
+  try {
+    return toUnicodeHost(new URL(href).hostname.replace(/^www\./, ''));
+  } catch {
+    return href;
+  }
+}
+
+/**
+ * The detail view (spec §4.3): a page that slides in from the right. Its header has Back, the
+ * company, Edit (a pencil) and a ⋯ menu with Delete, so Delete is never one mis-tap away. The
+ * posting opens from a full-width button naming its site.
+ */
 export function ApplicationDetail({
   id,
   initialFocus,
@@ -34,6 +54,8 @@ export function ApplicationDetail({
   const heading = useRef<HTMLHeadingElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const loaded = app !== undefined;
+  // Slides in when it opens over the list; coming back from Edit, it's simply there again.
+  const slide = initialFocus === 'heading' ? 'page page-slide-in' : 'page';
 
   useLayoutEffect(() => {
     if (!loaded) return;
@@ -42,19 +64,26 @@ export function ApplicationDetail({
   }, [loaded, initialFocus]);
 
   const back = (
-    <button type="button" onClick={onBack} className={`btn btn-outline self-start`}>
-      ← Back to applications
+    <button
+      type="button"
+      onClick={onBack}
+      aria-label="Back to applications"
+      className="btn btn-ghost btn-icon -ml-2 shrink-0"
+    >
+      <ArrowLeftIcon />
     </button>
   );
 
   if (app === undefined) return null;
   if (app === null) {
     return (
-      <section aria-labelledby="detail-heading" className="flex flex-col gap-3">
-        {back}
-        <h2 id="detail-heading" ref={heading} tabIndex={-1} className="section-heading">
-          This application isn't available
-        </h2>
+      <section aria-labelledby="detail-heading" className={`${slide} flex flex-col gap-3`}>
+        <div className="flex items-center gap-1">
+          {back}
+          <h2 id="detail-heading" ref={heading} tabIndex={-1} className="section-heading">
+            This application isn't available
+          </h2>
+        </div>
         <p className="text-sm text-muted-foreground">It may have been deleted in another window.</p>
       </section>
     );
@@ -74,33 +103,65 @@ export function ApplicationDetail({
   const salary = formatSalary(app);
 
   return (
-    <section aria-labelledby="detail-heading" className="flex min-w-0 flex-col gap-3">
-      {back}
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <h2
-          id="detail-heading"
-          ref={heading}
-          tabIndex={-1}
-          className="section-heading break-words focus:outline-none"
-        >
-          {app.company}
-        </h2>
-        {app.title && <p className="text-sm break-words text-muted-foreground">{app.title}</p>}
-        {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="link self-start text-sm break-all"
+    <section aria-labelledby="detail-heading" className={`${slide} flex min-w-0 flex-col gap-4`}>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 items-center gap-1">
+          {back}
+          <h2
+            id="detail-heading"
+            ref={heading}
+            tabIndex={-1}
+            className="section-heading min-w-0 flex-1 break-words focus:outline-none"
           >
-            Open job posting
-          </a>
-        ) : (
-          <span className="text-xs break-all text-muted-foreground">{app.url}</span>
-        )}
+            {app.company}
+          </h2>
+          <button
+            ref={editButton}
+            type="button"
+            onClick={onEdit}
+            aria-label="Edit"
+            title="Edit"
+            className="btn btn-ghost btn-icon shrink-0"
+          >
+            <PencilIcon />
+          </button>
+          <MoreMenu
+            label={`More actions for ${app.company}`}
+            items={[
+              {
+                label: 'Delete',
+                icon: <Trash2Icon />,
+                destructive: true,
+                onSelect: () => void handleDelete(),
+              },
+            ]}
+          />
+        </div>
+        {app.title && <p className="text-sm break-words text-muted-foreground">{app.title}</p>}
       </div>
 
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open job posting on ${postingSite(href)}`}
+          className="btn btn-outline w-full justify-between"
+        >
+          <span className="min-w-0 truncate">{postingSite(href)}</span>
+          <ExternalLinkIcon />
+        </a>
+      ) : (
+        <span className="text-xs break-all text-muted-foreground">{app.url}</span>
+      )}
+
+      {deleteError && (
+        <p role="alert" className="field-error">
+          {deleteError}
+        </p>
+      )}
+
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 text-sm">
         <Row label="Status">
           <StatusChip application={app} onPick={(pick) => onStatusPick(app, pick)} />
         </Row>
@@ -121,25 +182,11 @@ export function ApplicationDetail({
 
       {app.notes && (
         <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-medium">Notes</h3>
+          <h3 className="text-sm font-semibold">Notes</h3>
           {/* Plain text: line breaks kept, nothing rendered as markup (spec §5). */}
           <p className="text-sm break-words whitespace-pre-wrap text-foreground">{app.notes}</p>
         </div>
       )}
-
-      {deleteError && (
-        <p role="alert" className="field-error">
-          {deleteError}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <button ref={editButton} type="button" onClick={onEdit} className="btn btn-outline">
-          Edit
-        </button>
-        <button type="button" onClick={handleDelete} className="btn btn-outline">
-          Delete
-        </button>
-      </div>
     </section>
   );
 }

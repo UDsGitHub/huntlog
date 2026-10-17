@@ -278,3 +278,26 @@
     animation: none !important;
   }
 }
+
+/*
+ * A page that opens on top of the list (the detail view) slides in from the right. The page
+ * clips its own sideways overflow (`overflow-x: clip`, which leaves vertical overflow such as a
+ * menu alone) and its content moves inside it, so nothing can scroll sideways while it slides.
+ */
+.page {
+  overflow-x: clip;
+}
+.page-slide-in > * {
+  animation: page-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes page-in {
+  from {
+    translate: 2rem 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-slide-in > * {
+    animation: none;
+  }
+}
