@@ -280,7 +280,11 @@ describe('List controls', () => {
     expect(rows()).toEqual(['Société Générale', 'Acme']);
     const chip = chipOf('Acme');
     await user.click(chip);
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Change status' })).getByRole('button', {
+        name: 'Offer',
+      }),
+    );
     await waitFor(() => expect(chip).toHaveTextContent('Offer'));
     expect(rows()).toEqual(['Société Générale', 'Acme']);
     expect(chip).toHaveFocus();
@@ -352,7 +356,7 @@ describe('List rows', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipOf('Acme'));
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Change status' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2, name: 'Acme' })).toBeNull();
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: /^Acme/ }));

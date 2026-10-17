@@ -18,7 +18,10 @@ test('chip → Interviewing → the timeline records it → Undo reverts it', as
 
   const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
   await row.getByRole('button', { name: /^Status: Applied/ }).click();
-  await page.getByRole('menuitemradio', { name: 'Interviewing' }).click();
+  await page
+    .getByRole('dialog', { name: 'Change status' })
+    .getByRole('button', { name: 'Interviewing', exact: true })
+    .click();
   await expect(row.getByRole('button', { name: /^Status: / })).toHaveText('Interviewing');
 
   await row.getByRole('button', { name: /^Acme/ }).click();
@@ -43,7 +46,10 @@ test('an interview date can be backfilled from the timeline', async ({ session }
   await page.getByLabel('Date applied').fill('2026-09-01');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: /^Status: Applied/ }).click();
-  await page.getByRole('menuitemradio', { name: 'Interviewing' }).click();
+  await page
+    .getByRole('dialog', { name: 'Change status' })
+    .getByRole('button', { name: 'Interviewing', exact: true })
+    .click();
   await page.getByRole('button', { name: /^Acme/ }).click();
 
   const timeline = page.getByRole('region', { name: 'Status history' });

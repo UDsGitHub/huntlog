@@ -96,8 +96,9 @@ test('the whole row opens the job; its chip and link do their own thing', async 
 
   // The chip opens its menu, not the job.
   await row.getByRole('button', { name: /^Status: / }).click();
-  await expect(page.getByRole('menu')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Change status' })).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Change status' })).toBeHidden();
 
   // A click on the title line, away from the company name, opens the job.
   await page.mouse.click(box.x + 40, box.y + box.height - 12);

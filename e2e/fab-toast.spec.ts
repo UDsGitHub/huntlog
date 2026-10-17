@@ -27,8 +27,14 @@ test('the floating Add button, the empty state and toasts above it', async ({ se
 
   const row = page.getByRole('listitem').filter({ hasText: 'Acme' });
   await row.getByRole('button', { name: /^Status: / }).click();
-  await page.getByRole('menuitemradio', { name: 'Screening' }).click();
+  await page
+    .getByRole('dialog', { name: 'Change status' })
+    .getByRole('button', { name: 'Screening', exact: true })
+    .click();
   const toast = page.locator('.toast', { hasText: 'Moved Acme to Screening.' });
+  await expect(toast).toBeVisible();
+  // Raised as the status sheet closes, it shows in the sheet, then moves to the page.
+  await expect(page.getByRole('dialog', { name: 'Change status' })).toBeHidden();
   await expect(toast).toBeVisible();
   const toastBox = (await toast.boundingBox())!;
   expect(toastBox.y + toastBox.height).toBeLessThanOrEqual((await fab.boundingBox())!.y);
