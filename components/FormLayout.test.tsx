@@ -391,6 +391,8 @@ describe('Remembered defaults', () => {
     const panel = location.closest('.details-panel')!;
     expect(panel).toHaveAttribute('data-state', 'closing');
     expect(panel).not.toHaveAttribute('hidden');
+    // Out of reach while it slides, so focus can't land in it just before it hides.
+    expect(panel).toHaveAttribute('inert');
     await waitFor(() => expect(panel).toHaveAttribute('hidden'));
   });
 
@@ -412,5 +414,17 @@ describe('Remembered defaults', () => {
     const notes = screen.getByLabelText(/Notes/);
     expect(notes).toHaveAttribute('rows', '3');
     expect(notes).toHaveClass('field-sizing-content');
+  });
+
+  it('focuses the Other source field for an error in it', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.type(screen.getByLabelText('Company'), 'Acme');
+    await user.type(screen.getByLabelText('Job posting URL'), 'acme.com/1');
+    await user.click(detailsToggle());
+    await chooseSource(user, 'x'.repeat(101));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByLabelText('Other source')).toHaveFocus());
+    expect(screen.getByRole('group', { name: /^Source/ })).toHaveTextContent(/100/);
   });
 });

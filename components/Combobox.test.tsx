@@ -131,4 +131,52 @@ describe('Combobox', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show resumes' }));
     expect(screen.getByRole('listbox', { name: 'Resumes' })).toBeInTheDocument();
   });
+
+  it('keeps the highlight on the same option when the list changes under it', async () => {
+    function Live() {
+      const [options, setOptions] = useState(OPTIONS);
+      const [value, setValue] = useState('');
+      return (
+        <>
+          <label htmlFor="resume">Resume</label>
+          <Combobox
+            id="resume"
+            value={value}
+            options={options}
+            onChange={setValue}
+            listLabel="Resumes"
+          />
+          <button
+            type="button"
+            onClick={() =>
+              setOptions([OPTIONS[0]!, { value: 'z', label: 'Zeta' }, ...OPTIONS.slice(1)])
+            }
+          >
+            Upload elsewhere
+          </button>
+          <p role="status">{value}</p>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Live />);
+    field().focus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
+    const active = () => document.getElementById(field().getAttribute('aria-activedescendant')!);
+    expect(active()).toHaveTextContent('Frontend');
+    // Another window adds a resume above it.
+    fireEvent.click(screen.getByRole('button', { name: 'Upload elsewhere' }));
+    expect(active()).toHaveTextContent('Frontend');
+    await user.keyboard('{Enter}');
+    expect(chosen()).toBe('b');
+  });
+
+  it("doesn't close when the list itself is pressed (e.g. its scrollbar)", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(field());
+    const list = screen.getByRole('listbox');
+    expect(fireEvent.mouseDown(list)).toBe(false);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+  });
 });

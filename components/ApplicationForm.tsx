@@ -38,6 +38,7 @@ import { ResumeField } from './ResumeField';
 import { Sheet } from './Sheet';
 import type { CapturePrefill } from './useCaptureDraft';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
+import { inert } from './inert';
 import { ChevronDownIcon } from './icons';
 import { prefersReducedMotion } from './motion';
 import { SourceField } from './SourceField';
@@ -475,6 +476,8 @@ export function ApplicationForm({
           <div
             id={`${id}-details`}
             hidden={!detailsOpen && !detailsClosing}
+            // Sliding shut: out of reach already, so focus can't land in it just before it hides.
+            {...inert(detailsClosing)}
             data-state={detailsOpen ? 'open' : 'closing'}
             className="details-panel flex min-w-0 flex-col gap-3"
           >

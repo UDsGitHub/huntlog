@@ -17,8 +17,8 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   error?: string;
-  /** The Other field, e.g. so an error can focus it. */
-  inputRef?: (element: HTMLInputElement | null) => void;
+  /** Where an error moves focus: the Other field when open, otherwise the first chip. */
+  inputRef?: (element: HTMLElement | null) => void;
 }
 
 /**
@@ -29,6 +29,17 @@ interface Props {
 export function SourceField({ id, value, onChange, error, inputRef }: Props) {
   // Which chip is on. Kept as state, so typing "Indeed" into Other doesn't jump to that chip.
   const [mode, setMode] = useState<Mode>(() => modeOf(value));
+  // A value set from outside (not by these chips or the Other field) shows its own chip.
+  const [seen, setSeen] = useState(value);
+  const [emitted, setEmitted] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    if (value !== emitted) setMode(modeOf(value));
+  }
+  const emit = (next: string) => {
+    setEmitted(next);
+    onChange(next);
+  };
   const other = useRef<HTMLInputElement | null>(null);
   const focusOther = useRef(false);
 
@@ -42,15 +53,15 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
   function pick(next: Mode) {
     if (next === mode) {
       setMode(null);
-      onChange('');
+      emit('');
     } else if (next === 'other') {
       focusOther.current = true;
       setMode('other');
       // A chip's value isn't kept as the other source's text.
-      if (mode !== null) onChange('');
+      if (mode !== null) emit('');
     } else {
       setMode(next);
-      onChange(next ?? '');
+      emit(next ?? '');
     }
   }
 
@@ -61,8 +72,14 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
         Source <span className="font-normal text-muted-foreground">(optional)</span>
       </p>
       <div className="flex flex-wrap gap-1.5">
-        {CHIPS.map((chip) => (
-          <Chip key={chip} pressed={mode === chip} onClick={() => pick(chip)}>
+        {CHIPS.map((chip, index) => (
+          <Chip
+            key={chip}
+            pressed={mode === chip}
+            onClick={() => pick(chip)}
+            // The first chip takes an error's focus while Other isn't open.
+            chipRef={index === 0 && mode !== 'other' ? inputRef : undefined}
+          >
             {chip}
           </Chip>
         ))}
@@ -85,7 +102,7 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
             type="text"
             autoComplete="off"
             value={value}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event) => emit(event.target.value)}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : undefined}
             className="field"
@@ -104,14 +121,17 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
 function Chip({
   pressed,
   onClick,
+  chipRef,
   children,
 }: {
   pressed: boolean;
   onClick: () => void;
+  chipRef?: (element: HTMLElement | null) => void;
   children: ReactNode;
 }) {
   return (
     <button
+      ref={chipRef}
       type="button"
       aria-pressed={pressed}
       onClick={onClick}

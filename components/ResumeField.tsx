@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Combobox } from './Combobox';
 import { PlusIcon } from './icons';
 import { ResumeUpload } from './ResumeUpload';
@@ -44,11 +44,21 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
   const resumes = useLiveQuery(() => listResumes(), []);
   const [uploading, setUploading] = useState(false);
   const field = useRef<HTMLInputElement | null>(null);
+  const setField = useCallback(
+    (element: HTMLInputElement | null) => {
+      field.current = element;
+      inputRef?.(element);
+    },
+    [inputRef],
+  );
   const uploadButton = useRef<HTMLButtonElement>(null);
   // The resume just uploaded here: on offer at once, before the live list catches up, so the
   // field never shows blank while it's picked.
   const [uploaded, setUploaded] = useState<Resume>();
   const listed = resumes ?? [];
+  // Only until the live list has it: after that, the list alone says what's on offer (so a
+  // deleted one doesn't come back).
+  if (uploaded && listed.some((resume) => resume.id === uploaded.id)) setUploaded(undefined);
   const active = [
     ...(uploaded && !listed.some((resume) => resume.id === uploaded.id) ? [uploaded] : []),
     ...listed.filter((resume) => !resume.archived),
@@ -79,10 +89,7 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
           value={value}
           onChange={onChange}
           listLabel="Resumes"
-          inputRef={(element) => {
-            field.current = element;
-            inputRef?.(element);
-          }}
+          inputRef={setField}
           invalid={Boolean(error)}
           describedBy={[!value && hintId, error && errorId].filter(Boolean).join(' ') || undefined}
           options={[

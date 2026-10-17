@@ -255,4 +255,21 @@ describe('Resume field', () => {
     expect(optionLabels()).toContain('Backend v3 (archived)');
     expect(resumeSelect()).not.toHaveAccessibleDescription(/Tip/);
   });
+
+  it('offers a resume just uploaded here only until the live list has it', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('Data v2.pdf'));
+    await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
+    await waitFor(() => expect(resumeSelect()).toHaveValue('Data v2'));
+    const [resume] = await db.resumes.toArray();
+    // Deleted in another window: no longer offered as a live resume.
+    await act(async () => {
+      await deleteResume(resume!.id, db);
+    });
+    await waitFor(() => expect(resumeSelect()).toHaveValue('Resume (file not available)'));
+    expect(optionLabels()).not.toContain('Data v2');
+  });
 });

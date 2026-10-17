@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { foldText } from '@/lib/listQuery';
 import { ChevronDownIcon } from './icons';
 
@@ -42,19 +42,33 @@ export function Combobox({
   const [open, setOpen] = useState(false);
   // What's typed while searching; null shows the chosen option's label.
   const [query, setQuery] = useState<string | null>(null);
-  const [active, setActive] = useState(0);
+  // The highlighted option, by value: it stays on the same option if the list changes under it.
+  const [activeValue, setActiveValue] = useState<string | null>(null);
+  // Set by a focus from the pointer: the mouseup that follows mustn't undo the selection.
+  const keepSelection = useRef(false);
   const input = useRef<HTMLInputElement | null>(null);
   const noMatches = useId();
+  const setInput = useCallback(
+    (element: HTMLInputElement | null) => {
+      input.current = element;
+      inputRef?.(element);
+    },
+    [inputRef],
+  );
 
   const chosen = options.find((option) => option.value === value);
+  const needle = query === null ? null : foldText(query);
   const shown =
-    query === null
-      ? options
-      : options.filter((option) => foldText(option.label).includes(foldText(query)));
+    needle === null ? options : options.filter((option) => foldText(option.label).includes(needle));
+  const active = Math.max(
+    0,
+    shown.findIndex((option) => option.value === activeValue),
+  );
+  const setActive = (index: number) => setActiveValue(shown[index]?.value ?? null);
 
   function openList() {
     setOpen(true);
-    setActive(Math.max(0, query === null ? options.indexOf(chosen!) : 0));
+    setActiveValue(query === null ? (chosen?.value ?? null) : (shown[0]?.value ?? null));
   }
   function close() {
     setOpen(false);
@@ -71,7 +85,7 @@ export function Combobox({
       if (!open) return openList();
       if (shown.length === 0) return;
       const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((index) => (index + step + shown.length) % shown.length);
+      setActive((active + step + shown.length) % shown.length);
     } else if (event.key === 'Enter' && open) {
       // Picks rather than submitting the form.
       event.preventDefault();
@@ -89,10 +103,7 @@ export function Combobox({
   return (
     <div className="relative min-w-0 flex-1">
       <input
-        ref={(element) => {
-          input.current = element;
-          inputRef?.(element);
-        }}
+        ref={setInput}
         id={id}
         type="text"
         role="combobox"
@@ -108,10 +119,25 @@ export function Combobox({
         placeholder={options.find((option) => option.value === '')?.label}
         // Typing replaces the shown name rather than adding to it.
         onFocus={(event) => event.target.select()}
+        onMouseDown={(event) => {
+          if (document.activeElement !== event.currentTarget) keepSelection.current = true;
+        }}
+        onMouseUp={(event) => {
+          // A click that focused the field would otherwise place the caret, undoing select().
+          if (keepSelection.current) {
+            keepSelection.current = false;
+            event.preventDefault();
+          }
+        }}
         onChange={(event) => {
-          setQuery(event.target.value);
+          const next = event.target.value;
+          setQuery(next);
           setOpen(true);
-          setActive(0);
+          // The first match is highlighted.
+          setActiveValue(
+            options.find((option) => foldText(option.label).includes(foldText(next)))?.value ??
+              null,
+          );
         }}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
@@ -138,6 +164,8 @@ export function Combobox({
           id={listId}
           role="listbox"
           aria-label={listLabel}
+          // A press anywhere in the list (its padding, its scrollbar) keeps focus in the field.
+          onMouseDown={(event) => event.preventDefault()}
           className="absolute inset-x-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
         >
           {shown.map((option, index) => (
