@@ -2,7 +2,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication, softDeleteApplication } from './applications';
 import { draftKey } from './captureDraft';
 import { JobLogDB } from './db';
-import { deleteAllData } from './deleteAll';
+import { deleteAllData, LeftoversError } from './deleteAll';
 import { FORM_DEFAULTS_KEY } from './formDefaults';
 import { addResume, type PickedFile } from './resumes';
 import { readSettings, updateSettings } from './settings';
@@ -75,6 +75,7 @@ describe('deleteAllData', () => {
     await seed();
     vi.spyOn(db.resumeFiles, 'clear').mockRejectedValue(new Error('disk'));
     await expect(deleteAllData(db)).rejects.toThrow('disk');
+    await expect(deleteAllData(db)).rejects.not.toBeInstanceOf(LeftoversError);
     expect(await db.applications.count()).toBe(2);
     expect(await db.resumes.count()).toBe(1);
     expect(await db.resumeFiles.count()).toBe(1);
@@ -85,7 +86,8 @@ describe('deleteAllData', () => {
   it('rejects if storage fails after the data went, and a second run finishes', async () => {
     await seed();
     vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValueOnce(new Error('storage'));
-    await expect(deleteAllData(db)).rejects.toThrow('storage');
+    // Says the data is gone, so the UI can act on it.
+    await expect(deleteAllData(db)).rejects.toBeInstanceOf(LeftoversError);
     expect(await db.applications.count()).toBe(0);
     await deleteAllData(db);
     expect(await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY)).toEqual({});

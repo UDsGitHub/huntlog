@@ -1,5 +1,5 @@
-import { useId, useState, type ReactNode } from 'react';
-import { deleteAllData } from '@/lib/deleteAll';
+import { useId, useRef, useState, type ReactNode } from 'react';
+import { deleteAllData, LeftoversError } from '@/lib/deleteAll';
 import { localeWeekStart, type WeekStart } from '@/lib/locale';
 import {
   isWeeklyGoal,
@@ -7,6 +7,7 @@ import {
   MIN_WEEKLY_GOAL,
   resetSettings,
   updateSettings,
+  WEEK_STARTS,
   type Settings,
   type SettingsPatch,
   type Theme,
@@ -130,9 +131,13 @@ function GoalCard({
         : `Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}.`,
     );
   }
+  // Enter then leaving the field commits once, not twice (the stored goal updates a beat later).
+  const committed = useRef(goal);
   function commit() {
     const number = parseGoal(typed);
-    if (isWeeklyGoal(number) && number !== goal) onChange(number);
+    if (!isWeeklyGoal(number) || number === goal || number === committed.current) return;
+    committed.current = number;
+    onChange(number);
   }
 
   return (
@@ -264,9 +269,11 @@ function DisplayCard({
           className="field"
         >
           <option value="">Locale default ({localeDay})</option>
-          <option value="0">Sunday</option>
-          <option value="1">Monday</option>
-          <option value="6">Saturday</option>
+          {WEEK_STARTS.map((day) => (
+            <option key={day} value={day}>
+              {DAY_NAMES[day]}
+            </option>
+          ))}
         </select>
         <p className="field-hint">Used for This week and the weekly goal.</p>
       </div>
@@ -277,6 +284,10 @@ function DisplayCard({
 /** Delete all data, and Reset settings (spec §4.8), each confirmed in a sheet. */
 function DataCard({ onDataDeleted, notify }: Props) {
   const [open, setOpen] = useState<'delete' | 'reset' | null>(null);
+  const finish = (message: string) => {
+    setOpen(null);
+    notify(message);
+  };
   return (
     <Card title="Your data">
       <p className="text-sm text-muted-foreground">
@@ -299,20 +310,16 @@ function DataCard({ onDataDeleted, notify }: Props) {
       <DeleteAllSheet
         open={open === 'delete'}
         onClose={() => setOpen(null)}
-        onDone={() => {
-          setOpen(null);
-          onDataDeleted();
-          notify('All your data was deleted.');
-        }}
+        onDataDeleted={onDataDeleted}
+        onDone={() => finish('All your data was deleted.')}
       />
       <ResetSheet
         open={open === 'reset'}
         onClose={() => setOpen(null)}
-        onDone={(deleted) => {
-          setOpen(null);
-          if (deleted) onDataDeleted();
-          notify(deleted ? 'Settings reset, and all your data deleted.' : 'Settings reset.');
-        }}
+        onDataDeleted={onDataDeleted}
+        onDone={(deleted) =>
+          finish(deleted ? 'Settings reset, and all your data deleted.' : 'Settings reset.')
+        }
       />
     </Card>
   );
@@ -340,47 +347,98 @@ function ConfirmField({ value, onChange }: { value: string; onChange: (value: st
   );
 }
 
-/** Runs an action once, reporting a failure in the sheet instead of closing it. */
+/**
+ * Runs a sheet's action once at a time (a ref, so a double activation before React re-renders
+ * can't start it twice), showing a failure in the sheet. `reset` forgets the error and makes a
+ * still-running attempt's outcome ignored, for when the sheet closes.
+ */
 function useAction() {
+  const running = useRef(false);
+  const attempt = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  async function run(action: () => Promise<void>, failure: string): Promise<boolean> {
-    if (busy) return false;
+  async function run(
+    action: () => Promise<boolean>,
+    describe: (cause: unknown) => string,
+  ): Promise<boolean> {
+    if (running.current) return false;
+    running.current = true;
+    const mine = ++attempt.current;
     setBusy(true);
     setError(null);
     try {
-      await action();
-      return true;
+      return await action();
     } catch (cause) {
-      console.error(failure, cause);
-      setError(failure);
+      console.error(cause);
+      if (mine === attempt.current) setError(describe(cause));
       return false;
     } finally {
-      setBusy(false);
+      running.current = false;
+      if (mine === attempt.current) setBusy(false);
     }
   }
-  return { busy, error, run, clear: () => setError(null) };
+  function reset() {
+    attempt.current++;
+    running.current = false;
+    setBusy(false);
+    setError(null);
+  }
+  return { busy, error, run, reset };
+}
+
+/** Why it failed, saying plainly whether the data is gone. */
+function failureMessage(cause: unknown): string {
+  if (cause instanceof SettingsResetError) {
+    return "Your data was deleted, but the settings couldn't be reset. Try again.";
+  }
+  if (cause instanceof LeftoversError) {
+    return 'Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them.';
+  }
+  return "Couldn't delete your data. Nothing was deleted. Try again.";
+}
+
+class SettingsResetError extends Error {
+  constructor(cause: unknown) {
+    super('Settings reset failed', { cause });
+    this.name = 'SettingsResetError';
+  }
+}
+
+/**
+ * Deletes everything, telling the app as soon as the data is gone, even if a later step fails:
+ * the app must stop showing deleted data either way.
+ */
+async function deleteReporting(onDataDeleted: () => void): Promise<void> {
+  try {
+    await deleteAllData();
+  } catch (error) {
+    if (error instanceof LeftoversError) onDataDeleted();
+    throw error;
+  }
+  onDataDeleted();
 }
 
 function DeleteAllSheet({
   open,
   onClose,
+  onDataDeleted,
   onDone,
 }: {
   open: boolean;
   onClose: () => void;
+  onDataDeleted: () => void;
   onDone: () => void;
 }) {
   const [typed, setTyped] = useState('');
   const action = useAction();
-  const ready = confirmed(typed) && !action.busy;
+  const ready = confirmed(typed);
   return (
     <Sheet
       open={open}
       onClose={onClose}
       onClosed={() => {
         setTyped('');
-        action.clear();
+        action.reset();
       }}
       title="Delete all data?"
       description="This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone."
@@ -388,9 +446,14 @@ function DeleteAllSheet({
         <button
           type="button"
           disabled={!ready}
+          // Busy: still focusable (disabling would drop focus to the page), and run() ignores it.
+          aria-disabled={action.busy || undefined}
           onClick={async () => {
-            if (await action.run(() => deleteAllData(), "Couldn't delete everything. Try again."))
-              onDone();
+            const done = await action.run(async () => {
+              await deleteReporting(onDataDeleted);
+              return true;
+            }, failureMessage);
+            if (done) onDone();
           }}
           className="btn btn-destructive w-full"
         >
@@ -411,17 +474,19 @@ function DeleteAllSheet({
 function ResetSheet({
   open,
   onClose,
+  onDataDeleted,
   onDone,
 }: {
   open: boolean;
   onClose: () => void;
+  onDataDeleted: () => void;
   onDone: (deleted: boolean) => void;
 }) {
   const id = useId();
   const [alsoDelete, setAlsoDelete] = useState(false);
   const [typed, setTyped] = useState('');
   const action = useAction();
-  const ready = (!alsoDelete || confirmed(typed)) && !action.busy;
+  const ready = !alsoDelete || confirmed(typed);
   return (
     <Sheet
       open={open}
@@ -429,7 +494,7 @@ function ResetSheet({
       onClosed={() => {
         setAlsoDelete(false);
         setTyped('');
-        action.clear();
+        action.reset();
       }}
       title="Reset settings?"
       description="The weekly goal, first day of the week and theme go back to their defaults."
@@ -437,16 +502,26 @@ function ResetSheet({
         <button
           type="button"
           disabled={!ready}
+          // Busy: still focusable (disabling would drop focus to the page), and run() ignores it.
+          aria-disabled={action.busy || undefined}
           onClick={async () => {
+            const deleting = alsoDelete;
             const done = await action.run(
               async () => {
                 // Data first: if deleting fails, the settings stay as they were too.
-                if (alsoDelete) await deleteAllData();
-                await resetSettings();
+                if (deleting) await deleteReporting(onDataDeleted);
+                try {
+                  await resetSettings();
+                } catch (error) {
+                  if (deleting) throw new SettingsResetError(error);
+                  throw error;
+                }
+                return true;
               },
-              alsoDelete ? "Couldn't delete everything. Try again." : "Couldn't reset. Try again.",
+              (cause) =>
+                deleting ? failureMessage(cause) : "Couldn't reset the settings. Try again.",
             );
-            if (done) onDone(alsoDelete);
+            if (done) onDone(deleting);
           }}
           className={`btn w-full ${alsoDelete ? 'btn-destructive' : 'btn-primary'}`}
         >

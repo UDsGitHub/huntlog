@@ -293,4 +293,123 @@ describe('Settings tab', () => {
       expect.stringMatching(/\/notices\.html$/),
     );
   });
+
+  describe('when things go partly wrong', () => {
+    async function confirmDelete(user: User) {
+      const panel = await openSettings(user);
+      await user.click(
+        within(card(panel, 'Your data')).getByRole('button', { name: 'Delete all data' }),
+      );
+      const sheet = screen.getByRole('dialog', { name: 'Delete all data?' });
+      await user.type(within(sheet).getByLabelText('Type DELETE to confirm'), 'DELETE');
+      return sheet;
+    }
+
+    it('says the data is gone when only the cleanup after it failed, and empties the list', async () => {
+      await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+      const user = userEvent.setup();
+      // Opened first, so the list shows Acme before the delete.
+      render(<App />);
+      await screen.findByRole('button', { name: /^Acme/ });
+      vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValueOnce(new Error('storage'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      await user.click(screen.getByRole('tab', { name: 'Settings' }));
+      const panel = screen.getByRole('tabpanel', { name: 'Settings' });
+      await user.click(
+        within(card(panel, 'Your data')).getByRole('button', { name: 'Delete all data' }),
+      );
+      const sheet = screen.getByRole('dialog', { name: 'Delete all data?' });
+      await user.type(within(sheet).getByLabelText('Type DELETE to confirm'), 'DELETE');
+      await user.click(within(sheet).getByRole('button', { name: 'Delete all data' }));
+      expect(await within(sheet).findByRole('alert')).toHaveTextContent(
+        'Your data was deleted, but a few leftovers',
+      );
+      expect(await db.applications.count()).toBe(0);
+      await user.keyboard('{Escape}');
+      await user.click(screen.getByRole('tab', { name: 'Applications' }));
+      expect(await screen.findByText('No applications yet.')).toBeInTheDocument();
+    });
+
+    it('says the data is gone when only the settings reset failed', async () => {
+      await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+      await updateSettings({ theme: 'dark' });
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const user = userEvent.setup();
+      const panel = await openSettings(user);
+      await user.click(
+        within(card(panel, 'Your data')).getByRole('button', { name: 'Reset settings' }),
+      );
+      const sheet = screen.getByRole('dialog', { name: 'Reset settings?' });
+      await user.click(within(sheet).getByLabelText(/Also delete all my data/));
+      await user.type(within(sheet).getByLabelText('Type DELETE to confirm'), 'DELETE');
+      const remove = fakeBrowser.storage.local.remove.bind(fakeBrowser.storage.local);
+      vi.spyOn(fakeBrowser.storage.local, 'remove').mockImplementation((async (keys: unknown) => {
+        // The settings reset removes several keys; the delete's cleanup removes one.
+        if (Array.isArray(keys)) throw new Error('storage');
+        return remove(keys as string);
+      }) as never);
+      await user.click(within(sheet).getByRole('button', { name: 'Reset and delete everything' }));
+      expect(await within(sheet).findByRole('alert')).toHaveTextContent(
+        "Your data was deleted, but the settings couldn't be reset.",
+      );
+      expect(await db.applications.count()).toBe(0);
+    });
+
+    it('a sheet closed while deleting shows no old error when reopened', async () => {
+      let fail!: (error: Error) => void;
+      vi.spyOn(deleteAll, 'deleteAllData').mockImplementation(
+        () => new Promise((_, reject) => (fail = reject)),
+      );
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const user = userEvent.setup();
+      const sheet = await confirmDelete(user);
+      await user.click(within(sheet).getByRole('button', { name: 'Delete all data' }));
+      await user.keyboard('{Escape}');
+      await act(async () => fail(new Error('disk')));
+      const panel = screen.getByRole('tabpanel', { name: 'Settings' });
+      // The card's own button (the closed sheet's one has the same name).
+      await user.click(
+        within(card(panel, 'Your data')).getAllByRole('button', { name: 'Delete all data' })[0]!,
+      );
+      expect(within(sheet).queryByRole('alert')).toBeNull();
+    });
+
+    it('runs once however fast the button is pressed twice', async () => {
+      const spy = vi.spyOn(deleteAll, 'deleteAllData');
+      const user = userEvent.setup();
+      const sheet = await confirmDelete(user);
+      const button = within(sheet).getByRole('button', { name: 'Delete all data' });
+      await act(async () => {
+        button.click();
+        button.click();
+      });
+      await waitFor(() => expect(sheet).not.toHaveAttribute('open'));
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('saves the goal once for Enter followed by leaving the field', async () => {
+    await updateSettings({ weeklyGoal: 8 });
+    const user = userEvent.setup();
+    const panel = await openSettings(user);
+    const set = vi.spyOn(fakeBrowser.storage.local, 'set');
+    const field = within(panel).getByLabelText('Applications per week');
+    await user.clear(field);
+    await user.type(field, '12{Enter}');
+    await user.tab();
+    await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(12));
+    expect(set).toHaveBeenCalledTimes(1);
+  });
+
+  it('a delete in another window clears this window’s remembered form defaults', async () => {
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('No applications yet.');
+    // Another window deletes everything.
+    await act(() => fakeBrowser.storage.local.remove(FORM_DEFAULTS_KEY));
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.click(screen.getByRole('button', { name: 'More details' }));
+    expect(screen.getByLabelText(/Source/)).toHaveValue('');
+  });
 });

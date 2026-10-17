@@ -32,7 +32,12 @@ import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
 import { purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
 import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
-import { readFormDefaults, rememberFormDefaults, type FormDefaults } from '@/lib/formDefaults';
+import {
+  onFormDefaultsChanged,
+  readFormDefaults,
+  rememberFormDefaults,
+  type FormDefaults,
+} from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
 type TabId = 'applications' | 'stats' | 'resumes' | 'settings';
@@ -95,9 +100,16 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    void readFormDefaults().then((defaults) => !cancelled && setFormDefaults(defaults));
+    let changed = false;
+    // Follows changes from any window (a new application, or Delete all data elsewhere).
+    const stop = onFormDefaultsChanged((defaults) => {
+      changed = true;
+      setFormDefaults(defaults);
+    });
+    void readFormDefaults().then((defaults) => !cancelled && !changed && setFormDefaults(defaults));
     return () => {
       cancelled = true;
+      stop();
     };
   }, []);
 

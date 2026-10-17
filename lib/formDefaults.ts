@@ -61,3 +61,17 @@ export function rememberFormDefaults(
   writes = write;
   return write;
 }
+
+/**
+ * Calls `listener` with the new defaults whenever they change in any window, including being
+ * removed by Delete all data, so no open panel keeps (and writes back) deleted ones.
+ */
+export function onFormDefaultsChanged(listener: (defaults: FormDefaults) => void): () => void {
+  const handle = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+    if (area === 'local' && FORM_DEFAULTS_KEY in changes) {
+      listener(parseFormDefaults(changes[FORM_DEFAULTS_KEY]!.newValue));
+    }
+  };
+  browser.storage.onChanged.addListener(handle);
+  return () => browser.storage.onChanged.removeListener(handle);
+}
