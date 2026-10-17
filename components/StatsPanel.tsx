@@ -20,6 +20,7 @@ import { CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
 import { ActivityChart, GoalRing, OutcomesBar } from './StatsCharts';
+import { useEdgeFade } from './useEdgeFade';
 import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
 import { useSettings } from './useSettings';
@@ -150,6 +151,9 @@ function RangeChips({
   onCustom: () => void;
 }) {
   const chips = useRef(new Map<RangeKind, HTMLButtonElement>());
+  const row = useRef<HTMLDivElement>(null);
+  // Fades as wide as the gutter, so a chip scrolled clear of the edge is never faded.
+  const fade = useEdgeFade(row, 'x', 'var(--tab-gutter)');
 
   function onKeyDown(event: KeyboardEvent) {
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -166,13 +170,16 @@ function RangeChips({
 
   return (
     <div
+      ref={row}
       role="radiogroup"
       aria-label="Range"
+      {...fade.attributes}
+      style={fade.style}
       onKeyDown={onKeyDown}
       // Edge to edge across the tab (through its --tab-gutter padding), so chips scroll out under
       // the edge; scroll padding keeps a focused chip clear of it. Room for focus rings above and
       // below.
-      className="-mx-(--tab-gutter) flex min-w-0 scroll-px-(--tab-gutter) gap-1.5 overflow-x-auto px-(--tab-gutter) py-1 [scrollbar-width:none]"
+      className="-mx-(--tab-gutter) flex min-w-0 scroll-px-(--tab-gutter) gap-1.5 overflow-x-auto px-(--tab-gutter) py-1"
     >
       {RANGE_KINDS.map((option) => {
         const pressed = option === kind;

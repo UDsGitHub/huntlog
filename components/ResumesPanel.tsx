@@ -228,18 +228,22 @@ export function ResumesPanel({
                   className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${showArchived ? 'rotate-180' : ''}`}
                 />
               </button>
-              <ul
-                id={`${id}-archived`}
+              <div
                 hidden={!showArchived && !archivedClosing}
                 {...inert(archivedClosing)}
                 data-state={showArchived ? 'open' : 'closing'}
-                aria-label="Archived resumes"
-                className="details-panel flex flex-col gap-2"
+                className="details-panel"
               >
-                {archived.map((resume) => (
-                  <ResumeRow key={resume.id} resume={resume} {...rowProps} />
-                ))}
-              </ul>
+                <ul
+                  id={`${id}-archived`}
+                  aria-label="Archived resumes"
+                  className="flex flex-col gap-2"
+                >
+                  {archived.map((resume) => (
+                    <ResumeRow key={resume.id} resume={resume} {...rowProps} />
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
         </>

@@ -55,6 +55,14 @@
 }
 
 @layer base {
+  /* Scrollbars are hidden everywhere (spec §3); areas still scroll by wheel, touch and keys. */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Lines take the token color unless a class says otherwise (shadcn's border-border). */
   *,
   ::before,
@@ -300,23 +308,41 @@
   field-sizing: content;
 }
 
-/* More details (ApplicationForm): slides open and shut. */
-.details-panel[data-state='open'] {
+/*
+ * Accordions (More details, Archived resumes): the panel's height grows and shrinks (no fade).
+ * The panel is a one-row grid whose row animates between 0fr and 1fr; its single child is the
+ * content. It clips only while it animates (overflow is part of the keyframes), so once open
+ * nothing inside is cut off: a row's menu, a focus ring, a shadow. `data-instant` skips it.
+ */
+.details-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.details-panel > * {
+  min-height: 0;
+}
+.details-panel[data-state='open']:not([data-instant]) {
   animation: details-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
-.details-panel[data-state='closing'] {
+.details-panel[data-state='closing']:not([data-instant]) {
   animation: details-out 200ms ease-in forwards;
 }
 @keyframes details-in {
   from {
-    opacity: 0;
-    translate: 0 -0.5rem;
+    grid-template-rows: 0fr;
+    overflow: clip;
+  }
+  to {
+    overflow: clip;
   }
 }
 @keyframes details-out {
+  from {
+    overflow: clip;
+  }
   to {
-    opacity: 0;
-    translate: 0 -0.5rem;
+    grid-template-rows: 0fr;
+    overflow: clip;
   }
 }
 @media (prefers-reduced-motion: reduce) {
