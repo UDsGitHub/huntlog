@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, launchExtension, panelUrl, test } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  launchExtension,
+  panelUrl,
+  test,
+  uploadResume as uploadFromSheet,
+} from './fixtures';
 
 const PDF = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(100)]);
 
@@ -14,10 +21,7 @@ async function addJob(page: Page, company: string) {
 async function uploadResume(page: Page) {
   await page.getByRole('tab', { name: 'Resumes' }).click();
   const panel = page.getByRole('tabpanel', { name: 'Resumes' });
-  await panel
-    .getByLabel('Resume file')
-    .setInputFiles({ name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
-  await panel.getByRole('button', { name: 'Upload' }).click();
+  await uploadFromSheet(page, { name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
   await expect(panel.getByRole('list', { name: 'Resumes' })).toContainText('Backend v3');
 }
 

@@ -153,3 +153,26 @@ export async function scrollPanel(page: Page, top: number | 'end') {
 export async function sheetsClosed(page: Page) {
   await expect(page.locator('dialog[open]')).toHaveCount(0);
 }
+
+/**
+ * Uploads a resume from the Resumes tab's + Upload sheet (the tab must be showing). Leaves the
+ * sheet open when the upload is refused, so its error can be checked.
+ */
+export async function uploadResume(
+  page: Page,
+  file: { name: string; mimeType: string; buffer: Buffer },
+  { expectError = false } = {},
+) {
+  await page.getByRole('button', { name: 'Upload resume' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Upload a resume' });
+  await sheet.getByLabel('Resume file').setInputFiles(file);
+  await sheet.getByRole('button', { name: 'Upload', exact: true }).click();
+  if (!expectError) await sheetsClosed(page);
+  return sheet;
+}
+
+/** Picks an action from a resume row's ⋯ menu. */
+export async function resumeAction(page: Page, name: string, action: string) {
+  await page.getByRole('button', { name: `More actions for ${name}` }).click();
+  await page.getByRole('menuitem', { name: action }).click();
+}

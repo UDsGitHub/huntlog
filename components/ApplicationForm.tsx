@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -39,12 +38,9 @@ import { Sheet } from './Sheet';
 import type { CapturePrefill } from './useCaptureDraft';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 import { inert } from './inert';
+import { useCollapsing } from './useCollapsing';
 import { ChevronDownIcon } from './icons';
-import { prefersReducedMotion } from './motion';
 import { SourceField } from './SourceField';
-
-/** How long More details takes to slide open or shut. */
-const DETAILS_ANIMATION_MS = 200;
 
 interface Props {
   /** The sheet is showing (it stays mounted while it slides out after closing). */
@@ -164,17 +160,7 @@ export function ApplicationForm({
     return false;
   });
   // Collapsing slides shut before the section is hidden (not under reduced motion).
-  const [detailsClosing, setDetailsClosing] = useState(false);
-  const [wasOpen, setWasOpen] = useState(detailsOpen);
-  if (wasOpen !== detailsOpen) {
-    setWasOpen(detailsOpen);
-    setDetailsClosing(!detailsOpen && !prefersReducedMotion());
-  }
-  useEffect(() => {
-    if (!detailsClosing) return;
-    const timer = setTimeout(() => setDetailsClosing(false), DETAILS_ANIMATION_MS);
-    return () => clearTimeout(timer);
-  }, [detailsClosing]);
+  const detailsClosing = useCollapsing(detailsOpen);
   const readFailed = Boolean(draft?.readFailed);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);

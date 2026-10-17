@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
+import { createDraft, draftKey } from '@/lib/captureDraft';
 import * as deleteAll from '@/lib/deleteAll';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
 import { readSettings, SETTINGS_KEYS, updateSettings } from '@/lib/settings';
@@ -204,6 +205,40 @@ describe('Settings tab', () => {
       await user.click(within(sheet).getByRole('button', { name: 'Delete all data' }));
       expect(await within(sheet).findByRole('alert')).toHaveTextContent("Couldn't delete");
       expect(sheet).toHaveAttribute('open');
+    });
+
+    it('closes when a capture switches tabs mid-delete, and still says how it went', async () => {
+      await seeded();
+      let fail!: (error: Error) => void;
+      vi.spyOn(deleteAll, 'deleteAllData').mockReturnValue(
+        new Promise((_, reject) => {
+          fail = reject;
+        }),
+      );
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const WINDOW_ID = 3;
+      vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+        id: WINDOW_ID,
+      } satisfies Partial<Browser.windows.Window> as never);
+      const user = userEvent.setup();
+      const panel = await openSettings(user);
+      await user.click(
+        within(card(panel, 'Your data')).getByRole('button', { name: 'Delete all data' }),
+      );
+      const sheet = screen.getByRole('dialog', { name: 'Delete all data?' });
+      await user.type(within(sheet).getByLabelText('Type DELETE to confirm'), 'DELETE');
+      await user.click(within(sheet).getByRole('button', { name: 'Delete all data' }));
+      // A capture switches to Applications (the page behind the sheet is inert, so no user click).
+      await act(async () => {
+        await fakeBrowser.storage.session.set({
+          [draftKey(WINDOW_ID)]: createDraft('page', { url: 'https://acme.com/2' }),
+        });
+      });
+      await waitFor(() => expect(sheet).not.toHaveAttribute('open'));
+      await act(async () => fail(new Error('disk')));
+      expect(
+        await screen.findByText(/Couldn't delete your data\. Nothing was deleted\./),
+      ).toBeInTheDocument();
     });
   });
 

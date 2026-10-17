@@ -43,6 +43,8 @@ interface Props {
   onDataDeleted: () => void;
   /** A short confirmation, shown as a toast. */
   notify: (message: string) => void;
+  /** The Settings tab is selected. Its sheets close when it isn't (e.g. a capture switched tabs). */
+  active: boolean;
 }
 
 /**
@@ -50,7 +52,7 @@ interface Props {
  * change saves as it's made and applies in every open window (settings live in storage, and
  * `useSettings` follows changes from anywhere).
  */
-export function SettingsPanel({ onDataDeleted, notify }: Props) {
+export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
   const settings = useSettings();
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export function SettingsPanel({ onDataDeleted, notify }: Props) {
       )}
       <GoalCard goal={settings.weeklyGoal} onChange={(weeklyGoal) => void save({ weeklyGoal })} />
       <DisplayCard settings={settings} onChange={(patch) => void save(patch)} />
-      <DataCard onDataDeleted={onDataDeleted} notify={notify} />
+      <DataCard onDataDeleted={onDataDeleted} notify={notify} active={active} />
       <AboutCard />
     </section>
   );
@@ -282,8 +284,11 @@ function DisplayCard({
 }
 
 /** Delete all data, and Reset settings (spec §4.8), each confirmed in a sheet. */
-function DataCard({ onDataDeleted, notify }: Props) {
+function DataCard({ onDataDeleted, notify, active }: Props) {
   const [open, setOpen] = useState<'delete' | 'reset' | null>(null);
+  // Leaving the tab (a capture) closes its sheet: hidden behind another tab, it would stay modal
+  // and block the panel. A delete still running reports its outcome in a toast.
+  if (!active && open !== null) setOpen(null);
   const finish = (message: string) => {
     setOpen(null);
     notify(message);
@@ -312,6 +317,7 @@ function DataCard({ onDataDeleted, notify }: Props) {
         onClose={() => setOpen(null)}
         onDataDeleted={onDataDeleted}
         onDone={() => finish('All your data was deleted.')}
+        notify={notify}
       />
       <ResetSheet
         open={open === 'reset'}
@@ -320,6 +326,7 @@ function DataCard({ onDataDeleted, notify }: Props) {
         onDone={(deleted) =>
           finish(deleted ? 'Settings reset, and all your data deleted.' : 'Settings reset.')
         }
+        notify={notify}
       />
     </Card>
   );
@@ -349,10 +356,12 @@ function ConfirmField({ value, onChange }: { value: string; onChange: (value: st
 
 /**
  * Runs a sheet's action once at a time (a ref, so a double activation before React re-renders
- * can't start it twice), showing a failure in the sheet. `reset` forgets the error and makes a
- * still-running attempt's outcome ignored, for when the sheet closes.
+ * can't start it twice), showing a failure in the sheet. `reset` forgets the error, for when the
+ * sheet closes; a still-running attempt that then fails reports through `onOrphanedError` (a
+ * toast), since the sheet that would say whether the data is gone has closed (e.g. a capture
+ * switched tabs mid-delete).
  */
-function useAction() {
+function useAction(onOrphanedError: (message: string) => void) {
   const running = useRef(false);
   const attempt = useRef(0);
   const [busy, setBusy] = useState(false);
@@ -371,6 +380,7 @@ function useAction() {
     } catch (cause) {
       console.error(cause);
       if (mine === attempt.current) setError(describe(cause));
+      else onOrphanedError(describe(cause));
       return false;
     } finally {
       running.current = false;
@@ -423,14 +433,16 @@ function DeleteAllSheet({
   onClose,
   onDataDeleted,
   onDone,
+  notify,
 }: {
   open: boolean;
   onClose: () => void;
   onDataDeleted: () => void;
   onDone: () => void;
+  notify: (message: string) => void;
 }) {
   const [typed, setTyped] = useState('');
-  const action = useAction();
+  const action = useAction(notify);
   const ready = confirmed(typed);
   return (
     <Sheet
@@ -476,16 +488,18 @@ function ResetSheet({
   onClose,
   onDataDeleted,
   onDone,
+  notify,
 }: {
   open: boolean;
   onClose: () => void;
   onDataDeleted: () => void;
   onDone: (deleted: boolean) => void;
+  notify: (message: string) => void;
 }) {
   const id = useId();
   const [alsoDelete, setAlsoDelete] = useState(false);
   const [typed, setTyped] = useState('');
-  const action = useAction();
+  const action = useAction(notify);
   const ready = !alsoDelete || confirmed(typed);
   return (
     <Sheet

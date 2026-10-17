@@ -166,3 +166,29 @@ test('the prefilled form fits a 320px panel with no horizontal scroll', async ({
 
   await expectNoHorizontalScroll(panel);
 });
+
+test("a capture closes another tab's open sheet, so it can't block the panel afterwards", async ({
+  session,
+}) => {
+  const { panel, windowId } = await openPanel(session);
+  for (const [tab, opener, sheet] of [
+    ['Resumes', 'Upload resume', 'Upload a resume'],
+    ['Settings', 'Delete all data', 'Delete all data?'],
+  ] as const) {
+    await panel.getByRole('tab', { name: tab }).click();
+    await panel.getByRole('button', { name: opener }).click();
+    await expect(panel.getByRole('dialog', { name: sheet })).toBeVisible();
+    await writeDraft(session, windowId, pageDraft());
+    await expect(form(panel).url).toHaveValue(JOB_URL);
+    await expect(panel.getByRole('dialog', { name: sheet })).toHaveCount(0);
+    await panel.getByRole('button', { name: 'Back' }).click();
+    await expect(panel.locator('dialog[open]')).toHaveCount(0);
+    // The panel is usable again: nothing modal is left behind.
+    await panel.getByRole('tab', { name: tab }).click();
+    await expect(panel.getByRole('button', { name: opener })).toBeEnabled();
+    await panel.getByRole('button', { name: opener }).click();
+    await expect(panel.getByRole('dialog', { name: sheet })).toBeVisible();
+    await panel.keyboard.press('Escape');
+    await expect(panel.locator('dialog[open]')).toHaveCount(0);
+  }
+});
