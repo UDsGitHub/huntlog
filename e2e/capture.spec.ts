@@ -173,7 +173,6 @@ test("a capture closes another tab's open sheet, so it can't block the panel aft
   const { panel, windowId } = await openPanel(session);
   for (const [tab, opener, sheet] of [
     ['Resumes', 'Upload resume', 'Upload a resume'],
-    ['Settings', 'Delete all data', 'Delete all data?'],
     ['Stats', 'Custom…', 'Custom range'],
   ] as const) {
     await panel.getByRole('tab', { name: tab }).click();

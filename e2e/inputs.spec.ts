@@ -66,7 +66,7 @@ test('number fields keep only numbers, and group an amount once left', async ({ 
   // The weekly goal: digits only, with − and + kept within 1 to 200.
   await sheet.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Discard' }).click();
-  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('switch', { name: 'Set a weekly goal' }).click();
   const goal = page.getByLabel('Applications per week');
   await expect(goal).toHaveValue('5');

@@ -26,13 +26,49 @@ afterEach(() => vi.restoreAllMocks());
 
 async function openSettings(user: User) {
   render(<App />);
-  await user.click(await screen.findByRole('tab', { name: 'Settings' }));
-  return screen.findByRole('tabpanel', { name: 'Settings' });
+  await user.click(await screen.findByRole('button', { name: 'Settings' }));
+  return screen.findByRole('dialog', { name: 'Settings' });
 }
 
 const card = (panel: HTMLElement, name: string) => within(panel).getByRole('region', { name });
 
-describe('Settings tab', () => {
+describe('Settings', () => {
+  it("opens from the header's gear over the current tab, and gives focus back to it", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('tab', { name: 'Stats' }));
+    const gear = screen.getByRole('button', { name: 'Settings' });
+    await user.click(gear);
+    const sheet = screen.getByRole('dialog', { name: 'Settings' });
+    expect(sheet).toHaveAttribute('open');
+    // Its first control has focus.
+    expect(within(sheet).getByRole('switch', { name: 'Set a weekly goal' })).toHaveFocus();
+    // The tab behind it stays as it was.
+    expect(screen.getByRole('tab', { name: 'Stats', hidden: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    expect(gear).toHaveFocus();
+  });
+
+  it('a capture closes it, showing the capture’s form', async () => {
+    const WINDOW_ID = 3;
+    vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+      id: WINDOW_ID,
+    } satisfies Partial<Browser.windows.Window> as never);
+    const user = userEvent.setup();
+    await openSettings(user);
+    await act(async () => {
+      await fakeBrowser.storage.session.set({
+        [draftKey(WINDOW_ID)]: createDraft('page', { url: 'https://acme.com/2' }),
+      });
+    });
+    expect(await screen.findByLabelText('Job posting URL')).toHaveValue('https://acme.com/2');
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+  });
+
   it('shows its four cards at the defaults', async () => {
     const user = userEvent.setup();
     const panel = await openSettings(user);
@@ -239,8 +275,9 @@ describe('Settings tab', () => {
       expect(await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY)).toEqual({});
       expect(await readSettings()).toMatchObject({ theme: 'dark', weeklyGoal: 7 });
       expect(await screen.findByText('All your data was deleted.')).toBeInTheDocument();
-      // Back on Applications? No: Settings stays selected; the list behind it is empty.
-      await user.click(screen.getByRole('tab', { name: 'Applications' }));
+      // Settings stays open; the list behind it is empty.
+      expect(screen.getByRole('dialog', { name: 'Settings' })).toHaveAttribute('open');
+      await user.keyboard('{Escape}');
       expect(await screen.findByText('No applications yet.')).toBeInTheDocument();
     });
 
@@ -305,6 +342,7 @@ describe('Settings tab', () => {
         });
       });
       await waitFor(() => expect(sheet).not.toHaveAttribute('open'));
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
       await act(async () => fail(new Error('disk')));
       expect(
         await screen.findByText(/Couldn't delete your data\. Nothing was deleted\./),
@@ -419,8 +457,8 @@ describe('Settings tab', () => {
       await screen.findByRole('button', { name: /^Acme/ });
       vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValueOnce(new Error('storage'));
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      await user.click(screen.getByRole('tab', { name: 'Settings' }));
-      const panel = screen.getByRole('tabpanel', { name: 'Settings' });
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      const panel = screen.getByRole('dialog', { name: 'Settings' });
       await user.click(
         within(card(panel, 'Your data')).getByRole('button', { name: 'Delete all data' }),
       );
@@ -432,7 +470,7 @@ describe('Settings tab', () => {
       );
       expect(await db.applications.count()).toBe(0);
       await user.keyboard('{Escape}');
-      await user.click(screen.getByRole('tab', { name: 'Applications' }));
+      await user.keyboard('{Escape}');
       expect(await screen.findByText('No applications yet.')).toBeInTheDocument();
     });
 
@@ -472,7 +510,7 @@ describe('Settings tab', () => {
       await user.click(within(sheet).getByRole('button', { name: 'Delete all data' }));
       await user.keyboard('{Escape}');
       await act(async () => fail(new Error('disk')));
-      const panel = screen.getByRole('tabpanel', { name: 'Settings' });
+      const panel = screen.getByRole('dialog', { name: 'Settings' });
       // The card's own button (the closed sheet's one has the same name).
       await user.click(
         within(card(panel, 'Your data')).getAllByRole('button', { name: 'Delete all data' })[0]!,

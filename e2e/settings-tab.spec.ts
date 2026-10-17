@@ -31,8 +31,9 @@ async function chooseTheme(page: Page, name: 'System' | 'Light' | 'Dark') {
   await expect(settings(page).getByRole('radio', { name })).toBeChecked();
 }
 
-const settingsTab = (page: Page) => page.getByRole('tab', { name: 'Settings' });
-const settings = (page: Page) => page.getByRole('tabpanel', { name: 'Settings' });
+/** The header's gear, which opens Settings as a sheet. */
+const settingsTab = (page: Page) => page.getByRole('button', { name: 'Settings', exact: true });
+const settings = (page: Page) => page.getByRole('dialog', { name: 'Settings' });
 
 test('the theme chosen in Settings applies at once and survives a restart', async ({
   userDataDir,
@@ -76,6 +77,10 @@ test('Delete all data removes applications and resumes for good, keeping setting
   await addJob(page, 'Acme');
   await uploadResume(page);
   await settingsTab(page).click();
+  // Near full height over the tab behind it, fitting 320px.
+  const sheetBox = (await settings(page).locator('.sheet-panel').boundingBox())!;
+  expect(sheetBox.height).toBeGreaterThan(620);
+  await expectNoHorizontalScroll(page);
   await chooseTheme(page, 'Dark');
 
   const open = settings(page).getByRole('button', { name: 'Delete all data' });
@@ -95,6 +100,8 @@ test('Delete all data removes applications and resumes for good, keeping setting
   await confirm.click();
   await expect(sheet).toBeHidden();
   await expect(page.getByText('All your data was deleted.')).toBeVisible();
+  // Settings stays open over the emptied tab behind it.
+  await expect(settings(page)).toBeVisible();
   await first.context.close();
 
   const second = await launchExtension(userDataDir);
@@ -126,7 +133,7 @@ test('Reset settings keeps the data, unless the box is ticked', async ({ session
   await sheet.getByRole('button', { name: 'Reset settings' }).click();
   await expect(sheet).toBeHidden();
   await expect(settings(page).getByRole('radio', { name: 'System' })).toBeChecked();
-  await page.getByRole('tab', { name: 'Applications' }).click();
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
 
   await settingsTab(page).click();
@@ -135,7 +142,7 @@ test('Reset settings keeps the data, unless the box is ticked', async ({ session
   await sheet.getByLabel('Type DELETE to confirm').fill('DELETE');
   await sheet.getByRole('button', { name: 'Reset and delete everything' }).click();
   await expect(sheet).toBeHidden();
-  await page.getByRole('tab', { name: 'Applications' }).click();
+  await page.keyboard.press('Escape');
   await expect(page.getByText('No applications yet.')).toBeVisible();
 });
 

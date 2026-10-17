@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import path from 'node:path';
-import { expect, panelUrl, scrollPanel, sheetsClosed, test, uploadResume } from '../e2e/fixtures';
+import { expect, panelUrl, sheetsClosed, test, uploadResume } from '../e2e/fixtures';
 
 // Every screen at 320px, in light and dark, for the owner's design review (milestones.md, after
 // M6). Saved to docs/design-review/screenshots/<screen>-<theme>.png.
@@ -32,12 +32,10 @@ async function shot(page: Page, name: string, theme: string) {
   await page.screenshot({ path: `${OUT}/${name}-${theme}.png` });
 }
 
+/** Leaves Settings open: its sheet is the next screenshot. */
 async function setTheme(page: Page, theme: 'Light' | 'Dark') {
-  await page.getByRole('tab', { name: 'Settings' }).click();
-  await page
-    .getByRole('tabpanel', { name: 'Settings' })
-    .locator('label', { hasText: theme })
-    .click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Settings' }).locator('label', { hasText: theme }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme.toLowerCase());
 }
 
@@ -51,6 +49,8 @@ test('design-review screenshots', async ({ session }) => {
   // Empty states first.
   for (const theme of ['Light', 'Dark'] as const) {
     await setTheme(page, theme);
+    await page.keyboard.press('Escape');
+    await sheetsClosed(page);
     for (const tab of ['Applications', 'Stats', 'Resumes'] as const) {
       await page.getByRole('tab', { name: tab }).click();
       await shot(page, `empty-${tab.toLowerCase()}`, theme.toLowerCase());
@@ -80,11 +80,13 @@ test('design-review screenshots', async ({ session }) => {
       await sheetsClosed(page);
     }
   }
-  await page.getByRole('tab', { name: 'Settings' }).click();
-  const settings = page.getByRole('tabpanel', { name: 'Settings' });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const settings = page.getByRole('dialog', { name: 'Settings' });
   await settings.getByRole('switch', { name: 'Set a weekly goal' }).click();
   await settings.getByLabel('Applications per week').fill('10');
   await settings.getByLabel('Applications per week').press('Enter');
+  await page.keyboard.press('Escape');
+  await sheetsClosed(page);
   // Let the Undo toasts go, so they don't cover the screens.
   await page.waitForTimeout(6_000);
 
@@ -93,15 +95,19 @@ test('design-review screenshots', async ({ session }) => {
     // differ between the two shots of a screen. The theme is a setting, so it stays.
     await page.reload();
     await setTheme(page, theme === 'light' ? 'Light' : 'Dark');
-    // Picking the theme scrolled the tab: show it from the top.
-    await scrollPanel(page, 0);
+    // Picking the theme scrolled the sheet: show it from the top.
+    await settings
+      .locator('.sheet-panel > div')
+      .nth(1)
+      .evaluate((body) => body.scrollTo(0, 0));
     await shot(page, 'settings', theme);
     await settings.getByRole('button', { name: 'Delete all data' }).click();
     await shot(page, 'sheet-delete-all', theme);
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Delete all data?' })).toBeHidden();
+    await page.keyboard.press('Escape');
     await sheetsClosed(page);
 
-    await page.getByRole('tab', { name: 'Applications' }).click();
     await shot(page, 'list', theme);
     await page.getByRole('button', { name: /^Filters/ }).click();
     await shot(page, 'sheet-filters', theme);

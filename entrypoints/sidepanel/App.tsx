@@ -44,13 +44,12 @@ import {
 } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
-type TabId = 'applications' | 'stats' | 'resumes' | 'settings';
+type TabId = 'applications' | 'stats' | 'resumes';
 const TAB_PREFIX = 'section';
 const TABS: Tab<TabId>[] = [
-  { id: 'applications', label: 'Applications', icon: <BriefcaseIcon className="size-5" /> },
-  { id: 'stats', label: 'Stats', icon: <ChartColumnIcon className="size-5" /> },
-  { id: 'resumes', label: 'Resumes', icon: <FileTextIcon className="size-5" /> },
-  { id: 'settings', label: 'Settings', icon: <SettingsIcon className="size-5" /> },
+  { id: 'applications', label: 'Applications', icon: <BriefcaseIcon /> },
+  { id: 'stats', label: 'Stats', icon: <ChartColumnIcon /> },
+  { id: 'resumes', label: 'Resumes', icon: <FileTextIcon /> },
 ];
 
 const TAB_ORDER = TABS.map((tab) => tab.id);
@@ -77,11 +76,16 @@ export default function App() {
   const tabRef = useRef(tab);
   // The Resumes tab's upload sheet, opened by its floating + Upload (rendered out here).
   const [uploadOpen, setUploadOpen] = useState(false);
+  // Settings, a sheet over whatever tab is showing (spec §3), opened by the header's gear.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const selectTab = useCallback((next: TabId) => {
     tabRef.current = next;
     setTab(next);
     // Leaving the tab (a capture) closes the sheet; coming back doesn't reopen it.
     if (next !== 'resumes') setUploadOpen(false);
+    // Only a capture or a toast's action switches tabs, and what they show must not stay
+    // hidden under Settings.
+    setSettingsOpen(false);
   }, []);
   const slide = useTabSlide(tab, TAB_ORDER);
   const [view, setView] = useState<View>({ name: 'list' });
@@ -304,10 +308,23 @@ export default function App() {
     // One status sheet for every chip in the panel (spec §4.3).
     <StatusSheetProvider>
       <main className="flex h-dvh flex-col">
-        <div className="flex shrink-0 flex-col gap-4 px-4 pt-4">
-          <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
-            Job Log
-          </h1>
+        {/* The tab bar spans the panel's full width: three labels beside their icons need it at
+            320px. */}
+        <div className="flex shrink-0 flex-col gap-1 pt-3">
+          <div className="flex items-center justify-between gap-2 px-4">
+            <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+              Job Log
+            </h1>
+            <button
+              type="button"
+              aria-label="Settings"
+              aria-haspopup="dialog"
+              onClick={() => setSettingsOpen(true)}
+              className="btn btn-ghost btn-icon -mr-2"
+            >
+              <SettingsIcon />
+            </button>
+          </div>
           {/* One live region for the whole panel, mounted before anything is announced. */}
           <p role="status" className="sr-only">
             {/* A zero-width space alternates so a repeated message still changes the region. */}
@@ -422,20 +439,20 @@ export default function App() {
               onUploadOpenChange={setUploadOpen}
             />
           </TabPanel>
-          <TabPanel
-            state={sectionState('settings')}
-            direction={slide.direction}
-            role="tabpanel"
-            id={panelId(TAB_PREFIX, 'settings')}
-            aria-labelledby={tabId(TAB_PREFIX, 'settings')}
-          >
-            <SettingsPanel
-              onDataDeleted={handleDataDeleted}
-              notify={(message) => showToast({ message })}
-              active={tab === 'settings'}
-            />
-          </TabPanel>
         </div>
+        <Sheet
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          title="Settings"
+          size="full"
+          dismissible
+        >
+          <SettingsPanel
+            onDataDeleted={handleDataDeleted}
+            notify={(message) => showToast({ message })}
+            active={settingsOpen}
+          />
+        </Sheet>
         {/* Add and Edit open as a sheet over the list or detail view (spec §4.2). */}
         {sheetView?.name === 'add' && (prefill || formDefaults) && (
           // Remount per capture: a new capture replaces whatever is in the form (spec §4.1). A

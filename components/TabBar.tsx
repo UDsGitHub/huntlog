@@ -77,12 +77,13 @@ export function TabBar<Id extends string>({
             aria-controls={panelId(idPrefix, tab.id)}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(tab.id)}
-            className={`focus-ring flex min-w-0 flex-col items-center gap-1 rounded-t-md px-0.5 pt-1.5 pb-2 text-[0.6875rem] font-medium tracking-tight transition-colors ${
+            // The icon beside the label, in one row (spec §3).
+            className={`focus-ring-inset flex min-w-0 items-center justify-center gap-1 px-0.5 py-2.5 text-[0.8125rem] font-medium transition-colors ${
               active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tab.icon}
-            <span className="max-w-full truncate">{tab.label}</span>
+            <span className="shrink-0">{tab.icon}</span>
+            <span className="min-w-0 truncate">{tab.label}</span>
           </button>
         );
       })}
