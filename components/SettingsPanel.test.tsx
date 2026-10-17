@@ -7,7 +7,7 @@ import { createDraft, draftKey } from '@/lib/captureDraft';
 import * as deleteAll from '@/lib/deleteAll';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
 import { readSettings, SETTINGS_KEYS, updateSettings } from '@/lib/settings';
-import { sourceValue } from '@/tests/formHelpers';
+import { sourceValue, chooseOption } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -45,7 +45,7 @@ describe('Settings tab', () => {
     );
     expect(within(panel).getByRole('radio', { name: 'System' })).toBeChecked();
     // en-US weeks start on Sunday.
-    expect(within(panel).getByLabelText('First day of the week')).toHaveDisplayValue(
+    expect(within(panel).getByLabelText('First day of the week')).toHaveTextContent(
       'Locale default (Sunday)',
     );
   });
@@ -75,7 +75,7 @@ describe('Settings tab', () => {
       await waitFor(async () => expect((await readSettings()).weeklyGoal).toBeUndefined());
     });
 
-    it.each([['0'], ['201'], ['2.5'], ['abc'], ['-3'], [''], ['1e1']])(
+    it.each([['0'], ['201'], ['abc'], ['']])(
       'rejects %j and keeps the last good goal',
       async (input) => {
         await updateSettings({ weeklyGoal: 8 });
@@ -90,6 +90,76 @@ describe('Settings tab', () => {
         expect((await readSettings()).weeklyGoal).toBe(8);
       },
     );
+
+    it('keeps only digits as they are typed', async () => {
+      await updateSettings({ weeklyGoal: 8 });
+      const user = userEvent.setup();
+      const panel = await openSettings(user);
+      const field = within(panel).getByLabelText('Applications per week');
+      for (const [typed, kept] of [
+        ['2.5', '25'],
+        ['-3', '3'],
+        ['1e1', '11'],
+      ] as const) {
+        await user.clear(field);
+        await user.type(field, typed);
+        expect(field).toHaveValue(kept);
+      }
+    });
+
+    it('steps with − and + (and the arrow keys), saving at once, within 1 to 200', async () => {
+      await updateSettings({ weeklyGoal: 2 });
+      const user = userEvent.setup();
+      const panel = await openSettings(user);
+      const field = within(panel).getByLabelText('Applications per week');
+      const less = within(panel).getByRole('button', { name: 'Decrease weekly goal' });
+      const more = within(panel).getByRole('button', { name: 'Increase weekly goal' });
+      await user.click(less);
+      expect(field).toHaveValue('1');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(1));
+      // − stops at 1: it never turns the goal off. Still focusable (aria-disabled), so a
+      // keyboard user pressing it at the limit keeps their place.
+      expect(less).toHaveAttribute('aria-disabled', 'true');
+      expect(less).toHaveFocus();
+      await user.click(less);
+      expect(field).toHaveValue('1');
+      await user.click(more);
+      await user.click(more);
+      expect(field).toHaveValue('3');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(3));
+      field.focus();
+      await user.keyboard('{ArrowUp}{ArrowUp}{ArrowDown}');
+      expect(field).toHaveValue('4');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(4));
+
+      await user.clear(field);
+      await user.type(field, '200{Enter}');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(200));
+      expect(more).toHaveAttribute('aria-disabled', 'true');
+      await user.click(more);
+      expect(field).toHaveValue('200');
+      // While what's typed is invalid, the buttons step from the stored goal.
+      await user.clear(field);
+      await user.type(field, '0');
+      await user.click(less);
+      expect(field).toHaveValue('199');
+      expect(field).not.toHaveAttribute('aria-invalid');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(199));
+    });
+
+    it('saves a step back to a value saved here before the goal changed elsewhere', async () => {
+      await updateSettings({ weeklyGoal: 9 });
+      const user = userEvent.setup();
+      const panel = await openSettings(user);
+      const field = within(panel).getByLabelText('Applications per week');
+      await user.click(within(panel).getByRole('button', { name: 'Increase weekly goal' }));
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(10));
+      await act(() => updateSettings({ weeklyGoal: 11 }));
+      await waitFor(() => expect(field).toHaveValue('11'));
+      await user.click(within(panel).getByRole('button', { name: 'Decrease weekly goal' }));
+      expect(field).toHaveValue('10');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(10));
+    });
 
     it('follows a goal changed in another window', async () => {
       await updateSettings({ weeklyGoal: 8 });
@@ -119,9 +189,9 @@ describe('Settings tab', () => {
       const user = userEvent.setup();
       const panel = await openSettings(user);
       const select = within(panel).getByLabelText('First day of the week');
-      await user.selectOptions(select, 'Monday');
+      await chooseOption(user, select, 'Monday');
       await waitFor(async () => expect((await readSettings()).weekStartsOn).toBe(1));
-      await user.selectOptions(select, 'Locale default (Sunday)');
+      await chooseOption(user, select, 'Locale default (Sunday)');
       await waitFor(async () => expect((await readSettings()).weekStartsOn).toBeUndefined());
     });
 

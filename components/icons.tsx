@@ -70,6 +70,33 @@ export const PlusIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const MinusIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M5 12h14" />
+  </Icon>
+);
+
+/**
+ * Plus that turns into a minus (`minus`): it makes a half turn while its upright stroke
+ * shrinks away (instant under reduced motion). Lucide's plus and minus paths.
+ */
+export const PlusMinusIcon = ({
+  minus,
+  className = 'size-4',
+  ...props
+}: IconProps & { minus: boolean }) => (
+  <Icon
+    {...props}
+    className={`transition-transform duration-200 motion-reduce:transition-none ${minus ? 'rotate-180' : ''} ${className}`}
+  >
+    <path d="M5 12h14" />
+    <path
+      d="M12 5v14"
+      className={`origin-center transition-transform duration-200 [transform-box:fill-box] motion-reduce:transition-none ${minus ? 'scale-y-0' : ''}`}
+    />
+  </Icon>
+);
+
 export const SlidersHorizontalIcon = (props: IconProps) => (
   <Icon {...props}>
     <line x1="21" x2="14" y1="4" y2="4" />

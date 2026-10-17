@@ -1,4 +1,5 @@
 import {
+  currencyLabel,
   defaultCurrency,
   FALLBACK_CURRENCY,
   knownCurrencies,
@@ -67,5 +68,16 @@ describe('localeWeekStart', () => {
 
   it.each([['not a locale!!'], ['']])('falls back to Monday for %j', (locale) => {
     expect(localeWeekStart(locale)).toBe(1);
+  });
+});
+
+describe('currencyLabel', () => {
+  it('shows the code and the name, so either finds it', () => {
+    expect(currencyLabel('EUR', 'en-US')).toBe('EUR · Euro');
+    expect(currencyLabel('JPY', 'en-US')).toBe('JPY · Japanese Yen');
+  });
+  it('falls back to the code when there is no name', () => {
+    expect(currencyLabel('XYZ', 'en-US')).toBe('XYZ');
+    expect(currencyLabel('not a code', 'en-US')).toBe('not a code');
   });
 });

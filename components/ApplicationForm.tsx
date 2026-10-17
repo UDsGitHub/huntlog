@@ -30,8 +30,9 @@ import {
   isStatus,
   STATUS_LABELS,
 } from '@/lib/status';
-import { defaultCurrency, numberSeparators, orderedCurrencies } from '@/lib/locale';
-import type { Application } from '@/lib/types';
+import { currencyLabel, defaultCurrency, orderedCurrencies } from '@/lib/locale';
+import { formatNumber } from '@/lib/numberInput';
+import type { Application, Status } from '@/lib/types';
 import { DuplicateWarning } from './DuplicateWarning';
 import { ResumeField } from './ResumeField';
 import { Sheet } from './Sheet';
@@ -40,6 +41,9 @@ import { AutoGrowTextarea } from './AutoGrowTextarea';
 import { inert } from './inert';
 import { useCollapsing } from './useCollapsing';
 import { ChevronDownIcon } from './icons';
+import { Combobox } from './Combobox';
+import { NumberField } from './NumberField';
+import { Select } from './Select';
 import { SourceField } from './SourceField';
 
 interface Props {
@@ -83,11 +87,9 @@ const DETAIL_VALUE_FIELDS = DETAIL_FIELDS.filter(
     field !== 'salaryCurrency' && field !== 'salaryPeriod',
 );
 
-/** Stored values shown as form text; salaries use the locale's decimal separator. */
+/** Stored values shown as form text; salaries as the number field shows them (grouped). */
 function formValuesFrom(app: Application): FormValues {
-  const { decimal } = numberSeparators();
-  const number = (n: number | undefined) =>
-    n === undefined ? '' : String(n).replace('.', decimal);
+  const number = (n: number | undefined) => (n === undefined ? '' : formatNumber(n));
   return {
     url: app.url,
     company: app.company,
@@ -182,7 +184,11 @@ export function ApplicationForm({
   }, [errors, isSaving]);
   // Includes a stored currency the runtime doesn't know, so Edit never silently swaps it.
   const storedCurrency = application?.salaryCurrency;
-  const currencies = useMemo(() => orderedCurrencies(undefined, storedCurrency), [storedCurrency]);
+  // Common ones first (the locale's, USD, EUR, GBP), then the rest; searchable by code or name.
+  const currencyOptions = useMemo(() => {
+    const { common, others } = orderedCurrencies(undefined, storedCurrency);
+    return [...common, ...others].map((code) => ({ value: code, label: currencyLabel(code) }));
+  }, [storedCurrency]);
   // The sheet focuses Company when it opens: the first field, and the first one a capture
   // leaves empty. (After the sheet records the opener, so focus returns there.) A view of the
   // field refs, not a second copy of them.
@@ -272,6 +278,18 @@ export function ApplicationForm({
         .join(' ') || undefined,
     className: 'field',
   });
+
+  /** The same wiring for a `Select`, whose focusable element is its button. */
+  const selectControl = (field: InputField) => {
+    const { id: fieldId, name, ref, ...aria } = control(field);
+    return {
+      id: fieldId,
+      name,
+      buttonRef: ref,
+      'aria-invalid': aria['aria-invalid'],
+      'aria-describedby': aria['aria-describedby'],
+    };
+  };
 
   const message = (field: InputField, hint = false) => (
     <>
@@ -385,26 +403,16 @@ export function ApplicationForm({
           {/* Status and Date applied share a row; Status takes it when the date is hidden. */}
           <div className={`grid min-w-0 gap-2 ${dateHidden ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <Field label="Status" htmlFor={`${id}-status`}>
-              <select
-                {...control('status')}
+              <Select
+                {...selectControl('status')}
+                listLabel="Statuses"
                 value={values.status}
-                onChange={(e) => set('status')(e.target.value)}
-              >
-                <optgroup label="Active">
-                  {ACTIVE_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {STATUS_LABELS[status]}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Closed">
-                  {CLOSED_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {STATUS_LABELS[status]}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                onChange={set('status')}
+                options={[
+                  { label: 'Active', options: ACTIVE_STATUSES.map(statusOption) },
+                  { label: 'Closed', options: CLOSED_STATUSES.map(statusOption) },
+                ]}
+              />
               {message('status')}
             </Field>
 
@@ -487,18 +495,16 @@ export function ApplicationForm({
               </Field>
 
               <Field label="Work mode" htmlFor={`${id}-workMode`}>
-                <select
-                  {...control('workMode')}
+                <Select
+                  {...selectControl('workMode')}
+                  listLabel="Work modes"
                   value={values.workMode}
-                  onChange={(e) => set('workMode')(e.target.value)}
-                >
-                  <option value="">Not set</option>
-                  {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={set('workMode')}
+                  options={[
+                    { value: '', label: 'Not set' },
+                    ...Object.entries(WORK_MODE_LABELS).map(([value, label]) => ({ value, label })),
+                  ]}
+                />
                 {message('workMode')}
               </Field>
 
@@ -507,13 +513,11 @@ export function ApplicationForm({
                 {/* Minimum – Maximum on one row, currency and period below. */}
                 <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
                   <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
-                    <input
+                    <NumberField
                       {...control('salaryMin')}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
+                      kind="amount"
                       value={values.salaryMin}
-                      onChange={(e) => set('salaryMin')(e.target.value)}
+                      onChange={set('salaryMin')}
                     />
                     {message('salaryMin')}
                   </Field>
@@ -521,53 +525,40 @@ export function ApplicationForm({
                     –
                   </span>
                   <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
-                    <input
+                    <NumberField
                       {...control('salaryMax')}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
+                      kind="amount"
                       value={values.salaryMax}
-                      onChange={(e) => set('salaryMax')(e.target.value)}
+                      onChange={set('salaryMax')}
                     />
                     {message('salaryMax')}
                   </Field>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
-                    <select
-                      {...control('salaryCurrency')}
+                    <Combobox
+                      id={`${id}-salaryCurrency`}
+                      listLabel="Currencies"
                       value={values.salaryCurrency}
-                      onChange={(e) => set('salaryCurrency')(e.target.value)}
-                    >
-                      <optgroup label="Common">
-                        {currencies.common.map((code) => (
-                          <option key={code} value={code}>
-                            {code}
-                          </option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="All currencies">
-                        {currencies.others.map((code) => (
-                          <option key={code} value={code}>
-                            {code}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
+                      onChange={set('salaryCurrency')}
+                      options={currencyOptions}
+                      inputRef={register('salaryCurrency')}
+                      invalid={Boolean(errors.salaryCurrency)}
+                      describedBy={errors.salaryCurrency ? `${id}-salaryCurrency-error` : undefined}
+                    />
                     {message('salaryCurrency')}
                   </Field>
                   <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
-                    <select
-                      {...control('salaryPeriod')}
+                    <Select
+                      {...selectControl('salaryPeriod')}
+                      listLabel="Periods"
                       value={values.salaryPeriod}
-                      onChange={(e) => set('salaryPeriod')(e.target.value)}
-                    >
-                      {Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={set('salaryPeriod')}
+                      options={Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
+                    />
                     {message('salaryPeriod')}
                   </Field>
                 </div>
@@ -655,3 +646,5 @@ function AutoFilledHint({ id }: { id: string }) {
     </p>
   );
 }
+
+const statusOption = (status: Status) => ({ value: status, label: STATUS_LABELS[status] });

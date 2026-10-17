@@ -1,10 +1,19 @@
 import type { Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, panelUrl, sheetsClosed, test } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  panelUrl,
+  sheetsClosed,
+  test,
+  chooseOption,
+} from './fixtures';
+import { STATUS_LABELS } from '../lib/status';
+import type { Status } from '../lib/types';
 
 async function addJob(
   page: Page,
   company: string,
-  fields: { title?: string; status?: string } = {},
+  fields: { title?: string; status?: Status } = {},
 ) {
   await page.getByRole('button', { name: 'Add application', exact: true }).click();
   await page
@@ -12,7 +21,7 @@ async function addJob(
     .fill(`https://${company.replace(/\W/g, '').toLowerCase()}.com/1`);
   await page.getByLabel('Company').fill(company);
   if (fields.title) await page.getByLabel(/Job title/).fill(fields.title);
-  if (fields.status) await page.getByLabel('Status', { exact: true }).selectOption(fields.status);
+  if (fields.status) await chooseOption(page, 'Status', STATUS_LABELS[fields.status]);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^${company}`) })).toBeVisible();
   // The next Add opens only once this sheet has gone.

@@ -142,8 +142,9 @@ describe('Edit', () => {
     expect(screen.getByRole('form', { name: 'Edit application' })).toBeInTheDocument();
     expect(screen.getByLabelText('Company')).toHaveValue('Acme');
     expect(screen.getByLabelText(/Location/)).toHaveValue('Berlin');
-    expect(screen.getByLabelText('Minimum')).toHaveValue('85000');
-    expect(screen.getByLabelText('Currency')).toHaveValue('EUR');
+    // Shown grouped, as the number field shows it once left.
+    expect(screen.getByLabelText('Minimum')).toHaveValue('85,000');
+    expect(screen.getByLabelText('Currency')).toHaveValue('EUR · Euro');
     expect(screen.getByLabelText(/Notes/)).toHaveValue('Met the team\n<b>not bold</b>');
 
     await user.clear(screen.getByLabelText(/Location/));

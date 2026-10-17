@@ -6,7 +6,7 @@ import { addApplication } from '@/lib/applications';
 import { createDraft, draftKey } from '@/lib/captureDraft';
 import { db } from '@/lib/db';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
-import { chooseSource, sourceValue } from '@/tests/formHelpers';
+import { chooseSource, sourceValue, chooseOption } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 const WINDOW_ID = 3;
@@ -77,7 +77,7 @@ describe('More details', () => {
     const user = userEvent.setup();
     await openAdd(user);
     await user.click(detailsToggle());
-    await user.type(screen.getByLabelText('Minimum'), 'lots');
+    await user.type(screen.getByLabelText('Minimum'), '1,2,3');
     await user.click(detailsToggle());
     await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
     await user.type(screen.getByLabelText('Company'), 'Acme{Enter}');
@@ -91,7 +91,7 @@ describe('More details', () => {
     const user = userEvent.setup();
     await openAdd(user);
     await user.click(detailsToggle());
-    await user.type(screen.getByLabelText('Minimum'), 'lots');
+    await user.type(screen.getByLabelText('Minimum'), '1,2,3');
     await user.click(detailsToggle());
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByLabelText('Company')).toHaveFocus());
@@ -122,7 +122,7 @@ describe('More details', () => {
     expect(screen.getByLabelText(/Job title/)).toHaveAccessibleName('Job title');
     expect(screen.queryByText(/\(optional\)/)).toBeNull();
     // Withdrawn doesn't need a Date applied: its asterisk goes, and it's no longer required.
-    await user.selectOptions(screen.getByLabelText('Status'), 'withdrawn');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Withdrawn');
     const date = screen.getByLabelText(/Date applied/);
     expect(date).toHaveAccessibleName('Date applied');
     expect(date).not.toHaveAttribute('aria-required');
@@ -135,7 +135,7 @@ describe('More details', () => {
     const row = screen.getByLabelText('Status').closest('.grid')!;
     expect(row).toHaveClass('grid-cols-2');
     expect(row).toContainElement(screen.getByLabelText('Date applied'));
-    await user.selectOptions(screen.getByLabelText('Status'), 'saved');
+    await chooseOption(user, screen.getByLabelText('Status'), 'Saved');
     expect(row).toHaveClass('grid-cols-1');
   });
 
@@ -187,15 +187,17 @@ describe('Currency picker', () => {
   it('lists the locale default and USD, EUR, GBP first', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    const groups = screen.getByLabelText('Currency').querySelectorAll('optgroup');
-    expect(groups[0]).toHaveAttribute('label', 'Common');
-    expect([...groups[0]!.querySelectorAll('option')].map((o) => o.value)).toEqual([
-      'USD',
-      'EUR',
-      'GBP',
-    ]);
-    expect(groups[1]!.querySelectorAll('option[value="USD"]')).toHaveLength(0);
-    expect(groups[1]!.querySelectorAll('option[value="JPY"]')).toHaveLength(1);
+    await user.click(detailsToggle());
+    await user.click(screen.getByLabelText('Currency'));
+    const names = within(await screen.findByRole('listbox', { name: 'Currencies' }))
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+    expect(names.slice(0, 3)).toEqual(['USD · US Dollar', 'EUR · Euro', 'GBP · British Pound']);
+    // Then every other code once, alphabetically.
+    expect(names.filter((name) => name?.startsWith('USD '))).toHaveLength(1);
+    expect(names).toContain('JPY · Japanese Yen');
+    const rest = names.slice(3);
+    expect(rest).toEqual([...rest].sort());
   });
 });
 
@@ -229,7 +231,13 @@ describe('Remembered defaults', () => {
     await user.type(screen.getByLabelText('Company'), fields.company);
     await user.click(detailsToggle());
     await chooseSource(user, fields.source ?? '');
-    await user.selectOptions(screen.getByLabelText(/Work mode/), fields.workMode ?? '');
+    await chooseOption(
+      user,
+      screen.getByLabelText(/Work mode/),
+      { '': 'Not set', remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site' }[
+        fields.workMode ?? ''
+      ]!,
+    );
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByRole('button', { name: new RegExp(`^${fields.company}`) });
   }
@@ -242,7 +250,7 @@ describe('Remembered defaults', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(sourceValue()).toBe('Referral');
-    expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
+    expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'remote');
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('Remote · Referral')).toBeInTheDocument();
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
@@ -299,7 +307,7 @@ describe('Remembered defaults', () => {
     await screen.findByRole('button', { name: /^Captured Co/ });
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(sourceValue()).toBe('LinkedIn');
-    expect(screen.getByLabelText(/Work mode/)).toHaveValue('remote');
+    expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'remote');
   });
 
   it("don't apply to a capture", async () => {
@@ -315,7 +323,7 @@ describe('Remembered defaults', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
     expect(sourceValue()).toBe('');
-    expect(screen.getByLabelText(/Work mode/)).toHaveValue('');
+    expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', '');
   });
 
   it("don't apply to Edit, and editing doesn't change them", async () => {

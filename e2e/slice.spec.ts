@@ -78,8 +78,8 @@ test('fits a 320px panel with no horizontal scroll', async ({ session }) => {
   // The full form with every validation error showing.
   await page.getByRole('button', { name: 'Add application' }).click();
   await page.getByRole('button', { name: 'More details' }).click();
-  await page.getByLabel('Minimum').fill('lots');
-  await page.getByLabel('Maximum').fill('also lots');
+  await page.getByLabel('Minimum').fill('1,2,3');
+  await page.getByLabel('Maximum').fill('4,5,6');
   await page.getByLabel('Date applied').fill('');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Enter the date you applied.')).toBeVisible();
