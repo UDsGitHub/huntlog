@@ -362,7 +362,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 12. Open questions
 
-- **Product name and icon:** decided in the post-M6 review: **Huntlog** (it replaced the working name Huntlog in v0.6.1). The Chrome Web Store's own search found no listing under it on 2026-10-17 (Huntr is a near neighbour). The icon is a crosshair around a check (`assets/icon.svg`, rendered to `public/icon/` by `scripts/render-icons.ts`).
+- **Product name and icon:** decided in the post-M6 review: **Huntlog** (it replaced the working name Job Log in v0.6.1). The Chrome Web Store's own search (`chromewebstore.google.com/search/Huntlog`) returned no results on 2026-10-17 (Huntr is a near neighbour); M9 repeats the check before submitting. The icon is a white crosshair around a check on the blue chart color, so it shows on light and dark toolbars (`assets/icon.svg`; a simpler `assets/icon-16.svg` for the 16px toolbar size; the 128px store size keeps 16px of transparent padding; rendered to `public/icon/` by `scripts/render-icons.ts`).
 - **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
 - **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
 

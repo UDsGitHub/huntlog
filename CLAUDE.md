@@ -15,7 +15,7 @@ Huntlog is a Manifest V3 Chrome extension for tracking job applications, built w
 - `npx vitest run lib/stats.test.ts -t "week start"`: a single test file or test name.
 - `npx playwright test`: end-to-end tests in `e2e/`, loading the built extension into a persistent Chromium context. Run `npm run build` first. `e2e/manifest.spec.ts` asserts the built manifest's permissions, so update it when a milestone adds one.
 - `npm run screenshots`: every screen at 320px in light and dark into `docs/design-review/screenshots/` (`review/`, a separate Playwright config, not in CI; build first). `node review/copy-deck.ts` regenerates `docs/design-review/copy-deck.md`, every user-facing string by screen.
-- `node scripts/render-icons.ts`: renders `assets/icon.svg` (the Huntlog crosshair-and-check icon) to `public/icon/{16,32,48,128}.png` through Playwright's Chromium. Edit the SVG, never the PNGs.
+- `node scripts/render-icons.ts`: renders `assets/icon.svg` (the Huntlog crosshair-and-check icon; `icon-16.svg` is its simpler 16px drawing) to `public/icon/{16,32,48,128}.png` through Playwright's Chromium, the 128px one with the store's 16px of transparent padding. Edit the SVGs, never the PNGs.
 - `npm run lint` / `npx tsc --noEmit` / `npx prettier --check .`: ESLint, type check and formatting. ESLint bans `fetch`, `XMLHttpRequest`, `WebSocket` and `EventSource` as bare globals and on `window`/`self`/`globalThis`, plus `navigator.sendBeacon`. It's a guardrail, not a proof: the PR review still checks for network creep.
 
 Gotchas:
@@ -26,7 +26,7 @@ Gotchas:
 
 ## Architecture (from spec.md §3–§9)
 
-**UI:** the M6 redesign is done (v0.6.0). The post-M6 design review's decisions (`docs/design-review/README.md`, list in `milestones.md`) are already in `spec.md` and land as v0.6.x follow-up PRs before M7; each PR updates the sections below for what it changes. Until then, where the spec and these sections disagree about UI, build what the spec says.
+**UI:** the M6 redesign is done (v0.6.0), and the post-M6 design review's decisions (`docs/design-review/README.md`, list in `milestones.md`) have all landed (v0.6.1, PRs #47–#55), so `spec.md` and the sections below agree.
 
 **Local-first, no network.** All data lives in the browser. Applications and Resumes (file Blobs) are in IndexedDB via Dexie (`lib/db.ts`). Settings are in `chrome.storage.local`. Never add fetch calls, analytics, remote code, or host permissions: the Web Store privacy pitch depends on this.
 

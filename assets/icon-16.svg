@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- The 16px toolbar size: no crosshair ticks, strokes on whole pixels. -->
+  <rect width="16" height="16" rx="3.5" fill="#2563eb"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75">
+    <circle cx="8" cy="8" r="5"/>
+    <path d="M5.75 8.25 L7.25 9.75 L10.25 6.5"/>
+  </g>
+</svg>

@@ -1,5 +1,7 @@
 # Design review after M6
 
+**Outcome:** every decision below landed in v0.6.1 (PRs #47–#55), including the rename to Huntlog; the screenshots and copy deck show v0.6.0 as reviewed.
+
 Prepared for the owner's review before M7 (milestones.md, "After M6: owner design review"). M6 itself is done and tagged v0.6.0; the decisions go into spec.md and are applied in follow-up PRs (v0.6.x) before M7 starts.
 
 - **Screenshots:** every screen at 320px in light and dark, below. Regenerate with `npm run build && npm run screenshots` (`review/screenshots.spec.ts`; dates are fixed to Fri Oct 16 2026).
