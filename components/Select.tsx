@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type Ref } from 'react';
 import { foldText } from '@/lib/listQuery';
 import { CheckIcon, ChevronDownIcon } from './icons';
-import { useDropDirection } from './useDropDirection';
+import { rovingIndex } from './rovingIndex';
+import { OPTION_HEIGHT, useDropDirection } from './useDropDirection';
 
 export interface SelectOption {
   value: string;
@@ -75,7 +76,9 @@ export function Select({
 
   function show(index: number) {
     setActive(Math.max(0, Math.min(index, flat.length - 1)));
-    if (!open) measure();
+    // Options plus group headings, each about a row tall.
+    const groups = options.filter(isGroup).length;
+    if (!open) measure((flat.length + groups) * OPTION_HEIGHT + 8);
     setOpen(true);
   }
   function choose(index: number) {
@@ -117,12 +120,14 @@ export function Select({
       }
       return;
     }
-    if (key === 'ArrowDown' || key === 'ArrowUp') {
+    const to = rovingIndex(key, active, flat.length, {
+      next: 'ArrowDown',
+      previous: 'ArrowUp',
+      wrap: false,
+    });
+    if (to !== undefined) {
       event.preventDefault();
-      setActive((index) => Math.max(0, Math.min(last, index + (key === 'ArrowDown' ? 1 : -1))));
-    } else if (key === 'Home' || key === 'End') {
-      event.preventDefault();
-      setActive(key === 'Home' ? 0 : last);
+      setActive(to);
     } else if (key === 'Enter' || key === ' ') {
       event.preventDefault();
       choose(active);
@@ -153,7 +158,7 @@ export function Select({
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => choose(at)}
         onMouseMove={() => setActive(at)}
-        className={`flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 text-sm ${
+        className={`flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 text-sm break-words ${
           at === active ? 'bg-accent text-accent-foreground' : ''
         } relative`}
       >
@@ -199,7 +204,7 @@ export function Select({
           // A press anywhere in the list keeps focus on the button.
           onMouseDown={(event) => event.preventDefault()}
           data-direction={direction}
-          className={`absolute inset-x-0 z-20 max-h-56 min-w-max overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg ${
+          className={`absolute inset-x-0 z-20 max-h-56 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg ${
             direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
         >

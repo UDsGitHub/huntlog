@@ -55,6 +55,13 @@ test('number fields keep only numbers, and group an amount once left', async ({ 
   await minimum.press('Tab');
   await expect(minimum).toHaveValue('85,000');
   await expect(minimum).toHaveAttribute('inputmode', 'decimal');
+  // A dropped character leaves the caret where it was, so the next digit lands there.
+  await minimum.focus();
+  await minimum.evaluate((el: HTMLInputElement) => el.setSelectionRange(2, 2));
+  await page.keyboard.press('x');
+  expect(await minimum.evaluate((el: HTMLInputElement) => el.selectionStart)).toBe(2);
+  await page.keyboard.press('1');
+  await expect(minimum).toHaveValue('851,000');
 
   // The weekly goal: digits only, with − and + kept within 1 to 200.
   await sheet.getByRole('button', { name: 'Back' }).click();
@@ -84,8 +91,9 @@ test('the resume + opens the inline upload and turns into a − that closes it',
   const group = sheet.getByRole('group', { name: 'Upload a new resume' });
   await expect(group.getByRole('button', { name: 'Upload', exact: true })).toBeVisible();
   await expect(group.getByRole('button', { name: /Cancel/ })).toHaveCount(0);
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await toggle.click();
+  const close = sheet.getByRole('button', { name: 'Close resume upload' });
+  await expect(close).toHaveAttribute('aria-expanded', 'true');
+  await close.click();
   await expect(group).toHaveCount(0);
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });

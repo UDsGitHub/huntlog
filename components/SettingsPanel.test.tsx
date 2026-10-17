@@ -117,8 +117,12 @@ describe('Settings tab', () => {
       await user.click(less);
       expect(field).toHaveValue('1');
       await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(1));
-      // − stops at 1: it never turns the goal off.
-      expect(less).toBeDisabled();
+      // − stops at 1: it never turns the goal off. Still focusable (aria-disabled), so a
+      // keyboard user pressing it at the limit keeps their place.
+      expect(less).toHaveAttribute('aria-disabled', 'true');
+      expect(less).toHaveFocus();
+      await user.click(less);
+      expect(field).toHaveValue('1');
       await user.click(more);
       await user.click(more);
       expect(field).toHaveValue('3');
@@ -131,7 +135,9 @@ describe('Settings tab', () => {
       await user.clear(field);
       await user.type(field, '200{Enter}');
       await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(200));
-      expect(more).toBeDisabled();
+      expect(more).toHaveAttribute('aria-disabled', 'true');
+      await user.click(more);
+      expect(field).toHaveValue('200');
       // While what's typed is invalid, the buttons step from the stored goal.
       await user.clear(field);
       await user.type(field, '0');
@@ -139,6 +145,20 @@ describe('Settings tab', () => {
       expect(field).toHaveValue('199');
       expect(field).not.toHaveAttribute('aria-invalid');
       await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(199));
+    });
+
+    it('saves a step back to a value saved here before the goal changed elsewhere', async () => {
+      await updateSettings({ weeklyGoal: 9 });
+      const user = userEvent.setup();
+      const panel = await openSettings(user);
+      const field = within(panel).getByLabelText('Applications per week');
+      await user.click(within(panel).getByRole('button', { name: 'Increase weekly goal' }));
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(10));
+      await act(() => updateSettings({ weeklyGoal: 11 }));
+      await waitFor(() => expect(field).toHaveValue('11'));
+      await user.click(within(panel).getByRole('button', { name: 'Decrease weekly goal' }));
+      expect(field).toHaveValue('10');
+      await waitFor(async () => expect((await readSettings()).weeklyGoal).toBe(10));
     });
 
     it('follows a goal changed in another window', async () => {

@@ -21,9 +21,15 @@ export function numberFieldText(raw: string, kind: NumberKind, locale?: string):
     .trimStart();
 }
 
-/** A number in the locale's style, grouped, with up to two decimals: 85000 → "85,000". */
+/**
+ * A number in the locale's style, grouped, with up to two decimals: 85000 → "85,000". Always in
+ * Latin digits, which is what the field accepts and the parser reads (ar-EG's own digits aren't).
+ */
 export function formatNumber(value: number, locale?: string): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+    numberingSystem: 'latn',
+  }).format(value);
 }
 
 /**

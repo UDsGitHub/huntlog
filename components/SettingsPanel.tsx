@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { deleteAllData, LeftoversError } from '@/lib/deleteAll';
 import { localeWeekStart, type WeekStart } from '@/lib/locale';
 import {
@@ -139,6 +139,11 @@ function GoalCard({
   }
   // Enter then leaving the field commits once, not twice (the stored goal updates a beat later).
   const committed = useRef(goal);
+  // A goal changed elsewhere is the new baseline: stepping or typing back to an earlier value
+  // saved from here must still save.
+  useEffect(() => {
+    committed.current = goal;
+  }, [goal]);
   function commit() {
     const number = parseGoal(typed);
     if (!isWeeklyGoal(number) || number === goal || number === committed.current) return;
@@ -154,11 +159,13 @@ function GoalCard({
     const next = Math.min(MAX_WEEKLY_GOAL, Math.max(MIN_WEEKLY_GOAL, current + by));
     setTyped(String(next));
     setError(null);
-    if (next !== goal && next !== committed.current) {
+    if (next !== committed.current) {
       committed.current = next;
       onChange(next);
     }
   }
+  const atMin = current <= MIN_WEEKLY_GOAL;
+  const atMax = current >= MAX_WEEKLY_GOAL;
 
   return (
     <Card title="Weekly goal">
@@ -182,9 +189,10 @@ function GoalCard({
               type="button"
               aria-label="Decrease weekly goal"
               aria-controls={`${id}-goal`}
-              disabled={current <= MIN_WEEKLY_GOAL}
-              onClick={() => step(-1)}
-              className="btn btn-outline btn-icon"
+              // aria-disabled, not disabled: a button disabled under focus drops it to the page.
+              aria-disabled={atMin || undefined}
+              onClick={() => !atMin && step(-1)}
+              className="btn btn-outline btn-icon aria-disabled:cursor-not-allowed!"
             >
               <MinusIcon />
             </button>
@@ -209,9 +217,9 @@ function GoalCard({
               type="button"
               aria-label="Increase weekly goal"
               aria-controls={`${id}-goal`}
-              disabled={current >= MAX_WEEKLY_GOAL}
-              onClick={() => step(1)}
-              className="btn btn-outline btn-icon"
+              aria-disabled={atMax || undefined}
+              onClick={() => !atMax && step(1)}
+              className="btn btn-outline btn-icon aria-disabled:cursor-not-allowed!"
             >
               <PlusIcon />
             </button>

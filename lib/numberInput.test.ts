@@ -50,8 +50,15 @@ describe('formatAmount', () => {
     expect(formatAmount('1,2,3', 'en-US')).toBe('1,2,3');
   });
 
+  it('uses Latin digits even where the locale has its own', () => {
+    expect(formatAmount('85000', 'ar-EG')).toMatch(/^85\D?000$/);
+    expect(numberFieldText(formatAmount('85000', 'ar-EG'), 'amount', 'ar-EG')).toBe(
+      formatAmount('85000', 'ar-EG'),
+    );
+  });
+
   it('shows numbers that read back as the same number, in every locale', () => {
-    for (const locale of ['en-US', 'de-DE', 'fr-FR', 'en-IN']) {
+    for (const locale of ['en-US', 'de-DE', 'fr-FR', 'en-IN', 'ar-EG', 'fa-IR']) {
       expect(parseSalary(formatNumber(123456.78, locale), locale)).toBe(123456.78);
     }
   });

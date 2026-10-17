@@ -109,7 +109,8 @@ export function numberSeparators(locale?: string): {
   indianGrouping: boolean;
 } {
   try {
-    const format = new Intl.NumberFormat(locale);
+    // Latin digits, as typed and as `formatNumber` shows them (ar-EG would otherwise use its own).
+    const format = new Intl.NumberFormat(locale, { numberingSystem: 'latn' });
     const parts = format.formatToParts(1234567.5);
     const integerGroups = parts.filter((p) => p.type === 'integer').map((p) => p.value);
     return {
@@ -158,9 +159,17 @@ export function orderedCurrencies(
  * A currency as the picker shows it: its code and name ("EUR · Euro"), so it can be found by
  * either. Just the code when the runtime has no name for it.
  */
+const currencyNames = new Map<string, Intl.DisplayNames>();
+
 export function currencyLabel(code: string, locale?: string): string {
   try {
-    const name = new Intl.DisplayNames(locale, { type: 'currency' }).of(code);
+    // One per locale: the picker labels some 300 codes each time a form opens.
+    let names = currencyNames.get(locale ?? '');
+    if (!names) {
+      names = new Intl.DisplayNames(locale, { type: 'currency' });
+      currencyNames.set(locale ?? '', names);
+    }
+    const name = names.of(code);
     return name && name !== code ? `${code} · ${name}` : code;
   } catch {
     return code;

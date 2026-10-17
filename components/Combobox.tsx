@@ -1,7 +1,7 @@
 import { useCallback, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { foldText } from '@/lib/listQuery';
 import { ChevronDownIcon } from './icons';
-import { useDropDirection } from './useDropDirection';
+import { OPTION_HEIGHT, useDropDirection } from './useDropDirection';
 
 export interface ComboboxOption {
   value: string;
@@ -70,7 +70,7 @@ export function Combobox({
   const setActive = (index: number) => setActiveValue(shown[index]?.value ?? null);
 
   function openList() {
-    measure();
+    measure(Math.max(shown.length, 1) * OPTION_HEIGHT + 8);
     setOpen(true);
     setActiveValue(query === null ? (chosen?.value ?? null) : (shown[0]?.value ?? null));
   }

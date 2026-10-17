@@ -102,8 +102,8 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
         <button
           ref={uploadButton}
           type="button"
-          aria-label="Upload new resume"
-          title="Upload new resume"
+          aria-label={uploading ? 'Close resume upload' : 'Upload new resume'}
+          title={uploading ? 'Close resume upload' : 'Upload new resume'}
           aria-expanded={uploading}
           onClick={() => setUploading((open) => !open)}
           className="btn btn-ghost btn-icon"

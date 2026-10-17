@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
+import * as resumes from '@/lib/resumes';
+import type { Resume } from '@/lib/types';
 import { addResume, deleteResume, purgeDeletedResumeData, setResumeArchived } from '@/lib/resumes';
 import App from '@/entrypoints/sidepanel/App';
 import { resumeOptionLabels } from './ResumeField';
@@ -161,9 +163,11 @@ describe('Resume field', () => {
     await openAdd(user, 'Backend v3');
     await pickResume(user, 'Backend v3');
     const toggle = screen.getByRole('button', { name: 'Upload new resume' });
-    // The + opens the upload and turns into a − that closes it (there's no Cancel).
+    // The + opens the upload and turns into a − that closes it (there's no Cancel); its name
+    // says what it does now.
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAccessibleName('Close resume upload');
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     expect(within(group).queryByRole('button', { name: /Cancel/ })).toBeNull();
     await user.click(toggle);
@@ -180,6 +184,23 @@ describe('Resume field', () => {
     expect(toggle).toHaveFocus();
     expect(resumeSelect()).toHaveValue('Backend v3');
     expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
+  });
+
+  it('Escape mid-upload neither closes the upload nor the form', async () => {
+    let finish: (resume: Resume) => void = () => {};
+    vi.spyOn(resumes, 'addResume').mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('cv.pdf'));
+    await user.click(within(group).getByRole('button', { name: 'Upload' }));
+    expect(within(group).getByRole('button', { name: 'Uploading…' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('group', { name: 'Upload a new resume' })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Discard' })).toBeNull();
+    finish({ id: 'r1', name: 'cv' } as Resume);
   });
 
   it('in Edit keeps an archived resume selectable, marked archived', async () => {

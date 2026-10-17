@@ -277,11 +277,12 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
         if (event.key === 'Enter' && target instanceof HTMLInputElement && target.type !== 'file') {
           event.preventDefault();
           void upload();
-        } else if (event.key === 'Escape' && !saving) {
-          // Closes the upload, not the application form's sheet around it.
+        } else if (event.key === 'Escape') {
+          // Closes the upload, never the application form's sheet around it (and does nothing
+          // mid-upload, so the file being saved isn't dropped).
           event.preventDefault();
           event.stopPropagation();
-          onCancel?.();
+          if (!saving) onCancel?.();
         }
       }}
       className="card flex min-w-0 flex-col gap-2 p-2"
