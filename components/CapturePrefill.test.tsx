@@ -397,7 +397,8 @@ describe('capture prefill', () => {
       });
       const user = userEvent.setup();
       await seedAndOpenDetail(user);
-      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+      await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
       await act(() => fakeBrowser.storage.session.set({ [draftKey(WINDOW_ID)]: pageDraft() }));
       await waitFor(() => expect(fields().title).toHaveValue('Senior Engineer at Acme'));
       await act(async () => finish());

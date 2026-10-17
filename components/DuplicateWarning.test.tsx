@@ -102,7 +102,7 @@ describe('Duplicate warning', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Acme' })).toHaveFocus();
     expect(await db.applications.count()).toBe(1);
-    await user.click(screen.getByRole('button', { name: '← Back to applications' }));
+    await user.click(screen.getByRole('button', { name: 'Back to applications' }));
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.getByLabelText('Company')).toHaveValue('');
   });

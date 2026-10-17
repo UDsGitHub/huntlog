@@ -32,14 +32,16 @@ test('view, edit, delete with Undo, then delete for good across a restart', asyn
   await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
   await expect(page.getByRole('definition').filter({ hasText: 'Lisbon' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
   await expect(page.getByText('Deleted Acme.')).toBeVisible();
   await expect(page.getByText(/No applications yet/)).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Lisbon · Remote');
 
   await page.getByRole('button', { name: /^Acme/ }).click();
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
   await expect(page.getByText('Deleted Acme.')).toBeVisible();
   // Let the toast run out: the delete stands.
   await expect(page.getByText('Deleted Acme.')).toBeHidden({ timeout: 8000 });
@@ -64,8 +66,9 @@ test('the whole flow works with the keyboard alone', async ({ session }) => {
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 2, name: 'Acme' })).toBeFocused();
 
-  // Back, Edit, Delete follow the heading in tab order.
-  await page.getByRole('button', { name: 'Edit' }).focus();
+  // The header: Back, the heading, Edit, then the ⋯ menu.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByLabel('Job posting URL')).toBeFocused();
   await page.getByLabel('Company').focus();
@@ -76,15 +79,17 @@ test('the whole flow works with the keyboard alone', async ({ session }) => {
   await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
 
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Delete' })).toBeFocused();
+  await expect(page.getByRole('button', { name: /^More actions for/ })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', { name: 'Add application' })).toBeFocused();
+  await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Add application', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'Undo' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Acme GmbH');
 
   await page.getByRole('button', { name: /^Acme GmbH/ }).click();
-  await page.getByRole('button', { name: '← Back to applications' }).focus();
+  await page.getByRole('button', { name: 'Back to applications' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: /^Acme GmbH/ })).toBeFocused();
 });
@@ -103,7 +108,43 @@ test('the detail view and toast fit a 320px panel', async ({ session }) => {
   await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
   await expectNoHorizontalScroll(page);
 
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
   await expectNoHorizontalScroll(page);
+});
+
+// Regression (spec §4.3): a timeline date saved only when the field lost focus, so a date picked
+// from the calendar (focus stays in the field) seemed to do nothing until a reload. Now Save is
+// explicit, and Date applied follows at once.
+test('a timeline date saves with Save, and Date applied follows at once', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(panelUrl(session.extensionId));
+  await addJob(page, { url: 'https://acme.com/jobs/1', company: 'Acme' });
+  await page.getByRole('button', { name: /^Acme/ }).click();
+  const detail = page.getByRole('region', { name: 'Acme' });
+  const timeline = page.getByRole('region', { name: 'Status history' });
+
+  await timeline.getByRole('button', { name: 'Change the date for Applied' }).click();
+  const field = timeline.getByLabel('Applied date');
+  await expect(field).toBeFocused();
+  await field.fill('2026-01-05');
+  // Picked but not saved: nothing changes, and focus is still in the field.
+  await expect(detail).not.toContainText('Jan 5, 2026');
+  await timeline.getByRole('button', { name: 'Save the date for Applied' }).click();
+  await expect(detail.getByRole('definition').filter({ hasText: 'Jan 5, 2026' })).toBeVisible();
+  await expect(timeline).toContainText('Jan 5, 2026');
+  await expect(timeline.getByRole('button', { name: 'Change the date for Applied' })).toBeFocused();
+  await expectNoHorizontalScroll(page);
+});
+
+test('the posting opens from a button naming its site', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await addJob(page, { url: 'https://www.boards.greenhouse.io/acme/jobs/1', company: 'Acme' });
+  await page.getByRole('button', { name: /^Acme/ }).click();
+  const posting = page.getByRole('link', { name: 'Open job posting on boards.greenhouse.io' });
+  await expect(posting).toHaveText('boards.greenhouse.io');
+  await expect(posting).toHaveAttribute('href', 'https://www.boards.greenhouse.io/acme/jobs/1');
 });

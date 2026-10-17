@@ -45,9 +45,17 @@ describe('Detail view', () => {
     const heading = await openDetail(user);
     expect(heading).toHaveFocus();
     expect(screen.getByText('Senior Engineer')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open job posting' })).toHaveAttribute(
-      'href',
-      'https://acme.com/jobs/1',
+    // The posting as a button naming its site.
+    const posting = screen.getByRole('link', { name: 'Open job posting on acme.com' });
+    expect(posting).toHaveAttribute('href', 'https://acme.com/jobs/1');
+    expect(posting).toHaveTextContent('acme.com');
+    // The header: Back, Edit as a pencil, and Delete tucked in a ⋯ menu.
+    expect(screen.getByRole('button', { name: 'Back to applications' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'More actions for Acme' })).toHaveAttribute(
+      'aria-haspopup',
+      'menu',
     );
     const terms = Object.fromEntries(
       screen.getAllByRole('term').map((dt) => [dt.textContent, dt.nextElementSibling?.textContent]),
@@ -89,7 +97,7 @@ describe('Detail view', () => {
     await addApplication({ url: 'https://beta.com/1', company: 'Beta' });
     const user = userEvent.setup();
     await openDetail(user);
-    await user.click(screen.getByRole('button', { name: '← Back to applications' }));
+    await user.click(screen.getByRole('button', { name: 'Back to applications' }));
     await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
   });
 
@@ -103,7 +111,7 @@ describe('Detail view', () => {
     expect(
       await screen.findByRole('heading', { name: "This application isn't available" }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '← Back to applications' }));
+    await user.click(screen.getByRole('button', { name: 'Back to applications' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
     );
@@ -203,7 +211,8 @@ describe('Delete', () => {
     const app = await seed();
     const user = userEvent.setup();
     await openDetail(user);
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
     expect(await screen.findByText('Deleted Acme.')).toBeInTheDocument();
     expect(await screen.findByText(/No applications yet/)).toBeInTheDocument();
@@ -223,7 +232,8 @@ describe('Delete', () => {
     const app = await seed();
     const user = userEvent.setup();
     await openDetail(user);
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await screen.findByText('Deleted Acme.');
     await user.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
@@ -236,12 +246,14 @@ describe('focus after the review fixes', () => {
     await seed();
     const user = userEvent.setup();
     await openDetail(user);
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.click(await screen.findByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
 
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.click(await screen.findByRole('button', { name: 'Dismiss' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),
@@ -253,7 +265,7 @@ describe('focus after the review fixes', () => {
     await addApplication({ url: 'https://beta.com/1', company: 'Beta' });
     const user = userEvent.setup();
     await openDetail(user);
-    await user.click(screen.getByRole('button', { name: '← Back to applications' }));
+    await user.click(screen.getByRole('button', { name: 'Back to applications' }));
     await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
 
     const focused: string[] = [];

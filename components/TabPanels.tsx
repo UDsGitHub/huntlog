@@ -84,7 +84,7 @@ export function TabPanel({
         // keeps its rendering state but skips its layout and paint while it's out of sight.
         ...(state === 'idle' && { visibility: 'hidden', contentVisibility: 'hidden' }),
       }}
-      className={`tab-panel absolute inset-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 ${className}`}
+      className={`tab-panel absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-1 pb-4 ${className}`}
     >
       {children}
     </div>

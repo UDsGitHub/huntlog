@@ -113,6 +113,14 @@ export const panelUrl = (extensionId: string) => `chrome-extension://${extension
 
 /** The 320px rule (CLAUDE.md DoD #6): the panel never scrolls sideways. */
 export async function expectNoHorizontalScroll(page: Page) {
+  // The settled layout: a page sliding in is briefly offset while it moves.
+  // (Capped: an animation in a section hidden by content-visibility doesn't run, so never ends.)
+  await page.evaluate(() =>
+    Promise.race([
+      Promise.allSettled(document.getAnimations().map((a) => a.finished)),
+      new Promise((resolve) => setTimeout(resolve, 1000)),
+    ]),
+  );
   // The page, each tab section that scrolls on its own, and open sheets: none may scroll sideways.
   const overflows = await page.evaluate(() =>
     [

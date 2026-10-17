@@ -43,7 +43,7 @@ test('a full application record, end to end, with the duplicate warning', async 
   await expect(detail).toContainText('Remote, EU');
 
   // Add the same posting again via a tracking link: warned, and View existing opens the original.
-  await page.getByRole('button', { name: '← Back to applications' }).click();
+  await page.getByRole('button', { name: 'Back to applications' }).click();
   await page.getByRole('button', { name: 'Add application' }).click();
   await page
     .getByLabel('Job posting URL')
@@ -57,11 +57,13 @@ test('a full application record, end to end, with the duplicate warning', async 
   await expect(page.getByRole('heading', { level: 2, name: 'Acme' })).toBeFocused();
 
   // Delete it, Undo, delete again.
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('list', { name: 'Applications' })).toContainText('Acme');
   await page.getByRole('button', { name: /^Acme/ }).click();
-  await page.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
   await expect(page.getByText(/No applications yet/)).toBeVisible();
 
   // A deleted application no longer counts as a duplicate.

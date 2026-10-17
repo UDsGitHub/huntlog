@@ -1,12 +1,16 @@
-import { useId, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { updateHistoryDate, NotFoundError } from '@/lib/applications';
-import { MIN_YEAR, todayLocal } from '@/lib/dates';
+import { formatTimestampDate, MIN_YEAR, todayLocal } from '@/lib/dates';
 import { localDateOf, STATUS_LABELS } from '@/lib/status';
-import type { Application } from '@/lib/types';
+import type { Application, Status } from '@/lib/types';
+import { CheckIcon, PencilIcon, XIcon } from './icons';
+import { STATUS_SWATCH } from './statusColors';
 
 /**
- * The status timeline in the detail view (spec §4.3). Sorted by date for reading; stored order
- * is append-only and untouched. Each entry's date can be edited, e.g. to backfill an interview.
+ * The status timeline in the detail view (spec §4.3): a vertical stepper, one dot per entry in
+ * its status's color. Sorted by date for reading; stored order is append-only and untouched.
+ * Each date can be corrected (e.g. to backfill an interview): it's read-only until its pencil
+ * opens a date field, which saves only on Save or Enter, never just by picking a date.
  */
 export function StatusTimeline({ application }: { application: Application }) {
   const id = useId().replace(/:/g, '');
@@ -17,22 +21,23 @@ export function StatusTimeline({ application }: { application: Application }) {
     .sort((a, b) => Date.parse(a.entry.at) - Date.parse(b.entry.at) || a.index - b.index);
 
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-2">
-      <h3 id={`${id}-heading`} className="text-sm font-medium">
+    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-3">
+      <h3 id={`${id}-heading`} className="text-sm font-semibold">
         Status history
       </h3>
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground">No history yet.</p>
       ) : (
-        <ol className="flex flex-col gap-2 border-l border-border pl-3">
+        <ol className="ml-1.5 flex flex-col gap-3 border-l-2 border-border pl-5">
           {sorted.map(({ entry, index }) => (
             <TimelineEntry
-              key={`${index}-${entry.at}`}
+              // Keyed by position only: a saved date re-sorts the list, but the entry (and its
+              // pencil, which gets focus back) stays the same component.
+              key={index}
               applicationId={application.id}
               index={index}
-              status={STATUS_LABELS[entry.status]}
+              status={entry.status}
               at={entry.at}
-              inputId={`${id}-${index}`}
             />
           ))}
         </ol>
@@ -46,29 +51,52 @@ function TimelineEntry({
   index,
   status,
   at,
-  inputId,
 }: {
   applicationId: string;
   index: number;
-  status: string;
+  status: Status;
   at: string;
-  inputId: string;
 }) {
+  const id = useId();
+  const label = STATUS_LABELS[status];
   const stored = localDateOf(at);
+  const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(stored);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // The panel can stay open past midnight; refresh "today" whenever the field is focused.
-  const [max, setMax] = useState(() => todayLocal());
+  const input = useRef<HTMLInputElement>(null);
+  const pencil = useRef<HTMLButtonElement>(null);
+  // Where focus goes when the editor closes: the pencil, unless the closing came from elsewhere.
+  const refocus = useRef(false);
 
-  // Saves when the field is left, not on every change: Chrome fires a change per keystroke in a
-  // date field, so typing a year would otherwise save "0202" halfway through.
+  useLayoutEffect(() => {
+    if (editing) input.current?.focus();
+    else if (refocus.current) {
+      refocus.current = false;
+      pencil.current?.focus();
+    }
+  }, [editing]);
+
+  function open() {
+    setValue(stored);
+    setError(null);
+    setEditing(true);
+  }
+
+  function close() {
+    refocus.current = true;
+    setEditing(false);
+  }
+
   async function save() {
-    if (saving || !value || value === stored) return;
+    if (saving) return;
+    if (!value) return setError('Enter a date.');
+    if (value === stored) return close();
     setSaving(true);
     try {
       const result = await updateHistoryDate(applicationId, { index, at }, value);
-      setError('error' in result ? result.error : null);
+      if ('error' in result) setError(result.error);
+      else close();
     } catch (failure) {
       if (!(failure instanceof NotFoundError)) console.error('updateHistoryDate failed', failure);
       setError("Couldn't save this date.");
@@ -78,35 +106,92 @@ function TimelineEntry({
   }
 
   return (
-    <li className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-      <label htmlFor={inputId} className="text-sm">
-        {status}
-      </label>
-      <input
-        id={inputId}
-        type="date"
-        min={`${MIN_YEAR}-01-01`}
-        max={max}
-        value={value}
-        readOnly={saving}
-        aria-busy={saving || undefined}
-        onFocus={() => setMax(todayLocal())}
-        onChange={(event) => {
-          setValue(event.target.value);
-          setError(null);
-        }}
-        onBlur={() => void save()}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') void save();
-        }}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${inputId}-error` : undefined}
-        className="field w-auto py-1"
+    <li className="relative flex min-w-0 flex-col gap-2">
+      <span
+        aria-hidden="true"
+        className={`absolute top-1.5 -left-[1.6875rem] size-3 rounded-full ring-4 ring-background ${STATUS_SWATCH[status]}`}
       />
-      {error && (
-        <p id={`${inputId}-error`} className="field-error w-full">
-          {error}
-        </p>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-col">
+          <span className="text-sm font-medium">{label}</span>
+          <span className="text-xs text-muted-foreground">{formatTimestampDate(at)}</span>
+        </div>
+        {!editing && (
+          <button
+            ref={pencil}
+            type="button"
+            onClick={open}
+            aria-label={`Change the date for ${label}`}
+            title="Change date"
+            className="btn btn-ghost btn-icon size-8 shrink-0 text-muted-foreground"
+          >
+            <PencilIcon />
+          </button>
+        )}
+      </div>
+      {editing && (
+        <div
+          role="group"
+          aria-label={`Date for ${label}`}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              close();
+            }
+          }}
+          className="flex min-w-0 flex-col gap-1"
+        >
+          <label htmlFor={`${id}-date`} className="sr-only">
+            {label} date
+          </label>
+          <div className="flex min-w-0 items-center gap-1">
+            <input
+              ref={input}
+              id={`${id}-date`}
+              type="date"
+              min={`${MIN_YEAR}-01-01`}
+              max={todayLocal()}
+              value={value}
+              readOnly={saving}
+              aria-busy={saving || undefined}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? `${id}-error` : undefined}
+              onChange={(event) => {
+                setValue(event.target.value);
+                setError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void save();
+                }
+              }}
+              className="field min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => void save()}
+              aria-label={`Save the date for ${label}`}
+              className="btn btn-primary btn-icon size-9 shrink-0"
+            >
+              <CheckIcon />
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Cancel"
+              className="btn btn-ghost btn-icon size-9 shrink-0"
+            >
+              <XIcon />
+            </button>
+          </div>
+          {error && (
+            <p id={`${id}-error`} className="field-error">
+              {error}
+            </p>
+          )}
+        </div>
       )}
     </li>
   );

@@ -209,7 +209,8 @@ describe('Tab bar', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.click(tab('Resumes'));
     await user.click(await screen.findByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
@@ -221,7 +222,8 @@ describe('Tab bar', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.click(tab('Resumes'));
     await user.click(await screen.findByRole('button', { name: 'Dismiss' }));
     expect(tab('Resumes')).toHaveFocus();

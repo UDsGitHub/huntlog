@@ -278,3 +278,19 @@
     animation: none !important;
   }
 }
+
+/* A page that opens on top of the list (the detail view) slides in from the right. */
+.page-slide-in {
+  animation: page-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes page-in {
+  from {
+    translate: 2rem 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-slide-in {
+    animation: none;
+  }
+}

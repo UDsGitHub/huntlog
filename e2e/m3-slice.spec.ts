@@ -1,10 +1,8 @@
 import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
-/** Today's local date as YYYY-MM-DD, computed in the browser like the app does. */
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+/** Today as the app shows it (en-US, e.g. "Oct 17, 2026"). */
+const todayText = () =>
+  new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 // M3 slice: tap a row's status chip → pick Interviewing → the list updates, the timeline records
 // the date, and Undo reverts it.
@@ -26,11 +24,13 @@ test('chip → Interviewing → the timeline records it → Undo reverts it', as
 
   await row.getByRole('button', { name: /^Acme/ }).click();
   const timeline = page.getByRole('region', { name: 'Status history' });
-  await expect(timeline.getByLabel('Applied')).toHaveValue(today());
-  await expect(timeline.getByLabel('Interviewing')).toHaveValue(today());
+  const entry = (status: string) =>
+    timeline.getByRole('listitem').filter({ hasText: new RegExp(`^${status}`) });
+  await expect(entry('Applied')).toContainText(todayText());
+  await expect(entry('Interviewing')).toContainText(todayText());
 
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(timeline.getByLabel('Interviewing')).toHaveCount(0);
+  await expect(entry('Interviewing')).toHaveCount(0);
   await expect(
     page.getByRole('region', { name: 'Acme' }).getByRole('button', { name: /^Status: / }),
   ).toHaveText('Applied');
@@ -53,10 +53,10 @@ test('an interview date can be backfilled from the timeline', async ({ session }
   await page.getByRole('button', { name: /^Acme/ }).click();
 
   const timeline = page.getByRole('region', { name: 'Status history' });
-  await timeline.getByLabel('Interviewing').fill('2026-09-10');
-  // The timeline saves when the field is left.
-  await timeline.getByLabel('Interviewing').blur();
-  await expect(timeline.getByLabel('Interviewing')).toHaveValue('2026-09-10');
+  await timeline.getByRole('button', { name: 'Change the date for Interviewing' }).click();
+  await timeline.getByLabel('Interviewing date').fill('2026-09-10');
+  await timeline.getByRole('button', { name: 'Save the date for Interviewing' }).click();
+  await expect(timeline).toContainText('Sep 10, 2026');
   await expectNoHorizontalScroll(page);
   // Wait for the write itself before reloading.
   await expect
@@ -85,7 +85,5 @@ test('an interview date can be backfilled from the timeline', async ({ session }
   // Survives a reload: it was saved.
   await page.reload();
   await page.getByRole('button', { name: /^Acme/ }).click();
-  await expect(
-    page.getByRole('region', { name: 'Status history' }).getByLabel('Interviewing'),
-  ).toHaveValue('2026-09-10');
+  await expect(page.getByRole('region', { name: 'Status history' })).toContainText('Sep 10, 2026');
 });
