@@ -536,7 +536,9 @@ function ResetSheet({
           className={`btn w-full ${alsoDelete ? 'btn-destructive' : 'btn-primary'}`}
         >
           {action.busy
-            ? 'Resetting…'
+            ? alsoDelete
+              ? 'Deleting…'
+              : 'Resetting…'
             : alsoDelete
               ? 'Reset and delete everything'
               : 'Reset settings'}

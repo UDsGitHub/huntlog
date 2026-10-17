@@ -65,6 +65,9 @@ export function ResumesPanel({
   const [renameOpen, setRenameOpen] = useState(false);
   const id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
+  // Said once the sheet has gone: while it slides out it's still modal, which keeps the panel's
+  // status region inert, so an announcement made then would go unheard.
+  const pendingAnnouncement = useRef<string | null>(null);
   // Leaving the tab (a capture) closes the rename sheet, and forgets it, so coming back doesn't
   // reopen it. (App forgets the upload sheet the same way.)
   if (!active && renameOpen) setRenameOpen(false);
@@ -146,6 +149,12 @@ export function ResumesPanel({
     ) {
       keepFocus();
     }
+  };
+  const afterSheet = () => {
+    const message = pendingAnnouncement.current;
+    pendingAnnouncement.current = null;
+    if (message) announce(message);
+    focusIfLost();
   };
   const empty = resumes.length === 0;
 
@@ -239,9 +248,9 @@ export function ResumesPanel({
       <UploadSheet
         open={uploadOpen}
         onClose={() => onUploadOpenChange(false)}
-        onClosed={focusIfLost}
+        onClosed={afterSheet}
         onUploaded={(resume) => {
-          announce(`Uploaded ${resume.name}.`);
+          pendingAnnouncement.current = `Uploaded ${resume.name}.`;
           onUploadOpenChange(false);
         }}
       />
@@ -253,10 +262,10 @@ export function ResumesPanel({
           onClose={() => setRenameOpen(false)}
           onClosed={() => {
             setRenaming(null);
-            focusIfLost();
+            afterSheet();
           }}
           onSaved={(saved) => {
-            announce(`Renamed to ${saved.name}.`);
+            pendingAnnouncement.current = `Renamed to ${saved.name}.`;
             setRenameOpen(false);
           }}
         />
@@ -332,7 +341,11 @@ function ResumeRow({
           <span className="text-sm font-medium break-words">{resume.name}</span>
           {/* The upload date on its own line, so it never breaks mid-date at 320px. */}
           <span id={`${id}-details`} className="flex flex-col text-xs text-muted-foreground">
-            <span>{details}</span>
+            {/* A separator for screen readers, which would otherwise run the lines together. */}
+            <span>
+              {details}
+              <span className="sr-only"> · </span>
+            </span>
             <span>Uploaded {formatTimestampDate(resume.createdAt)}</span>
           </span>
           {resume.note && (
