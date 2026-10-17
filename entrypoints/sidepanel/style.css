@@ -94,6 +94,14 @@
   }
 }
 
+/* For an element that fills a clipped area, where an outline outside it would be cut off. */
+@utility focus-ring-inset {
+  &:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: -2px;
+  }
+}
+
 @utility btn {
   @apply focus-ring inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors select-none disabled:opacity-50;
 }
@@ -215,22 +223,23 @@
   }
 }
 
-/* Tab sections (components/TabPanels.tsx): the next one slides in as the last slides out. */
+/* Tab sections (components/TabPanels.tsx): the next one slides in as the last slides out. The
+   duration is set inline from TAB_SLIDE_MS. */
 .tab-panel {
   /* Keep focused or scrolled-to fields clear of the forms' sticky Save bar (WCAG 2.4.11). */
   scroll-padding-bottom: calc(var(--sticky-bar-height, 0px) + 1rem);
 }
 .tab-panel[data-slide='in-forward'] {
-  animation: tab-in-from-right 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: tab-in-from-right cubic-bezier(0.32, 0.72, 0, 1);
 }
 .tab-panel[data-slide='in-back'] {
-  animation: tab-in-from-left 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: tab-in-from-left cubic-bezier(0.32, 0.72, 0, 1);
 }
 .tab-panel[data-slide='out-forward'] {
-  animation: tab-out-to-left 250ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: tab-out-to-left cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 .tab-panel[data-slide='out-back'] {
-  animation: tab-out-to-right 250ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: tab-out-to-right cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 @keyframes tab-in-from-right {
   from {

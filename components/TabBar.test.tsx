@@ -15,6 +15,8 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks());
 
 const tab = (name: string) => screen.getByRole('tab', { name });
+/** A section by its tab id, whether or not it's showing. */
+const panel = (id: string) => document.getElementById(`section-panel-${id}`)!;
 
 describe('Tab bar', () => {
   it('shows Applications, Stats and Resumes, Applications selected, wired to its panel', async () => {
@@ -61,11 +63,11 @@ describe('Tab bar', () => {
     const { unmount } = render(<App />);
     await screen.findByText(/No applications yet/);
     await user.click(tab('Resumes'));
+    const resumes = panel('resumes');
+    await waitFor(() => expect(resumes).not.toHaveAttribute('data-slide'));
     await user.click(tab('Stats'));
-    expect(screen.getByRole('tabpanel', { name: 'Stats' })).toHaveAttribute(
-      'data-slide',
-      'in-back',
-    );
+    expect(panel('stats')).toHaveAttribute('data-slide', 'in-back');
+    expect(resumes).toHaveAttribute('data-slide', 'out-back');
     unmount();
 
     const real = window.matchMedia.bind(window);
@@ -75,8 +77,31 @@ describe('Tab bar', () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     await user.click(tab('Resumes'));
-    expect(screen.getByRole('tabpanel', { name: 'Resumes' })).not.toHaveAttribute('data-slide');
+    expect(panel('resumes')).not.toHaveAttribute('data-slide');
     expect(screen.queryByText(/No applications yet/)).not.toBeVisible();
+  });
+
+  it('switches at once, without sliding, when chosen again mid-slide', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await user.click(tab('Stats'));
+    expect(panel('stats')).toHaveAttribute('data-slide', 'in-forward');
+    await user.click(tab('Resumes'));
+    expect(panel('resumes')).not.toHaveAttribute('data-slide');
+    expect(panel('stats')).not.toBeVisible();
+    expect(screen.queryByText(/No applications yet/)).not.toBeVisible();
+  });
+
+  it('shows no other section while a form is open', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    for (const id of ['stats', 'resumes']) {
+      expect(panel(id)).not.toBeVisible();
+      expect(panel(id)).toHaveAttribute('inert');
+    }
   });
 
   it('moves with arrow keys (wrapping), Home and End, keeping focus on the tab', async () => {

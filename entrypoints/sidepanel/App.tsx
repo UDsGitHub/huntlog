@@ -119,6 +119,9 @@ export default function App() {
    */
   const isCurrent = (v: View) => viewRef.current === v;
   const inForm = view.name === 'add' || view.name === 'edit';
+  // A form belongs to Applications: while one is open, no other section shows, whatever the tab.
+  const sectionState = (id: TabId) =>
+    inForm ? (id === 'applications' ? 'shown' : 'idle') : panelState(id, tab, slide.leaving);
 
   function announce(text: string) {
     setAnnouncement(({ count }) => ({ text, count: count + 1 }));
@@ -266,7 +269,7 @@ export default function App() {
       {/* Clipped, not hidden: overflow hidden would still let focus scroll it sideways. */}
       <div className="relative mt-4 min-h-0 flex-1 overflow-clip">
         <TabPanel
-          state={panelState('applications', tab, slide.leaving)}
+          state={sectionState('applications')}
           direction={slide.direction}
           role={inForm ? undefined : 'tabpanel'}
           id={panelId(TAB_PREFIX, 'applications')}
@@ -342,14 +345,6 @@ export default function App() {
               <h2 id="applications-heading" className="section-heading">
                 Applications
               </h2>
-              {/* Only while Applications shows: it floats over the whole panel. */}
-              {tab === 'applications' && (
-                <AddButton
-                  focus={focusTarget?.kind === 'add'}
-                  onFocused={clearFocusTarget}
-                  onClick={openAdd}
-                />
-              )}
               <ErrorBoundary
                 fallback={
                   <p role="alert" className="text-sm text-muted-foreground">
@@ -373,7 +368,7 @@ export default function App() {
           )}
         </TabPanel>
         <TabPanel
-          state={panelState('stats', tab, slide.leaving)}
+          state={sectionState('stats')}
           direction={slide.direction}
           role="tabpanel"
           id={panelId(TAB_PREFIX, 'stats')}
@@ -391,17 +386,27 @@ export default function App() {
         </TabPanel>
         {/* Focusable itself: until it has controls, Tab from the tab bar must still reach it. */}
         <TabPanel
-          state={panelState('resumes', tab, slide.leaving)}
+          state={sectionState('resumes')}
           direction={slide.direction}
           role="tabpanel"
           id={panelId(TAB_PREFIX, 'resumes')}
           aria-labelledby={tabId(TAB_PREFIX, 'resumes')}
           tabIndex={0}
-          className="focus-ring"
+          // Drawn inside its edge: the clipped viewport would cut off an outline outside it.
+          className="focus-ring-inset"
         >
           <ResumesPanel showToast={showToast} announce={announce} />
         </TabPanel>
       </div>
+      {/* Outside the sections: a fixed element inside a sliding (transformed) one would move
+          with it. Only on the Applications list. */}
+      {tab === 'applications' && view.name === 'list' && (
+        <AddButton
+          focus={focusTarget?.kind === 'add'}
+          onFocused={clearFocusTarget}
+          onClick={openAdd}
+        />
+      )}
       <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>
   );

@@ -40,8 +40,9 @@ test('the tab bar switches sections, by mouse and keyboard, and fits 320px', asy
 
   // Switching slides: the next section comes in as the last goes out, then settles.
   await page.getByRole('tab', { name: 'Stats' }).click();
+  // (Which way it slides is unit-tested; here, only that it settles. The slide itself lasts
+  // 250ms, too short to assert on reliably.)
   const stats = page.getByRole('tabpanel', { name: 'Stats' });
-  await expect(stats).toHaveAttribute('data-slide', 'in-forward');
   await expect(stats).not.toHaveAttribute('data-slide');
   await expect(page.getByText(/No applications yet/)).toBeHidden();
   await page.getByRole('tab', { name: 'Applications' }).click();

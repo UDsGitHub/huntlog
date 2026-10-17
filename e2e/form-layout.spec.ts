@@ -46,6 +46,10 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   }));
   expect(scrollHeight).toBeGreaterThan(clientHeight);
   expect(await inViewport(page, save)).toBe(true);
+  // Flush with the bottom of the panel, with nothing showing through below it.
+  await scrollPanel(page, 200);
+  const bar = (await save.locator('..').boundingBox())!;
+  expect(bar.y + bar.height).toBeCloseTo(568, 0);
   await expectNoHorizontalScroll(page);
 
   await save.click();

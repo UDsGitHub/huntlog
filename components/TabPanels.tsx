@@ -22,7 +22,8 @@ export function useTabSlide<Id extends string>(selected: Id, order: readonly Id[
   if (slide.selected !== selected) {
     setSlide({
       selected,
-      leaving: prefersReducedMotion() ? null : slide.selected,
+      // A switch during a slide is instant: restarting both sections mid-move would jump.
+      leaving: prefersReducedMotion() || slide.leaving ? null : slide.selected,
       direction: order.indexOf(selected) > order.indexOf(slide.selected) ? 'forward' : 'back',
     });
   }
@@ -76,8 +77,13 @@ export function TabPanel({
       data-tab-panel=""
       data-active={active || undefined}
       data-slide={slide && `${slide}-${direction}`}
-      // Visibility, not display: a hidden section keeps its layout, so its scroll position stays.
-      style={{ visibility: state === 'idle' ? 'hidden' : undefined }}
+      style={{
+        // One source for the duration: the CSS keyframes take it from here.
+        animationDuration: `${TAB_SLIDE_MS}ms`,
+        // Not display: none, which would lose the section's scroll position. content-visibility
+        // keeps its rendering state but skips its layout and paint while it's out of sight.
+        ...(state === 'idle' && { visibility: 'hidden', contentVisibility: 'hidden' }),
+      }}
       className={`tab-panel absolute inset-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 ${className}`}
     >
       {children}

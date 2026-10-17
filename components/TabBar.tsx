@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { TAB_SLIDE_MS } from './TabPanels';
 
 /** Element ids for a tab and its panel; App and TabBar must agree, so both use these. */
 export const tabId = (prefix: string, id: string) => `${prefix}-tab-${id}`;
@@ -93,8 +94,12 @@ export function TabBar<Id extends string>({
       {/* The selected tab's underline, sliding to it (instantly under reduced motion). */}
       <span
         aria-hidden="true"
-        style={{ width: `${100 / tabs.length}%`, translate: `${index * 100}% 0` }}
-        className="pointer-events-none absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-primary transition-[translate] duration-250 ease-out motion-reduce:transition-none"
+        style={{
+          width: `${100 / tabs.length}%`,
+          translate: `${index * 100}% 0`,
+          transitionDuration: `${TAB_SLIDE_MS}ms`,
+        }}
+        className="pointer-events-none absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-primary transition-[translate] ease-out motion-reduce:transition-none"
       />
     </div>
   );

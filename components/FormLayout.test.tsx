@@ -125,7 +125,8 @@ describe('More details', () => {
     const user = userEvent.setup();
     await openAdd(user);
     const bar = screen.getByRole('button', { name: 'Save' }).parentElement!;
-    expect(bar).toHaveClass('sticky', 'bottom-0');
+    // Sticky at the section's bottom edge (its real position is checked in e2e/form-layout.spec.ts).
+    expect(bar).toHaveClass('sticky');
     expect(bar).toContainElement(screen.getByRole('button', { name: 'Cancel' }));
   });
 });
