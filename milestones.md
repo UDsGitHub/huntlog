@@ -102,6 +102,8 @@ Claude then applies the decisions (in follow-up PRs, released as v0.6.x) before 
 - **stats:** a large Applied number with the goal ring beside it, and the chosen chip kept in view;
 - **rename:** Huntlog, with an icon.
 
+The owner also asked why Source opened on "Other" in a new form: the remembered source from an application saved before the Source chips existed (when "Other" was a typed suggestion), not a code bug; it resets the next time a new application is saved with a chip or none.
+
 Tag v0.6.1 when they're merged.
 
 ## M7 — Export & import

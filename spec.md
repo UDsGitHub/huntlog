@@ -48,7 +48,7 @@ A Chrome extension that helps job seekers log every application they send, remem
 
 The side panel is roughly 320–400 px wide, so every screen is designed mobile-first for that width.
 
-**Header:** the product name on the left and a **Settings** gear button on the right. Settings opens as a near-full-height sheet over the current tab (§4.8).
+**Header:** the product name on the left and a **Settings** gear button on the right. Settings opens as a near-full-height sheet over the current tab (§4.8). A capture closes it, like any sheet the capture leaves behind; a delete or reset still running then reports its outcome in a toast.
 
 **Tab bar:** under the header, with Applications, Stats and Resumes, each an icon beside its label in one row. Switching tabs slides the next section into view like a mobile tab switcher (instant when the user prefers reduced motion). Each tab keeps its state, including its scroll position, while another is shown; a capture always switches to Applications, where its form opens. Arrow keys, Home and End move between tabs.
 
@@ -60,8 +60,8 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 - **Floating button:** the Applications and Resumes tabs have a floating action button at the bottom right (**+ Add**, **+ Upload**). Toasts sit above it.
 - **Discarding changes** asks in a small dialog centered over the sheet ("Discard your changes?", with Keep editing and Discard), with focus inside it.
 - **Selects** are shadcn-style: a button showing the choice that opens a list of options (keyboard: arrows, Home/End, typing a letter, Enter, Escape), not the browser's native select. Long lists (currency, resume) are searchable dropdowns.
-- **Number fields** accept only numbers as they're typed or pasted (a pasted "$85,000" becomes 85000), not `type="number"` (which takes "e", changes on scroll, and can't show grouping). Amounts are shown with the locale's grouping once the field is left; small counts such as the weekly goal have − and + buttons.
-- **Scrollbars** are hidden everywhere; areas still scroll by wheel, touch and keyboard.
+- **Number fields** accept only what a number in the user's locale can contain: digits, plus for amounts the locale's grouping and decimal separators (other characters are dropped as typed or pasted, so a pasted "$85,000" becomes "85,000"). The salary parsing rules in §5 still apply on top (decimals, rejecting ambiguous separators). Not `type="number"`, which takes "e", changes on scroll, and can't show grouping. Amounts are shown with the locale's grouping once the field is left; small counts such as the weekly goal have − and + buttons.
+- **Scrollbars** are hidden everywhere; areas still scroll by wheel, touch and keyboard (a scroll area with nothing focusable inside is itself focusable). Where hidden content would otherwise go unnoticed, such as the Stats range chips, the overflowing edge fades out to show there's more.
 - **Accordions** (More details, Archived resumes) animate their height open and closed, clipping their content, with no fade.
 - **Toasts** have their message on the left and their action and close button grouped tightly on the right. They slide in and out. While a sheet is open, a toast shows inside it, at its bottom above its content, so it stays visible and usable; a sheet makes the rest of the panel inert.
 
@@ -87,10 +87,10 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 **Form layout** (Add and Edit), designed so the common case fits a 320px panel without scrolling. The form is a near-full-height sheet with a back button and the title in its header:
 
-- **Top section:** Company, Job title, Job posting URL, then Status and Date applied side by side on one row (Status takes the row when Date applied is hidden for Saved), then Resume (optional). Required fields are marked with an asterisk, explained by a "Fields marked * are required." note; Date applied's asterisk follows the status. Optional fields have just their label (no "(optional)").
+- **Top section:** Company, Job title, Job posting URL, then Status and Date applied side by side on one row (Status takes the row when Date applied is hidden for Saved), then Resume. Required fields are marked with an asterisk, explained by a "Fields marked * are required." note; Date applied's asterisk follows the status. Optional fields have just their label (no "(optional)").
 - **Resume** is a searchable dropdown (a combobox: type to filter, each option shows its name, plus format and upload date where names repeat), with "No resume" first. A ghost **+** icon button beside it opens the inline upload; while it's open the icon turns (animated) into a **−** that closes it. The inline upload's button says **Upload**, and it has no separate Cancel.
 - **More details**, an accordion row that is collapsed by default and animates open and closed: Location, Work mode, Salary, Source, Notes. Its row hints at what's inside ("Location, salary, notes…"). It opens on its own when a field inside has a validation error or was auto-filled by a capture, and in Edit when any field inside has a value.
-- **Salary** shows a dash between the min and max fields, both number fields (§3). Currency is a searchable dropdown, and Per (year, month, hour), Work mode and Status are selects (§3).
+- **Salary** shows a dash between the min and max fields, both number fields (§3). Currency is a searchable dropdown (the owner's choice over a datalist, since Chrome draws a datalist unstyled and can't put common currencies first), and Per (year, month, hour), Work mode and Status are selects (§3).
 - **Source** is a row of chips: LinkedIn, Indeed, Company site, Referral, Recruiter, and **Other**, which reveals a text field for any other source.
 - **Notes** starts three lines tall and grows with its text, up to about twelve lines, then scrolls. It can't be resized by hand.
 - **Save** is a full-width button that stays visible at the bottom of the sheet (a sticky bar), however long the form is. Leaving is the header's back button (or Escape); with unsaved changes it first asks to discard them. Clicking outside the sheet doesn't close it.
@@ -169,7 +169,7 @@ This is a side-panel tab.
 - **Charts** each sit in a card with a title and a one-line summary.
 - **Outcomes breakdown:** a stacked bar of how applications in the range currently stand, with Rejected as one segment. It is labeled neutrally ("Closed – not selected") and never shown as a headline number.
 - **Activity chart:** applications per day (week or month range) or per week (year or all-time range), by Date applied. Any range up to 31 days long is shown per day, up to 53 weeks per week (weeks start on the user's first day of the week), up to 5 years per month, and longer ones per year, so a long Custom or All time range still has bars wide enough to see.
-- **Weekly goal (optional):** the user sets N per week in Settings (1 to 200). The top of Stats shows the range's **Applied** count as a large number, with a small ring beside it showing this week's Applied count against N ("4 of 10 this week"), whatever range is picked (labeled as this week, so it isn't read as the range's). Past the goal, the ring stays full and the count keeps going ("12 of 10"). Weeks start on the locale's first day of the week, which can be overridden in Settings. Without a goal, the large Applied number shows alone.
+- **Weekly goal (optional):** the user sets N per week in Settings (1 to 200). The first card under the range picker shows the range's **Applied** count as a large number, with a small ring beside it showing this week's Applied count against N ("4 of 10 this week"), whatever range is picked (labeled as this week, so it isn't read as the range's). This card replaces the Applied headline card; Interviews and Offers follow as two cards, then the rate cards as before. Past the goal, the ring stays full and the count keeps going ("12 of 10"). Weeks start on the locale's first day of the week, which can be overridden in Settings. Without a goal, the large Applied number shows alone.
 - **Tone:** copy stays factual and encouraging. Rejections are never highlighted in red.
 
 
@@ -178,7 +178,7 @@ This is a side-panel tab.
 
 Opened from the gear in the header as a near-full-height sheet of grouped cards. Changes save as they're made and apply in every open window.
 
-- **Weekly goal:** off, or a number from 1 to 200 (a number field with − and +).
+- **Weekly goal:** off, or a number from 1 to 200 (a number field with − and +). The switch turns the goal on (at 5) and off; − stops at 1 and + at 200 (each disabled there), so the buttons never turn it off or store an invalid value.
 - **Display:**
   - **Theme:** System (default), Light, or Dark, as a three-way segmented control.
   - **First day of the week:** the locale's default (named, e.g. "Locale default (Monday)"), Sunday, Monday, or Saturday.
@@ -362,7 +362,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 12. Open questions
 
-- **Product name and icon:** decided in the post-M6 review: **Huntlog** (no Web Store listing found under it on 2026-10-17). The rename and an icon land in a v0.6.x PR, which also replaces "Job Log" throughout this spec.
+- **Product name and icon:** decided in the post-M6 review: **Huntlog**. A web search found no Web Store listing under it on 2026-10-17 (Huntr is a near neighbour); the rename PR first confirms it with the store's own search and hands back if it's taken. The rename and an icon land in a v0.6.x PR, which also replaces "Job Log" throughout this spec.
 - **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
 - **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
 
