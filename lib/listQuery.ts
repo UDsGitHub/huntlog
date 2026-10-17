@@ -1,5 +1,5 @@
 import type { WeekStart } from './locale';
-import { resolveRange, type DateRange } from './stats';
+import { inRange, resolveRange, type DateRange } from './stats';
 import { ACTIVE_STATUSES, CLOSED_STATUSES, STATUSES } from './status';
 import type { Application, Status } from './types';
 
@@ -10,7 +10,10 @@ export const DATE_FILTERS = ['any', 'this-week', 'this-month', 'last-30-days', '
 export type DateFilterKind = (typeof DATE_FILTERS)[number];
 export interface DateFilter {
   kind: DateFilterKind;
-  /** Custom only: both days included, in either order. */
+  /**
+   * The Custom range, both days included, in either order. Kept while a preset is picked, so
+   * going back to Custom finds it again; only Custom uses it.
+   */
   from?: string;
   to?: string;
 }
@@ -34,10 +37,6 @@ export const DEFAULT_QUERY: ListQuery = {
 export interface QueryContext {
   now: Date;
   weekStartsOn: WeekStart;
-}
-
-export function isSortKey(value: unknown): value is SortKey {
-  return value === 'activity' || value === 'applied' || value === 'company';
 }
 
 /** The status groups (spec §4.4): a chip that turns on all of its statuses. */
@@ -88,11 +87,12 @@ export function dateFilterRange(dates: DateFilter, context: QueryContext): DateR
 }
 
 /**
- * How many filters are on, for the filter button's badge (spec §4.4): one for a date range other
- * than Any time, one for a status filter. Sort is never counted.
+ * How many filters are on, for the filter button's badge (spec §4.4): one for a date range that
+ * filters (not Any time, nor a Custom range that isn't valid yet), one for a status filter. Sort
+ * is never counted.
  */
-export function activeFilterCount(query: ListQuery): number {
-  return (query.dates.kind === 'any' ? 0 : 1) + (query.statuses.length > 0 ? 1 : 0);
+export function activeFilterCount(query: ListQuery, context: QueryContext): number {
+  return (dateFilterRange(query.dates, context) ? 1 : 0) + (query.statuses.length > 0 ? 1 : 0);
 }
 
 /** The query with its filters cleared; search and sort stay. */
@@ -118,10 +118,12 @@ function matchesStatuses(app: Application, statuses: readonly Status[]): boolean
   return statuses.length === 0 || statuses.includes(app.status);
 }
 
-/** In the range by Date applied. A job without one (Saved, or Skip) is left out. */
+/**
+ * In the range by Date applied, by the same rule as Stats: a job without a usable one (Saved, or
+ * Skip) is left out.
+ */
 function matchesDates(app: Application, range: DateRange | undefined): boolean {
-  if (!range) return true;
-  return !!app.appliedAt && app.appliedAt >= range.from && app.appliedAt <= range.to;
+  return !range || inRange(app.appliedAt, range);
 }
 
 /**

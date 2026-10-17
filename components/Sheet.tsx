@@ -99,9 +99,10 @@ export function Sheet({
   });
 
   /** Closes the dialog for good: toasts move back to the page, and focus goes back. */
-  function finishClosing(element: HTMLDialogElement) {
+  function finishClosing(element: HTMLDialogElement, { unmounting = false } = {}) {
     if (element.open) element.close();
-    setMounted(false);
+    // Gone anyway when the whole sheet is unmounting: no state to set.
+    if (!unmounting) setMounted(false);
     unregisterLayer.current?.();
     unregisterLayer.current = null;
     // Back to the opener, unless something else already took focus.
@@ -154,7 +155,9 @@ export function Sheet({
   useEffect(() => {
     const element = dialog.current;
     return () => {
-      if (element && (element.open || unregisterLayer.current)) finishRef.current(element);
+      if (element && (element.open || unregisterLayer.current)) {
+        finishRef.current(element, { unmounting: true });
+      }
     };
   }, []);
 

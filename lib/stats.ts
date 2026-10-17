@@ -144,8 +144,26 @@ export function resolveRange(
   }
 }
 
-const inRange = (date: string | undefined, range: DateRange) =>
+/** A usable date (not missing or malformed) within the range, both days included. */
+export const inRange = (date: string | undefined, range: DateRange) =>
   usable(date) && date >= range.from && date <= range.to;
+
+/** A Custom date's error: empty, or outside what any entered date allows (1970 to today). */
+export function customDateError(value: string | undefined, now: Date): string | undefined {
+  if (!value) return 'Enter a date.';
+  return checkPastLocalDate(value, now);
+}
+
+/**
+ * Where a Custom range starts when it's first picked: the last 30 days, so both dates have a
+ * sensible value to edit (and nothing shows as an error before anything was typed).
+ */
+export function customStart(
+  current: Partial<DateRange>,
+  today: string,
+): { from: string; to: string } {
+  return { from: current.from || addDays(today, -29), to: current.to || today };
+}
 
 /** Statuses that mean the employer answered (spec §4.7 response rate). */
 export const RESPONSE_STATUSES: readonly Status[] = [

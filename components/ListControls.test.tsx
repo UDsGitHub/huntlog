@@ -134,12 +134,31 @@ describe('List controls', () => {
       expect(within(sheet).getByText(/Jobs without a date applied/)).toBeInTheDocument();
 
       await user.click(within(sheet).getByRole('radio', { name: 'Custom' }));
-      // Not filtering until both dates are in.
+      // Starts from the last 30 days, already valid: no errors before anything is typed.
+      const from = within(sheet).getByLabelText('From');
+      const to = within(sheet).getByLabelText('To');
+      expect(from).toHaveValue('2026-09-17');
+      expect(to).toHaveValue('2026-10-16');
+      expect(from).not.toHaveAttribute('aria-invalid');
+      expect(rows()).toEqual(['Société Générale']);
+
+      await user.clear(from);
+      // Unfinished: filters nothing, and isn't counted.
       expect(rows()).toHaveLength(4);
-      expect(within(sheet).getByLabelText('From')).toHaveAccessibleDescription('Enter a date.');
-      await user.type(within(sheet).getByLabelText('From'), '2026-08-01');
-      await user.type(within(sheet).getByLabelText('To'), '2026-09-05');
+      expect(from).toHaveAccessibleDescription('Enter a date.');
+      expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
+      expect(screen.queryByText(/^Showing/)).toBeNull();
+      expect(within(sheet).queryByText(/Jobs without a date applied/)).toBeNull();
+
+      await user.type(from, '2026-08-01');
+      await user.clear(to);
+      await user.type(to, '2026-09-05');
       expect(rows()).toEqual(['Gamma', 'Acme']);
+      // A preset keeps the Custom range for later.
+      await user.click(within(sheet).getByRole('radio', { name: 'This month' }));
+      await user.click(within(sheet).getByRole('radio', { name: 'Custom' }));
+      expect(within(sheet).getByLabelText('From')).toHaveValue('2026-08-01');
+      expect(within(sheet).getByLabelText('To')).toHaveValue('2026-09-05');
       expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
@@ -338,5 +357,19 @@ describe('List rows', () => {
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
     expect(await screen.findByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
+  });
+
+  it("shows a URL that isn't a web link as text, never as a link", async () => {
+    await saveApplication({ url: 'https://acme.com/1', company: 'Acme' }, {});
+    const stored = (await db.applications.toArray())[0]!;
+    // As an old or imported row might have it.
+    await db.applications.update(stored.id, { url: 'file:///C:/jobs/acme.html' });
+    await renderList();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Acme/ }).closest('li')).toHaveTextContent(
+        'file:///C:/jobs/acme.html',
+      ),
+    );
+    expect(screen.queryByRole('link', { name: /Open job posting/ })).toBeNull();
   });
 });

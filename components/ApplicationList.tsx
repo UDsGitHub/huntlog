@@ -59,7 +59,11 @@ export function ApplicationList({
   // matching a status filter) mustn't move or hide the row under the pointer. Order and
   // membership are frozen per query (and per day, for the date presets); they refresh when the
   // query changes or the list is shown again. New rows still appear, at the top.
-  const queryKey = JSON.stringify([query, today, weekStartsOn]);
+  // A date filter depends on the day and the week start; nothing else does, so only then do they
+  // refresh the frozen list (spec §4.4: otherwise only a query change or showing it again does).
+  const queryKey = JSON.stringify(
+    query.dates.kind === 'any' ? [query] : [query, today, weekStartsOn],
+  );
   const [frozen, setFrozen] = useState<{
     queryKey: string;
     ranks: Map<string, number>;
@@ -110,7 +114,7 @@ export function ApplicationList({
     );
   }
 
-  const narrowed = query.search.trim() !== '' || activeFilterCount(query) > 0;
+  const narrowed = query.search.trim() !== '' || activeFilterCount(query, context) > 0;
   function clear() {
     onQueryChange({ ...withoutFilters(query), search: '' });
     // The button may disappear with the line; keep focus in the controls.
@@ -118,7 +122,7 @@ export function ApplicationList({
   }
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ListControls query={query} onChange={onQueryChange} searchRef={search} />
+      <ListControls query={query} context={context} onChange={onQueryChange} searchRef={search} />
       {narrowed && visible.length > 0 && (
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
@@ -209,7 +213,7 @@ function Row({
               : `Added ${formatTimestampDate(app.createdAt)}`}
           </span>
         </div>
-        {href && (
+        {href ? (
           <a
             href={href}
             target="_blank"
@@ -220,6 +224,14 @@ function Row({
           >
             <ExternalLinkIcon />
           </a>
+        ) : (
+          // Not a web link (e.g. imported): shown as text, never as a link.
+          <span
+            title={app.url}
+            className="max-w-28 shrink-0 truncate text-xs text-muted-foreground"
+          >
+            {app.url}
+          </span>
         )}
       </div>
     </div>

@@ -4,7 +4,6 @@ import {
   DEFAULT_QUERY,
   foldText,
   groupState,
-  isSortKey,
   queryApplications,
   rankOf,
   toggleGroup,
@@ -223,16 +222,6 @@ describe('frozen order', () => {
   });
 });
 
-it.each([
-  ['activity', true],
-  ['applied', true],
-  ['company', true],
-  ['date', false],
-  [undefined, false],
-])('isSortKey(%j) → %s', (value, expected) => {
-  expect(isSortKey(value)).toBe(expected);
-});
-
 describe('date applied filter', () => {
   const rows = () => [
     app({ appliedAt: '2026-10-11' }), // this week (Sunday)
@@ -249,6 +238,16 @@ describe('date applied filter', () => {
     ['last-30-days', ['a1', 'a2', 'a3']],
   ] as const)('%s', (kind, expected) => {
     expect(ids(run(rows(), q({ dates: { kind }, sort: 'applied' }))).sort()).toEqual([...expected]);
+  });
+
+  it('a preset ignores Custom dates kept from before', () => {
+    const kept = { kind: 'this-week' as const, from: '2026-08-01', to: '2026-08-31' };
+    expect(ids(run(rows(), q({ dates: kept })))).toEqual(['a1']);
+  });
+
+  it('leaves out a malformed Date applied, like Stats does', () => {
+    const list = [app({ appliedAt: '2026-10-1' }), app({ appliedAt: '2026-10-12' })];
+    expect(ids(run(list, q({ dates: { kind: 'this-month' } })))).toEqual(['a2']);
   });
 
   it('Custom keeps both days, in either order', () => {
@@ -312,11 +311,22 @@ describe('status chips', () => {
 });
 
 describe('filter count and clearing', () => {
+  it("doesn't count a Custom range until it's valid", () => {
+    expect(activeFilterCount(q({ dates: { kind: 'custom' } }), context)).toBe(0);
+    expect(activeFilterCount(q({ dates: { kind: 'custom', from: '2026-09-01' } }), context)).toBe(
+      0,
+    );
+    const valid = { kind: 'custom' as const, from: '2026-09-01', to: '2026-09-30' };
+    expect(activeFilterCount(q({ dates: valid }), context)).toBe(1);
+  });
+
   it('counts a date range and a status filter, never the sort or search', () => {
-    expect(activeFilterCount(q())).toBe(0);
-    expect(activeFilterCount(q({ sort: 'company', search: 'acme' }))).toBe(0);
-    expect(activeFilterCount(q({ statuses: ['offer', 'saved'] }))).toBe(1);
-    expect(activeFilterCount(q({ statuses: ['offer'], dates: { kind: 'this-week' } }))).toBe(2);
+    expect(activeFilterCount(q(), context)).toBe(0);
+    expect(activeFilterCount(q({ sort: 'company', search: 'acme' }), context)).toBe(0);
+    expect(activeFilterCount(q({ statuses: ['offer', 'saved'] }), context)).toBe(1);
+    expect(
+      activeFilterCount(q({ statuses: ['offer'], dates: { kind: 'this-week' } }), context),
+    ).toBe(2);
   });
 
   it('clears the filters but keeps search and sort', () => {

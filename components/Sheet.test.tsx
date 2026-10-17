@@ -312,4 +312,19 @@ describe('Sheet', () => {
     // Moved, not new: it isn't announced a second time.
     expect(card().closest('[aria-live]')).toHaveAttribute('aria-live', 'off');
   });
+
+  it('holds its content only while open, so each opening starts fresh', async () => {
+    reduceMotion();
+    const user = userEvent.setup();
+    render(<Harness />);
+    // Closed: nothing of it is in the page.
+    expect(screen.queryByLabelText('First')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+    await openSheet(user);
+    await user.type(screen.getByLabelText('First'), 'typed');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByLabelText('First')).toBeNull();
+    await openSheet(user);
+    expect(screen.getByLabelText('First')).toHaveValue('');
+  });
 });

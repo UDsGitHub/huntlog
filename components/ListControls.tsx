@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode, type Ref } from 'react';
-import { checkPastLocalDate, MIN_YEAR, todayLocal } from '@/lib/dates';
+import { MIN_YEAR, todayLocal } from '@/lib/dates';
 import {
   activeFilterCount,
   DEFAULT_QUERY,
@@ -9,9 +9,11 @@ import {
   withoutFilters,
   type DateFilterKind,
   type ListQuery,
+  type QueryContext,
   type SortKey,
   type StatusGroup,
 } from '@/lib/listQuery';
+import { customDateError, customStart } from '@/lib/stats';
 import { STATUS_LABELS, STATUSES } from '@/lib/status';
 import { CheckIcon, SearchIcon, SlidersHorizontalIcon } from './icons';
 import { Sheet } from './Sheet';
@@ -38,16 +40,19 @@ const GROUP_LABELS: Record<StatusGroup, string> = { active: 'Active', closed: 'C
  */
 export function ListControls({
   query,
+  context,
   onChange,
   searchRef,
 }: {
   query: ListQuery;
+  /** Today and the first day of the week, as the list filters with them. */
+  context: QueryContext;
   onChange: (query: ListQuery) => void;
   searchRef?: Ref<HTMLInputElement>;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const count = activeFilterCount(query);
+  const count = activeFilterCount(query, context);
   return (
     <div role="search" aria-label="Find applications" className="flex min-w-0 gap-2">
       <div className="relative min-w-0 flex-1">
@@ -83,27 +88,36 @@ export function ListControls({
           </span>
         )}
       </button>
-      <FilterSheet open={open} query={query} onChange={onChange} onClose={() => setOpen(false)} />
+      <FilterSheet
+        open={open}
+        query={query}
+        context={context}
+        onChange={onChange}
+        onClose={() => setOpen(false)}
+      />
     </div>
   );
 }
 
 /**
  * Sort, Date applied and Status (spec §4.4). Changes apply as they're made; Reset clears the
- * filters (not the sort or the search), Done closes.
+ * filters and the sort (not the search), Done closes.
  */
 function FilterSheet({
   open,
   query,
+  context,
   onChange,
   onClose,
 }: {
   open: boolean;
   query: ListQuery;
+  context: QueryContext;
   onChange: (query: ListQuery) => void;
   onClose: () => void;
 }) {
-  const changed = activeFilterCount(query) > 0 || query.sort !== DEFAULT_QUERY.sort;
+  const changed =
+    query.statuses.length > 0 || query.dates.kind !== 'any' || query.sort !== DEFAULT_QUERY.sort;
   return (
     <Sheet
       open={open}
@@ -136,7 +150,7 @@ function FilterSheet({
         onChange={(sort) => onChange({ ...query, sort })}
         layout="segmented"
       />
-      <DateFilterField query={query} onChange={onChange} />
+      <DateFilterField query={query} context={context} onChange={onChange} />
       <StatusChips query={query} onChange={onChange} />
     </Sheet>
   );
@@ -195,21 +209,26 @@ function ChoiceGroup<Value extends string>({
 /** Date applied: a preset, or Custom with From and To (spec §4.4). */
 function DateFilterField({
   query,
+  context,
   onChange,
 }: {
   query: ListQuery;
+  context: QueryContext;
   onChange: (query: ListQuery) => void;
 }) {
   const id = useId();
   const { dates } = query;
-  const today = todayLocal();
+  // The list's "today", so the fields and the filter always agree, past midnight too.
+  const today = todayLocal(context.now);
   const errors =
     dates.kind === 'custom'
       ? {
-          from: dates.from ? checkPastLocalDate(dates.from) : 'Enter a date.',
-          to: dates.to ? checkPastLocalDate(dates.to) : 'Enter a date.',
+          from: customDateError(dates.from, context.now),
+          to: customDateError(dates.to, context.now),
         }
       : {};
+  // Only while the dates really filter (an unfinished Custom range doesn't yet).
+  const filtering = activeFilterCount({ ...query, statuses: [] }, context) > 0;
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <ChoiceGroup
@@ -222,8 +241,9 @@ function DateFilterField({
         onChange={(kind) =>
           onChange({
             ...query,
-            // Custom keeps what was typed before, so switching back and forth loses nothing.
-            dates: kind === 'custom' ? { ...dates, kind } : { kind },
+            // The Custom dates stay while a preset is picked, so switching back finds them;
+            // the first time, Custom starts from the last 30 days.
+            dates: kind === 'custom' ? { kind, ...customStart(dates, today) } : { ...dates, kind },
           })
         }
         layout="chips"
@@ -261,7 +281,7 @@ function DateFilterField({
           ))}
         </fieldset>
       )}
-      {dates.kind !== 'any' && (
+      {filtering && (
         <p className="field-hint">Jobs without a date applied (such as Saved ones) are hidden.</p>
       )}
     </div>
