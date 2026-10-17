@@ -1,5 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import { listApplications } from '@/lib/applications';
 import { formatLocalDate } from '@/lib/dates';
 import { effectiveWeekStart } from '@/lib/settings';
@@ -12,6 +20,7 @@ import {
   resolveRange,
   weeklyGoalProgress,
   type DateRange,
+  type GoalProgress,
   type RangeKind,
   type Rate,
 } from '@/lib/stats';
@@ -19,7 +28,7 @@ import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
-import { ActivityChart, GoalRing, OutcomesBar } from './StatsCharts';
+import { ActivityChart, GoalRing, goalMessage, OutcomesBar } from './StatsCharts';
 import { useEdgeFade } from './useEdgeFade';
 import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
@@ -83,10 +92,14 @@ export function StatsPanel({ active }: { active: boolean }) {
       <h2 id="stats-heading" className="section-heading">
         Stats
       </h2>
-      {progress && <GoalRing progress={progress} />}
 
       <div className="flex min-w-0 flex-col gap-1">
-        <RangeChips kind={kind} onPick={setKind} onCustom={() => setCustomOpen(true)} />
+        <RangeChips
+          kind={kind}
+          active={active}
+          onPick={setKind}
+          onCustom={() => setCustomOpen(true)}
+        />
         {range && <p className="text-xs text-muted-foreground">{rangeText(range)}</p>}
       </div>
       <CustomRangeSheet
@@ -102,18 +115,24 @@ export function StatsPanel({ active }: { active: boolean }) {
         }}
       />
 
+      {/* The goal shows whenever one is set, even before anything is logged. */}
+      {apps.length === 0 && progress && <AppliedCard progress={progress} />}
       {apps.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Your stats show up here once you log applications. Every one you send counts.
         </p>
+      ) : !stats ? (
+        progress && <AppliedCard progress={progress} />
       ) : (
         stats && (
           <>
-            <dl aria-label="Headline numbers" className="grid grid-cols-3 gap-2">
-              <Count label="Applied" value={stats.applied} />
-              <Count label="Interviews" value={stats.interviews} />
-              <Count label="Offers" value={stats.offers} />
-            </dl>
+            <div role="group" aria-label="Headline numbers" className="flex flex-col gap-2">
+              <AppliedCard applied={stats.applied} progress={progress} />
+              <dl className="grid grid-cols-2 gap-2">
+                <Count label="Interviews" value={stats.interviews} />
+                <Count label="Offers" value={stats.offers} />
+              </dl>
+            </div>
             <dl aria-label="Rates" className="grid grid-cols-2 gap-2">
               <RateCard label="Response rate" rate={stats.responseRate} outcome="heard back" />
               <RateCard label="Interview rate" rate={stats.interviewRate} outcome="interviewed" />
@@ -143,10 +162,13 @@ export function StatsPanel({ active }: { active: boolean }) {
  */
 function RangeChips({
   kind,
+  active,
   onPick,
   onCustom,
 }: {
   kind: RangeKind;
+  /** The tab is shown: the chosen chip is scrolled back into view. */
+  active: boolean;
   onPick: (kind: RangeKind) => void;
   onCustom: () => void;
 }) {
@@ -154,6 +176,25 @@ function RangeChips({
   const row = useRef<HTMLDivElement>(null);
   // Fades as wide as the gutter, so a chip scrolled clear of the edge is never faded.
   const fade = useEdgeFade(row, 'x', 'var(--tab-gutter)');
+
+  // Each time the tab is shown (or the range changes), the chosen chip comes back into view if
+  // the row was scrolled away from it. Sideways only, and instantly: scrollIntoView would also
+  // scroll the tab itself to the row.
+  useLayoutEffect(() => {
+    const element = row.current;
+    const chip = chips.current.get(kind);
+    if (!active || !element || !chip) return;
+    const style = getComputedStyle(element);
+    // The chip's place within the row's scrolled content (the panel is left-to-right only).
+    const left = chip.getBoundingClientRect().left - element.getBoundingClientRect().left;
+    const start = element.scrollLeft + left - (parseFloat(style.scrollPaddingLeft) || 0);
+    const end =
+      element.scrollLeft + left + chip.offsetWidth + (parseFloat(style.scrollPaddingRight) || 0);
+    if (start < element.scrollLeft) element.scrollLeft = start;
+    else if (end > element.scrollLeft + element.clientWidth) {
+      element.scrollLeft = end - element.clientWidth;
+    }
+  }, [active, kind]);
 
   function onKeyDown(event: KeyboardEvent) {
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -289,10 +330,50 @@ function CustomRangeForm({
   );
 }
 
+/**
+ * The first card (spec §4.7): the range's Applied count, large, with the weekly goal ring beside
+ * it while a goal is set (counting this week, whatever the range). Just the ring when there's no
+ * count to show (nothing logged yet, or no usable range).
+ */
+function AppliedCard({ applied, progress }: { applied?: number; progress?: GoalProgress }) {
+  const id = useId();
+  return (
+    <div className="card flex min-w-0 flex-col gap-3 p-4">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        {applied !== undefined && (
+          <dl className="min-w-0">
+            <Count label="Applied" value={applied} size="lg" />
+          </dl>
+        )}
+        {progress && <GoalRing progress={progress} describedBy={`${id}-goal`} />}
+      </div>
+      {progress && (
+        <p id={`${id}-goal`} className="text-xs text-muted-foreground">
+          {goalMessage(progress)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 const card = 'card flex min-w-0 flex-col-reverse gap-0.5 p-2';
 
-function Count({ label, value }: { label: string; value: number }) {
-  return (
+/** A label and its number. `lg`: the Applied number, inside a card of its own. */
+function Count({
+  label,
+  value,
+  size = 'md',
+}: {
+  label: string;
+  value: number;
+  size?: 'md' | 'lg';
+}) {
+  return size === 'lg' ? (
+    <div className="flex flex-col-reverse gap-1.5">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-4xl leading-none font-semibold tabular-nums">{value}</dd>
+    </div>
+  ) : (
     <div className={card}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xl font-semibold tabular-nums">{value}</dd>

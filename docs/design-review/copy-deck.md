@@ -205,32 +205,32 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Applications per ${per} | `components/StatsCharts.tsx:112` |
 | Applications per | `components/StatsCharts.tsx:144` |
 | Applications | `components/StatsCharts.tsx:148` |
-| ${count} of ${goal} ${goal === 1 ? 'application' : 'applications'} this week | `components/StatsCharts.tsx:174` |
-| Weekly goal | `components/StatsCharts.tsx:219` |
-| of | `components/StatsCharts.tsx:223` |
-| this week | `components/StatsCharts.tsx:223` |
-| ${remaining} more to reach your goal. | `components/StatsCharts.tsx:227` |
-| Goal reached, and ${count - goal} beyond it. | `components/StatsCharts.tsx:229` |
-| Goal reached. Nice work. | `components/StatsCharts.tsx:230` |
-| ${formatLocalDate(from)} – ${formatLocalDate(to)} | `components/StatsPanel.tsx:32` |
-| Stats | `components/StatsPanel.tsx:84` |
-| Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:107` |
-| Headline numbers | `components/StatsPanel.tsx:112` |
-| Applied | `components/StatsPanel.tsx:113` |
-| Interviews | `components/StatsPanel.tsx:114` |
-| Offers | `components/StatsPanel.tsx:115` |
-| Rates | `components/StatsPanel.tsx:117` |
-| Response rate | `components/StatsPanel.tsx:118` |
-| Interview rate | `components/StatsPanel.tsx:119` |
-| Nothing applied in this range yet. The rates fill in as you apply. | `components/StatsPanel.tsx:123` |
-| Range | `components/StatsPanel.tsx:175` |
-| Custom… | `components/StatsPanel.tsx:202` |
-| Custom range | `components/StatsPanel.tsx:232` |
-| Both dates are included. | `components/StatsPanel.tsx:233` |
-| Apply | `components/StatsPanel.tsx:236` |
-| None applied in range | `components/StatsPanel.tsx:306` |
-| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:306` |
-| No rate yet | `components/StatsPanel.tsx:319` |
+| ${remaining} more to reach your goal. | `components/StatsCharts.tsx:169` |
+| Goal reached, and ${count - goal} beyond it. | `components/StatsCharts.tsx:170` |
+| Goal reached. Nice work. | `components/StatsCharts.tsx:170` |
+| ${count} of ${goal} ${goal === 1 ? 'application' : 'applications'} this week | `components/StatsCharts.tsx:188` |
+| Weekly goal | `components/StatsCharts.tsx:226` |
+| of | `components/StatsCharts.tsx:230` |
+| this week | `components/StatsCharts.tsx:231` |
+| ${formatLocalDate(from)} – ${formatLocalDate(to)} | `components/StatsPanel.tsx:41` |
+| Stats | `components/StatsPanel.tsx:93` |
+| Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:122` |
+| Headline numbers | `components/StatsPanel.tsx:129` |
+| Interviews | `components/StatsPanel.tsx:132` |
+| Offers | `components/StatsPanel.tsx:133` |
+| Rates | `components/StatsPanel.tsx:136` |
+| Response rate | `components/StatsPanel.tsx:137` |
+| Interview rate | `components/StatsPanel.tsx:138` |
+| Nothing applied in this range yet. The rates fill in as you apply. | `components/StatsPanel.tsx:142` |
+| Range | `components/StatsPanel.tsx:216` |
+| Custom… | `components/StatsPanel.tsx:243` |
+| Custom range | `components/StatsPanel.tsx:273` |
+| Both dates are included. | `components/StatsPanel.tsx:274` |
+| Apply | `components/StatsPanel.tsx:277` |
+| Applied | `components/StatsPanel.tsx:345` |
+| None applied in range | `components/StatsPanel.tsx:387` |
+| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:387` |
+| No rate yet | `components/StatsPanel.tsx:400` |
 | this-week | `lib/stats.ts:31` |
 | This week | `lib/stats.ts:31` |
 | last-7-days | `lib/stats.ts:32` |

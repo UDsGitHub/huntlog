@@ -92,4 +92,18 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await expect(range.getByRole('radio', { checked: true })).toHaveText('Custom…');
   await expect(stats).toContainText('Oct 10, 2026 – Oct 16, 2026');
   await expect(value(/^Applied$/)).toHaveText('2');
+
+  // Scrolled away from the chosen chip, the row brings it back when the tab is shown again.
+  await range.evaluate((el) => (el.scrollLeft = 0));
+  const inView = async () => {
+    const [r, c] = [await range.boundingBox(), await custom.boundingBox()];
+    return c!.x >= r!.x && c!.x + c!.width <= r!.x + r!.width;
+  };
+  expect(await inView()).toBe(false);
+  await page.getByRole('tab', { name: 'Applications' }).click();
+  await page.getByRole('tab', { name: 'Stats' }).click();
+  await expect(stats).not.toHaveAttribute('data-slide');
+  expect(await inView()).toBe(true);
+  // Sideways only: the tab itself didn't scroll.
+  expect(await stats.evaluate((el) => el.scrollTop)).toBe(0);
 });
