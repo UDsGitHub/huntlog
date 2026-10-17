@@ -180,7 +180,8 @@ export function GoalRing({
   describedBy,
 }: {
   progress: GoalProgress;
-  describedBy?: string;
+  /** The element saying how far there is to go (`goalMessage`), which the caller lays out. */
+  describedBy: string;
 }) {
   const id = useId();
   const { count, goal, fraction } = progress;

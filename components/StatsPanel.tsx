@@ -115,18 +115,24 @@ export function StatsPanel({ active }: { active: boolean }) {
         }}
       />
 
+      {/* The goal shows whenever one is set, even before anything is logged. */}
+      {apps.length === 0 && progress && <AppliedCard progress={progress} />}
       {apps.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Your stats show up here once you log applications. Every one you send counts.
         </p>
+      ) : !stats ? (
+        progress && <AppliedCard progress={progress} />
       ) : (
         stats && (
           <>
-            <AppliedCard applied={stats.applied} progress={progress} />
-            <dl aria-label="Headline numbers" className="grid grid-cols-2 gap-2">
-              <Count label="Interviews" value={stats.interviews} />
-              <Count label="Offers" value={stats.offers} />
-            </dl>
+            <div role="group" aria-label="Headline numbers" className="flex flex-col gap-2">
+              <AppliedCard applied={stats.applied} progress={progress} />
+              <dl className="grid grid-cols-2 gap-2">
+                <Count label="Interviews" value={stats.interviews} />
+                <Count label="Offers" value={stats.offers} />
+              </dl>
+            </div>
             <dl aria-label="Rates" className="grid grid-cols-2 gap-2">
               <RateCard label="Response rate" rate={stats.responseRate} outcome="heard back" />
               <RateCard label="Interview rate" rate={stats.interviewRate} outcome="interviewed" />
@@ -178,11 +184,12 @@ function RangeChips({
     const element = row.current;
     const chip = chips.current.get(kind);
     if (!active || !element || !chip) return;
-    const padding = parseFloat(getComputedStyle(element).scrollPaddingLeft) || 0;
-    // The chip's place within the row's scrolled content.
+    const style = getComputedStyle(element);
+    // The chip's place within the row's scrolled content (the panel is left-to-right only).
     const left = chip.getBoundingClientRect().left - element.getBoundingClientRect().left;
-    const start = element.scrollLeft + left - padding;
-    const end = element.scrollLeft + left + chip.offsetWidth + padding;
+    const start = element.scrollLeft + left - (parseFloat(style.scrollPaddingLeft) || 0);
+    const end =
+      element.scrollLeft + left + chip.offsetWidth + (parseFloat(style.scrollPaddingRight) || 0);
     if (start < element.scrollLeft) element.scrollLeft = start;
     else if (end > element.scrollLeft + element.clientWidth) {
       element.scrollLeft = end - element.clientWidth;
@@ -325,19 +332,19 @@ function CustomRangeForm({
 
 /**
  * The first card (spec §4.7): the range's Applied count, large, with the weekly goal ring beside
- * it while a goal is set (counting this week, whatever the range).
+ * it while a goal is set (counting this week, whatever the range). Just the ring when there's no
+ * count to show (nothing logged yet, or no usable range).
  */
-function AppliedCard({ applied, progress }: { applied: number; progress?: GoalProgress }) {
+function AppliedCard({ applied, progress }: { applied?: number; progress?: GoalProgress }) {
   const id = useId();
   return (
     <div className="card flex min-w-0 flex-col gap-3 p-4">
       <div className="flex min-w-0 items-center justify-between gap-3">
-        <dl className="min-w-0">
-          <div className="flex flex-col-reverse gap-1.5">
-            <dt className="text-sm text-muted-foreground">Applied</dt>
-            <dd className="text-4xl leading-none font-semibold tabular-nums">{applied}</dd>
-          </div>
-        </dl>
+        {applied !== undefined && (
+          <dl className="min-w-0">
+            <Count label="Applied" value={applied} size="lg" />
+          </dl>
+        )}
         {progress && <GoalRing progress={progress} describedBy={`${id}-goal`} />}
       </div>
       {progress && (
@@ -351,8 +358,22 @@ function AppliedCard({ applied, progress }: { applied: number; progress?: GoalPr
 
 const card = 'card flex min-w-0 flex-col-reverse gap-0.5 p-2';
 
-function Count({ label, value }: { label: string; value: number }) {
-  return (
+/** A label and its number. `lg`: the Applied number, inside a card of its own. */
+function Count({
+  label,
+  value,
+  size = 'md',
+}: {
+  label: string;
+  value: number;
+  size?: 'md' | 'lg';
+}) {
+  return size === 'lg' ? (
+    <div className="flex flex-col-reverse gap-1.5">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-4xl leading-none font-semibold tabular-nums">{value}</dd>
+    </div>
+  ) : (
     <div className={card}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xl font-semibold tabular-nums">{value}</dd>
