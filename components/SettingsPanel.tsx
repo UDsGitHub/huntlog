@@ -43,6 +43,8 @@ interface Props {
   onDataDeleted: () => void;
   /** A short confirmation, shown as a toast. */
   notify: (message: string) => void;
+  /** The Settings tab is selected. Its sheets close when it isn't (e.g. a capture switched tabs). */
+  active: boolean;
 }
 
 /**
@@ -50,7 +52,7 @@ interface Props {
  * change saves as it's made and applies in every open window (settings live in storage, and
  * `useSettings` follows changes from anywhere).
  */
-export function SettingsPanel({ onDataDeleted, notify }: Props) {
+export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
   const settings = useSettings();
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export function SettingsPanel({ onDataDeleted, notify }: Props) {
       )}
       <GoalCard goal={settings.weeklyGoal} onChange={(weeklyGoal) => void save({ weeklyGoal })} />
       <DisplayCard settings={settings} onChange={(patch) => void save(patch)} />
-      <DataCard onDataDeleted={onDataDeleted} notify={notify} />
+      <DataCard onDataDeleted={onDataDeleted} notify={notify} active={active} />
       <AboutCard />
     </section>
   );
@@ -282,8 +284,10 @@ function DisplayCard({
 }
 
 /** Delete all data, and Reset settings (spec §4.8), each confirmed in a sheet. */
-function DataCard({ onDataDeleted, notify }: Props) {
+function DataCard({ onDataDeleted, notify, active }: Props) {
   const [open, setOpen] = useState<'delete' | 'reset' | null>(null);
+  // Hidden behind another tab, an open sheet would stay modal and block the panel.
+  if (!active && open !== null) setOpen(null);
   const finish = (message: string) => {
     setOpen(null);
     notify(message);

@@ -1,4 +1,11 @@
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import {
+  expect,
+  expectNoHorizontalScroll,
+  panelUrl,
+  resumeAction,
+  test,
+  uploadResume,
+} from './fixtures';
 
 const PDF = Buffer.from(
   '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n' +
@@ -17,10 +24,7 @@ test('upload a resume, link it to an application, open it from the application',
 
   await page.getByRole('tab', { name: 'Resumes' }).click();
   const resumes = page.getByRole('tabpanel', { name: 'Resumes' });
-  await resumes
-    .getByLabel('Resume file')
-    .setInputFiles({ name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
-  await resumes.getByRole('button', { name: 'Upload' }).click();
+  await uploadResume(page, { name: 'Backend v3.pdf', mimeType: 'application/pdf', buffer: PDF });
   await expect(resumes.getByRole('list', { name: 'Resumes' })).toContainText('Backend v3');
 
   await page.getByRole('tab', { name: 'Applications' }).click();
@@ -73,7 +77,7 @@ test('a resume an application uses is archived, not deleted, and still opens', a
   await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Resumes' }).click();
-  await page.getByRole('button', { name: 'Delete Backend v3' }).click();
+  await resumeAction(page, 'Backend v3', 'Delete');
   await expect(
     page.getByText('Backend v3 is used by applications, so it was archived instead.'),
   ).toBeVisible();

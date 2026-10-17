@@ -23,6 +23,7 @@ import {
   ResumeValidationError,
   RESUME_UNDO_WINDOW_MS,
   safeFileName,
+  searchResumes,
   setResumeArchived,
   updateResume,
   type PickedFile,
@@ -163,6 +164,31 @@ describe('names and labels', () => {
     expect(emoji.endsWith('.pdf')).toBe(true);
     expect(emoji.isWellFormed()).toBe(true);
     expect(safeFileName(`${'x'.repeat(145)}. .pdf`)).toBe(`${'x'.repeat(145)}.pdf`);
+  });
+});
+
+describe('searchResumes', () => {
+  const resumes = [
+    { name: 'Backend v3', fileName: 'cv-2026.pdf' },
+    { name: 'Ingénieur', fileName: 'Lebenslauf.docx' },
+    { name: 'Frontend', fileName: 'frontend-final.pdf' },
+  ];
+  const names = (search: string) => searchResumes(resumes, search).map((resume) => resume.name);
+
+  it('keeps everything, in order, for an empty or blank search', () => {
+    expect(names('')).toEqual(['Backend v3', 'Ingénieur', 'Frontend']);
+    expect(names('   ')).toEqual(['Backend v3', 'Ingénieur', 'Frontend']);
+  });
+
+  it('matches the display name or the file name, ignoring case and accents', () => {
+    expect(names('INGEN')).toEqual(['Ingénieur']);
+    expect(names('lebenslauf')).toEqual(['Ingénieur']);
+    expect(names('.pdf')).toEqual(['Backend v3', 'Frontend']);
+  });
+
+  it('needs every word, across the name and the file name', () => {
+    expect(names('backend 2026')).toEqual(['Backend v3']);
+    expect(names('backend docx')).toEqual([]);
   });
 });
 

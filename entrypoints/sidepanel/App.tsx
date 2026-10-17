@@ -5,6 +5,7 @@ import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
 import { Fab } from '@/components/Fab';
+import { guardFileDrops } from '@/components/dropGuard';
 import { inert } from '@/components/inert';
 import {
   BriefcaseIcon,
@@ -74,9 +75,13 @@ export default function App() {
   const [tab, setTab] = useState<TabId>('applications');
   // Readable from async handlers (toast actions), like viewRef.
   const tabRef = useRef(tab);
+  // The Resumes tab's upload sheet, opened by its floating + Upload (rendered out here).
+  const [uploadOpen, setUploadOpen] = useState(false);
   const selectTab = useCallback((next: TabId) => {
     tabRef.current = next;
     setTab(next);
+    // Leaving the tab (a capture) closes the sheet; coming back doesn't reopen it.
+    if (next !== 'resumes') setUploadOpen(false);
   }, []);
   const slide = useTabSlide(tab, TAB_ORDER);
   const [view, setView] = useState<View>({ name: 'list' });
@@ -101,6 +106,8 @@ export default function App() {
   // Remembered source and work mode for the next manual Add (spec §4.2).
   // undefined until loaded: the Add form reads them once, on mount, so it waits for them.
   const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
+  // A file dropped outside a drop zone mustn't replace the panel with it.
+  useEffect(() => guardFileDrops(), []);
   // Files of resumes deleted in a session that closed before their Undo toast ended (spec §4.6).
   useEffect(() => {
     purgeDeletedResumeData({ olderThanMs: RESUME_STARTUP_PURGE_MS }).catch((error: unknown) =>
@@ -405,7 +412,13 @@ export default function App() {
             // Drawn inside its edge: the clipped viewport would cut off an outline outside it.
             className="focus-ring-inset"
           >
-            <ResumesPanel showToast={showToast} announce={announce} />
+            <ResumesPanel
+              showToast={showToast}
+              announce={announce}
+              active={tab === 'resumes'}
+              uploadOpen={uploadOpen}
+              onUploadOpenChange={setUploadOpen}
+            />
           </TabPanel>
           <TabPanel
             state={sectionState('settings')}
@@ -417,6 +430,7 @@ export default function App() {
             <SettingsPanel
               onDataDeleted={handleDataDeleted}
               notify={(message) => showToast({ message })}
+              active={tab === 'settings'}
             />
           </TabPanel>
         </div>
@@ -487,6 +501,12 @@ export default function App() {
             onFocused={clearFocusTarget}
             onClick={openAdd}
           />
+        )}
+        {/* Stays mounted under the upload sheet: it's where focus returns when that closes. */}
+        {tab === 'resumes' && (
+          <Fab label="Upload resume" icon={<PlusIcon />} onClick={() => setUploadOpen(true)}>
+            Upload
+          </Fab>
         )}
         <Toast toast={toast} onDismiss={handleToastDismiss} />
       </main>

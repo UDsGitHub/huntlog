@@ -220,6 +220,18 @@ describe('Resume field', () => {
     expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
   });
 
+  it('Enter on the file field is left to the picker, not taken as Upload', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    const fileInput = within(group).getByLabelText('Resume file');
+    expect(fileInput).toHaveFocus();
+    await user.keyboard('{Enter}');
+    // No "Choose a file" error: nothing tried to upload.
+    expect(fileInput).not.toHaveAttribute('aria-invalid');
+  });
+
   it('follows the picked file with the suggested name in the inline upload too', async () => {
     const user = userEvent.setup();
     await openAdd(user);

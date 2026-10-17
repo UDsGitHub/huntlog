@@ -1,5 +1,6 @@
 import { isResumeInUse, NotFoundError } from './applications';
 import { db as defaultDb, type JobLogDB } from './db';
+import { foldText } from './listQuery';
 import type { Resume } from './types';
 
 /** Spec §4.6: PDF, DOCX, DOC, TXT or RTF, up to 10 MB. */
@@ -159,6 +160,22 @@ export async function addResume(
     await database.resumeFiles.add({ id: resume.id, data });
   });
   return resume;
+}
+
+/**
+ * The Resumes tab's search (spec §4.6): over the display name and the file name, case- and
+ * accent-insensitive, every word must appear in one or the other. Order is kept.
+ */
+export function searchResumes<T extends Pick<Resume, 'name' | 'fileName'>>(
+  resumes: readonly T[],
+  search: string,
+): T[] {
+  const words = foldText(search).split(' ').filter(Boolean);
+  if (words.length === 0) return [...resumes];
+  return resumes.filter((resume) => {
+    const haystack = foldText(`${resume.name} \n ${resume.fileName}`);
+    return words.every((word) => haystack.includes(word));
+  });
 }
 
 /**
