@@ -90,7 +90,7 @@ Before M7 starts, the owner reviews the whole app and makes design decisions. Cl
 - a **copy deck** of every user-facing string, factual and encouraging;
 - a **name shortlist** of about 8 names with a Web Store availability check (the icon follows the name).
 
-Claude then applies the decisions (in M6 follow-up PRs) before starting M7.
+Claude then applies the decisions (in follow-up PRs, released as v0.6.x) before starting M7.
 
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.

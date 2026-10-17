@@ -1,6 +1,6 @@
 # Design review after M6
 
-Prepared for the owner's review before M7 (milestones.md, "After M6: owner design review"). The decisions go into spec.md and are applied in M6 follow-up PRs before M7 starts.
+Prepared for the owner's review before M7 (milestones.md, "After M6: owner design review"). M6 itself is done and tagged v0.6.0; the decisions go into spec.md and are applied in follow-up PRs (v0.6.x) before M7 starts.
 
 - **Screenshots:** every screen at 320px in light and dark, below. Regenerate with `npm run build && npm run screenshots` (`review/screenshots.spec.ts`; dates are fixed to Fri Oct 16 2026).
 - **Copy deck:** [copy-deck.md](copy-deck.md), every user-facing string by screen with its source line. Regenerate with `node review/copy-deck.ts`.

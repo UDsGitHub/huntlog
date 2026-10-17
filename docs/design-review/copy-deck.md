@@ -43,10 +43,12 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Jobs without a date applied (such as Saved ones) are hidden. | `components/ListControls.tsx:264` |
 | Status | `components/ListControls.tsx:286` |
 | None chosen: every status shows. | `components/ListControls.tsx:315` |
+| ${statuses.length} chosen. | `components/ListControls.tsx:315` |
 | Status: ${STATUS_LABELS[application.status]}. Change status | `components/StatusChip.tsx:31` |
 | (current) | `components/StatusSheet.tsx:183` |
 | hasn't got a date applied yet. | `components/StatusSheet.tsx:237` |
 | means you applied, so when was it? | `components/StatusSheet.tsx:237` |
+| ${id}-error ${id}-why | `components/StatusSheet.tsx:249` |
 | Set date | `components/StatusSheet.tsx:272` |
 | Skip | `components/StatusSheet.tsx:275` |
 | Choose another status | `components/StatusSheet.tsx:280` |
@@ -56,6 +58,7 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Restored ${application.company}. | `entrypoints/sidepanel/App.tsx:218` |
 | Couldn't undo the delete. | `entrypoints/sidepanel/App.tsx:227` |
 | Moved ${application.company} to ${STATUS_LABELS[pick.status]}. | `entrypoints/sidepanel/App.tsx:242` |
+| ${application.company} is back to ${STATUS_LABELS[change.before.status]}. | `entrypoints/sidepanel/App.tsx:250` |
 | Couldn't undo: ${application.company} changed since. | `entrypoints/sidepanel/App.tsx:251` |
 | Couldn't undo the status change. | `entrypoints/sidepanel/App.tsx:264` |
 | Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'} | `entrypoints/sidepanel/App.tsx:274` |
@@ -123,6 +126,9 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Discard changes and view existing | `components/DuplicateWarning.tsx:56` |
 | View existing | `components/DuplicateWarning.tsx:56` |
 | Save anyway | `components/DuplicateWarning.tsx:59` |
+| ${resume.name} · ${formatLabel(resume.fileName)} · ${formatTimestampDate(resume.createdAt)} | `components/ResumeField.tsx:21` |
+| ${resume.name} (archived) | `components/ResumeField.tsx:73` |
+| ${snapshot ?? 'Resume'} (file not available) | `components/ResumeField.tsx:75` |
 | Resume | `components/ResumeField.tsx:84` |
 | No resume | `components/ResumeField.tsx:96` |
 | Upload new resume | `components/ResumeField.tsx:105` |
@@ -137,6 +143,7 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Month | `lib/applicationInput.ts:14` |
 | Hour | `lib/applicationInput.ts:15` |
 | Company site | `lib/applicationInput.ts:22` |
+| ${label} must be ${max.toLocaleString()} characters or fewer. | `lib/applicationInput.ts:133` |
 | The date applied can't be in the future. | `lib/applicationInput.ts:148` |
 | Enter the job posting URL. | `lib/applicationInput.ts:161` |
 | Enter a valid web address (http or https). | `lib/applicationInput.ts:162` |
@@ -149,15 +156,19 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Choose per year, month or hour. | `lib/applicationInput.ts:222` |
 | Choose a status. | `lib/applicationInput.ts:238` |
 | Enter the date you applied. | `lib/applicationInput.ts:247` |
+| That resume isn't available any more. Choose another. | `lib/applications.ts:260` |
+| This entry changed meanwhile. Check the date and try again. | `lib/applications.ts:406` |
 
 ## Detail
 
 | Text | Where |
 | --- | --- |
 | Back to applications | `components/ApplicationDetail.tsx:76` |
+| ${slide} flex flex-col gap-3 | `components/ApplicationDetail.tsx:86` |
 | This application isn't available | `components/ApplicationDetail.tsx:90` |
 | It may have been deleted in another window. | `components/ApplicationDetail.tsx:93` |
 | Couldn't delete. Please try again. | `components/ApplicationDetail.tsx:104` |
+| ${slide} flex min-w-0 flex-col gap-4 | `components/ApplicationDetail.tsx:112` |
 | Edit | `components/ApplicationDetail.tsx:128` |
 | More actions for ${app.company} | `components/ApplicationDetail.tsx:135` |
 | Open job posting on ${postingSite(href)} | `components/ApplicationDetail.tsx:154` |
@@ -188,19 +199,24 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
+| Custom dates | `components/DateRangeFields.tsx:29` |
 | Closed – not selected | `components/StatsCharts.tsx:16` |
 | Where they stand now | `components/StatsCharts.tsx:26` |
 | Applications from this range, by their status today. | `components/StatsCharts.tsx:27` |
 | Week of ${formatLocalDate(from)} | `components/StatsCharts.tsx:74` |
 | No applications in this range yet. | `components/StatsCharts.tsx:104` |
+| ${total} ${total === 1 ? 'application' : 'applications'} in this range. The busiest ${per} was ${unit === 'week' ? busiestName.replace(/^Week/, 'the week') : busiestName}, with ${max}. | `components/StatsCharts.tsx:105` |
 | Applications per ${per} | `components/StatsCharts.tsx:112` |
 | Applications per | `components/StatsCharts.tsx:144` |
 | Applications | `components/StatsCharts.tsx:148` |
+| ${count} of ${goal} ${goal === 1 ? 'application' : 'applications'} this week | `components/StatsCharts.tsx:174` |
 | Weekly goal | `components/StatsCharts.tsx:219` |
 | of | `components/StatsCharts.tsx:223` |
 | this week | `components/StatsCharts.tsx:223` |
+| ${remaining} more to reach your goal. | `components/StatsCharts.tsx:227` |
 | Goal reached, and ${count - goal} beyond it. | `components/StatsCharts.tsx:229` |
 | Goal reached. Nice work. | `components/StatsCharts.tsx:230` |
+| ${formatLocalDate(from)} – ${formatLocalDate(to)} | `components/StatsPanel.tsx:31` |
 | Stats | `components/StatsPanel.tsx:83` |
 | Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:106` |
 | Headline numbers | `components/StatsPanel.tsx:111` |
@@ -217,6 +233,7 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Both dates are included. | `components/StatsPanel.tsx:226` |
 | Apply | `components/StatsPanel.tsx:229` |
 | None applied in range | `components/StatsPanel.tsx:299` |
+| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:299` |
 | No rate yet | `components/StatsPanel.tsx:312` |
 | this-week | `lib/stats.ts:31` |
 | This week | `lib/stats.ts:31` |
@@ -256,7 +273,10 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Upload and use | `components/ResumeUpload.tsx:286` |
 | Cancel upload | `components/ResumeUpload.tsx:290` |
 | Archived ${resume.name}. | `components/ResumesPanel.tsx:83` |
+| ${resume.name} is back in your resumes. | `components/ResumesPanel.tsx:83` |
 | Couldn't change ${resume.name}. It may have been deleted. | `components/ResumesPanel.tsx:87` |
+| ${resume.name} is used by applications, so it stays archived. | `components/ResumesPanel.tsx:98` |
+| ${resume.name} is used by applications, so it was archived instead. | `components/ResumesPanel.tsx:100` |
 | Deleted ${resume.name}. | `components/ResumesPanel.tsx:107` |
 | Restored ${resume.name}. | `components/ResumesPanel.tsx:112` |
 | Couldn't restore ${resume.name}. | `components/ResumesPanel.tsx:113` |
@@ -274,12 +294,16 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Saved. | `components/ResumesPanel.tsx:259` |
 | No resumes yet. Upload the versions you send, so you always know which one went with each application. | `components/ResumesPanel.tsx:282` |
 | Upload your first resume | `components/ResumesPanel.tsx:287` |
+| ${resume.name} isn't available any more. | `components/ResumesPanel.tsx:313` |
+| ${formatLabel(resume.fileName)} · ${formatBytes(resume.size)} · Uploaded ${formatTimestampDate(resume.createdAt)} | `components/ResumesPanel.tsx:315` |
 | ${verb} ${resume.name} | `components/ResumesPanel.tsx:324` |
 | More actions for ${resume.name} | `components/ResumesPanel.tsx:344` |
 | Couldn't save. It may have been deleted. | `components/ResumesPanel.tsx:457` |
 | Rename resume | `components/ResumesPanel.tsx:477` |
 | Saving… | `components/ResumesPanel.tsx:487` |
 | Rename ${resume.name} | `components/ResumesPanel.tsx:495` |
+| This resume isn't available. It may have been deleted. | `entrypoints/resume-viewer/main.ts:23` |
+| Couldn't open this resume. | `entrypoints/resume-viewer/main.ts:35` |
 | Choose a file of 10 MB or less. | `lib/resumes.ts:75` |
 | Choose a PDF, DOCX, DOC, TXT or RTF file. | `lib/resumes.ts:85` |
 | This file is empty. | `lib/resumes.ts:86` |
@@ -287,6 +311,8 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Enter a name for this resume. | `lib/resumes.ts:116` |
 | Use ${MAX_RESUME_NAME_LENGTH} characters or fewer. | `lib/resumes.ts:118` |
 | Use ${MAX_RESUME_NOTE_LENGTH} characters or fewer. | `lib/resumes.ts:121` |
+| ${resume.name} \n ${resume.fileName} | `lib/resumes.ts:176` |
+| Resume | `entrypoints/resume-viewer/index.html:6` |
 
 ## Settings
 
@@ -329,28 +355,48 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Privacy policy | `components/SettingsPanel.tsx:590` |
 | Third-party notices | `components/SettingsPanel.tsx:596` |
 | Job Log | `components/SettingsPanel.tsx:601` |
+| Job Log: third-party notices | `entrypoints/notices/index.html:6` |
+| Job Log bundles the following open-source work. Nothing is loaded from the internet. | `entrypoints/notices/index.html:32` |
+| Geist font | `entrypoints/notices/index.html:34` |
+| Geist Sans, a Latin subset, by Vercel in collaboration with basement.studio ( | `entrypoints/notices/index.html:36` |
+| vercel.com/font | `entrypoints/notices/index.html:37` |
+| ). Licensed under the SIL Open Font License 1.1. | `entrypoints/notices/index.html:39` |
+| Lucide icons | `entrypoints/notices/index.html:135` |
+| Icons from Lucide ( | `entrypoints/notices/index.html:137` |
+| lucide.dev | `entrypoints/notices/index.html:137` |
+| ), version 0.460.0. Licensed under the ISC License. | `entrypoints/notices/index.html:1` |
+| Job Log: privacy policy | `entrypoints/privacy/index.html:6` |
+| Draft. This page is a placeholder; the final policy is written before Job Log is published on the Chrome Web Store. | `entrypoints/privacy/index.html:29` |
+| Your data stays on this device | `entrypoints/privacy/index.html:32` |
+| Job Log stores the applications you log, the resumes you upload and your settings only in this browser, on this device. It has no account and no server, and it never sends your data anywhere. | `entrypoints/privacy/index.html:34` |
+| Nothing is collected | `entrypoints/privacy/index.html:38` |
+| Job Log doesn't collect, sell or share any information, and it uses no analytics or tracking. | `entrypoints/privacy/index.html:40` |
+| Reading pages only when you ask | `entrypoints/privacy/index.html:43` |
+| Job Log reads a web page only when you choose "Add job to Job Log" or press its shortcut, to fill in the form for you. It can't read pages otherwise. | `entrypoints/privacy/index.html:45` |
+| Deleting your data | `entrypoints/privacy/index.html:48` |
+| Settings → Your data → Delete all data removes everything. Removing the extension removes it too. | `entrypoints/privacy/index.html:50` |
 
 ## Shared (sheets, toasts, tabs)
 
 | Text | Where |
 | --- | --- |
-| Custom dates | `components/DateRangeFields.tsx:29` |
+| ${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] ${ FIELD_SIZING ? 'resize-y' : 'resize-none' } | `components/AutoGrowTextarea.tsx:53` |
 | Back | `components/Sheet.tsx:250` |
 | Close | `components/Sheet.tsx:270` |
 | Discard your changes? | `components/Sheet.tsx:304` |
 | Discard | `components/Sheet.tsx:315` |
 | Keep editing | `components/Sheet.tsx:323` |
+| ${index * 100}% 0 | `components/TabBar.tsx:94` |
 | Dismiss | `components/Toast.tsx:188` |
 | Add job to Job Log | `entrypoints/background.ts:11` |
 | Add linked job to Job Log | `entrypoints/background.ts:13` |
-| This resume isn't available. It may have been deleted. | `entrypoints/resume-viewer/main.ts:23` |
-| Couldn't open this resume. | `entrypoints/resume-viewer/main.ts:35` |
-| That resume isn't available any more. Choose another. | `lib/applications.ts:260` |
-| This entry changed meanwhile. Check the date and try again. | `lib/applications.ts:406` |
 | This date can't be in the future. | `lib/dates.ts:43` |
 | Enter a valid date. | `lib/dates.ts:46` |
 | year | `lib/format.ts:3` |
 | month | `lib/format.ts:3` |
 | hour | `lib/format.ts:3` |
+| ${salaryCurrency} ${plain(value)} | `lib/format.ts:33` |
 | From ${money(min)} | `lib/format.ts:42` |
 | Up to ${money(max!)} | `lib/format.ts:43` |
+| ${range} per ${PERIOD_LABELS[salaryPeriod]} | `lib/format.ts:44` |
+| Job Log | `entrypoints/sidepanel/index.html:6` |

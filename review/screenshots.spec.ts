@@ -89,6 +89,9 @@ test('design-review screenshots', async ({ session }) => {
   await page.waitForTimeout(6_000);
 
   for (const theme of ['light', 'dark'] as const) {
+    // A fresh panel each pass, so state left by the light pass (scrolled chips, focus) can't
+    // differ between the two shots of a screen. The theme is a setting, so it stays.
+    await page.reload();
     await setTheme(page, theme === 'light' ? 'Light' : 'Dark');
     // Picking the theme scrolled the tab: show it from the top.
     await scrollPanel(page, 0);

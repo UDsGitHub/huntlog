@@ -25,7 +25,7 @@ Gotchas:
 
 ## Architecture (from spec.md §3–§9)
 
-**M6 redesign in progress:** `spec.md` already describes the M6 UI (sheets, sliding tabs, the new list row and filters, the form in a sheet). The sections below describe the code as it is now, and each M6 PR updates the parts it changes. Until then, where they disagree about UI, build what the spec says.
+**UI:** the M6 redesign is done (v0.6.0), so the sections below describe the code. Decisions from the post-M6 design review (`docs/design-review/`) land as v0.6.x follow-up PRs before M7, each updating `spec.md` and these sections.
 
 **Local-first, no network.** All data lives in the browser. Applications and Resumes (file Blobs) are in IndexedDB via Dexie (`lib/db.ts`). Settings are in `chrome.storage.local`. Never add fetch calls, analytics, remote code, or host permissions: the Web Store privacy pitch depends on this.
 
