@@ -56,9 +56,9 @@ interface Props {
 }
 
 /**
- * Settings (spec §4.8), the content of the sheet the header's gear opens: cards for the weekly goal, display, your data, and about. Every
- * change saves as it's made and applies in every open window (settings live in storage, and
- * `useSettings` follows changes from anywhere).
+ * Settings (spec §4.8), the content of the sheet the header's gear opens: cards for the weekly
+ * goal, display, your data, and about. Every change saves as it's made and applies in every open
+ * window (settings live in storage, and `useSettings` follows changes from anywhere).
  */
 export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
   const settings = useSettings();

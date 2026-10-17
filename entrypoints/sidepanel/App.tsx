@@ -18,6 +18,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { focusOpenSheet, Sheet } from '@/components/Sheet';
 import { StatsPanel } from '@/components/StatsPanel';
 import { StatusSheetProvider } from '@/components/StatusSheet';
+import { useSettings } from '@/components/useSettings';
 import { panelState, TabPanel, useTabSlide } from '@/components/TabPanels';
 import { useTheme } from '@/components/useTheme';
 import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
@@ -78,6 +79,12 @@ export default function App() {
   const [uploadOpen, setUploadOpen] = useState(false);
   // Settings, a sheet over whatever tab is showing (spec §3), opened by the header's gear.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // From opening until it has finished sliding out: the page behind is inert meanwhile, so focus
+  // meant for it (the restored row after Undo, + Add) waits until then.
+  const [settingsShown, setSettingsShown] = useState(false);
+  // Loaded once for the whole panel (useTheme reads them too): Settings opens with its cards.
+  const settingsLoaded = useSettings() !== undefined;
+  if (settingsOpen && settingsLoaded && !settingsShown) setSettingsShown(true);
   const selectTab = useCallback((next: TabId) => {
     tabRef.current = next;
     setTab(next);
@@ -173,6 +180,8 @@ export default function App() {
    */
   const isCurrent = (v: View) => viewRef.current === v;
   const sectionState = (id: TabId) => panelState(id, tab, slide.leaving);
+  // A sheet covers the page (a form, or Settings until it has gone): focus can't go to it yet.
+  const pageInert = Boolean(sheetView) || settingsShown;
 
   function announce(text: string) {
     setAnnouncement(({ count }) => ({ text, count: count + 1 }));
@@ -289,12 +298,13 @@ export default function App() {
     // The toast's button had focus and is gone; put focus somewhere sensible. After Undo, the
     // restored row takes it once the restore finishes.
     if (reason !== 'dismiss') return;
+    // Behind an open sheet (Settings, a form) the page is inert: focus stays in the sheet.
+    if (focusOpenSheet()) return;
     if (tabRef.current !== 'applications') {
       document.getElementById(tabId(TAB_PREFIX, tabRef.current))?.focus();
     } else if (viewRef.current.name === 'list') {
       setFocusTarget({ kind: 'add' });
-    } else if (!focusOpenSheet()) {
-      // Behind an open sheet the page is inert: focus stays in the sheet instead.
+    } else {
       heading.current?.focus();
     }
   }
@@ -390,7 +400,7 @@ export default function App() {
                       onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
                       // Not while a sheet is on screen: the page behind it is inert until it's gone.
                       focusRowId={
-                        !sheetView && focusTarget?.kind === 'row' ? focusTarget.id : undefined
+                        !pageInert && focusTarget?.kind === 'row' ? focusTarget.id : undefined
                       }
                       awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
                       onRowFocused={clearFocusTarget}
@@ -440,12 +450,13 @@ export default function App() {
             />
           </TabPanel>
         </div>
+        {/* Not dismissible: it holds a text field (the weekly goal). */}
         <Sheet
-          open={settingsOpen}
+          open={settingsOpen && settingsLoaded}
           onClose={() => setSettingsOpen(false)}
+          onClosed={() => setSettingsShown(false)}
           title="Settings"
           size="full"
-          dismissible
         >
           <SettingsPanel
             onDataDeleted={handleDataDeleted}
@@ -516,7 +527,7 @@ export default function App() {
         {/* Stays mounted under an Add sheet: it's where focus returns when that closes. */}
         {tab === 'applications' && base.name === 'list' && view.name !== 'edit' && (
           <AddButton
-            focus={!sheetView && focusTarget?.kind === 'add'}
+            focus={!pageInert && focusTarget?.kind === 'add'}
             onFocused={clearFocusTarget}
             onClick={openAdd}
           />

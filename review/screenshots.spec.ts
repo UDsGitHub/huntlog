@@ -96,10 +96,7 @@ test('design-review screenshots', async ({ session }) => {
     await page.reload();
     await setTheme(page, theme === 'light' ? 'Light' : 'Dark');
     // Picking the theme scrolled the sheet: show it from the top.
-    await settings
-      .locator('.sheet-panel > div')
-      .nth(1)
-      .evaluate((body) => body.scrollTo(0, 0));
+    await settings.locator('[data-sheet-body]').evaluate((body) => body.scrollTo(0, 0));
     await shot(page, 'settings', theme);
     await settings.getByRole('button', { name: 'Delete all data' }).click();
     await shot(page, 'sheet-delete-all', theme);

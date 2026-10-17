@@ -52,30 +52,30 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Set date | `components/StatusSheet.tsx:272` |
 | Skip | `components/StatusSheet.tsx:275` |
 | Choose another status | `components/StatusSheet.tsx:280` |
-| Your captured job is ready. | `entrypoints/sidepanel/App.tsx:143` |
-| Job captured. It opens when you finish editing. | `entrypoints/sidepanel/App.tsx:187` |
-| Deleted ${application.company}. | `entrypoints/sidepanel/App.tsx:216` |
-| Restored ${application.company}. | `entrypoints/sidepanel/App.tsx:222` |
-| Couldn't undo the delete. | `entrypoints/sidepanel/App.tsx:231` |
-| Moved ${application.company} to ${STATUS_LABELS[pick.status]}. | `entrypoints/sidepanel/App.tsx:246` |
-| ${application.company} is back to ${STATUS_LABELS[change.before.status]}. | `entrypoints/sidepanel/App.tsx:254` |
-| Couldn't undo: ${application.company} changed since. | `entrypoints/sidepanel/App.tsx:255` |
-| Couldn't undo the status change. | `entrypoints/sidepanel/App.tsx:268` |
-| Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'} | `entrypoints/sidepanel/App.tsx:278` |
-| Couldn't change the status of ${application.company}. | `entrypoints/sidepanel/App.tsx:283` |
-| Job Log | `entrypoints/sidepanel/App.tsx:316` |
-| Settings | `entrypoints/sidepanel/App.tsx:320` |
-| Job Log sections | `entrypoints/sidepanel/App.tsx:339` |
-| Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:470` |
-| Saved changes. | `entrypoints/sidepanel/App.tsx:502` |
-| Upload resume | `entrypoints/sidepanel/App.tsx:526` |
-| Upload | `entrypoints/sidepanel/App.tsx:527` |
-| Add application | `entrypoints/sidepanel/App.tsx:552` |
-| Add | `entrypoints/sidepanel/App.tsx:553` |
-| Edit application | `entrypoints/sidepanel/App.tsx:595` |
-| This application isn't available any more. | `entrypoints/sidepanel/App.tsx:598` |
-| Job captured. Check the auto-filled fields. | `entrypoints/sidepanel/App.tsx:618` |
-| Add the job details below. | `entrypoints/sidepanel/App.tsx:619` |
+| Your captured job is ready. | `entrypoints/sidepanel/App.tsx:150` |
+| Job captured. It opens when you finish editing. | `entrypoints/sidepanel/App.tsx:196` |
+| Deleted ${application.company}. | `entrypoints/sidepanel/App.tsx:225` |
+| Restored ${application.company}. | `entrypoints/sidepanel/App.tsx:231` |
+| Couldn't undo the delete. | `entrypoints/sidepanel/App.tsx:240` |
+| Moved ${application.company} to ${STATUS_LABELS[pick.status]}. | `entrypoints/sidepanel/App.tsx:255` |
+| ${application.company} is back to ${STATUS_LABELS[change.before.status]}. | `entrypoints/sidepanel/App.tsx:263` |
+| Couldn't undo: ${application.company} changed since. | `entrypoints/sidepanel/App.tsx:264` |
+| Couldn't undo the status change. | `entrypoints/sidepanel/App.tsx:277` |
+| Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'} | `entrypoints/sidepanel/App.tsx:287` |
+| Couldn't change the status of ${application.company}. | `entrypoints/sidepanel/App.tsx:292` |
+| Job Log | `entrypoints/sidepanel/App.tsx:326` |
+| Settings | `entrypoints/sidepanel/App.tsx:330` |
+| Job Log sections | `entrypoints/sidepanel/App.tsx:349` |
+| Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:481` |
+| Saved changes. | `entrypoints/sidepanel/App.tsx:513` |
+| Upload resume | `entrypoints/sidepanel/App.tsx:537` |
+| Upload | `entrypoints/sidepanel/App.tsx:538` |
+| Add application | `entrypoints/sidepanel/App.tsx:563` |
+| Add | `entrypoints/sidepanel/App.tsx:564` |
+| Edit application | `entrypoints/sidepanel/App.tsx:606` |
+| This application isn't available any more. | `entrypoints/sidepanel/App.tsx:609` |
+| Job captured. Check the auto-filled fields. | `entrypoints/sidepanel/App.tsx:629` |
+| Add the job details below. | `entrypoints/sidepanel/App.tsx:630` |
 | Saved | `lib/status.ts:18` |
 | Applied | `lib/status.ts:19` |
 | Screening | `lib/status.ts:20` |
@@ -378,10 +378,10 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] resize-none | `components/AutoGrowTextarea.tsx:59` |
 | Back | `components/Sheet.tsx:253` |
 | Close | `components/Sheet.tsx:273` |
-| Discard your changes? | `components/Sheet.tsx:315` |
-| What you've changed here won't be saved. | `components/Sheet.tsx:318` |
-| Keep editing | `components/Sheet.tsx:328` |
-| Discard | `components/Sheet.tsx:338` |
+| Discard your changes? | `components/Sheet.tsx:316` |
+| What you've changed here won't be saved. | `components/Sheet.tsx:319` |
+| Keep editing | `components/Sheet.tsx:329` |
+| Discard | `components/Sheet.tsx:339` |
 | ${index * 100}% 0 | `components/TabBar.tsx:95` |
 | Dismiss | `components/Toast.tsx:190` |
 | Add job to Job Log | `entrypoints/background.ts:11` |

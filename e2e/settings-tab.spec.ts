@@ -157,3 +157,35 @@ test('About links open the bundled privacy policy and notices', async ({ session
   await expect(privacy.getByRole('heading', { name: 'Privacy policy' })).toBeVisible();
   await expect(settings(page)).toContainText(/Job Log \d+\.\d+\.\d+/);
 });
+
+test('Undo in a toast over Settings closes it and focuses the restored row', async ({
+  session,
+}) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await addJob(page, 'Acme');
+  await page.getByRole('button', { name: /^Acme/ }).click();
+  await page.getByRole('button', { name: /^More actions for/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await settingsTab(page).click();
+  // The toast moved into Settings, where it stays usable.
+  await settings(page).getByRole('button', { name: 'Undo' }).click();
+  await expect(settings(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Acme/ })).toBeFocused();
+});
+
+test('closing a toast inside Settings keeps focus in Settings', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await page.getByRole('tab', { name: 'Stats' }).click();
+  await settingsTab(page).click();
+  await settings(page).getByRole('button', { name: 'Reset settings' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Reset settings?' });
+  await sheet.getByRole('button', { name: 'Reset settings' }).click();
+  await expect(sheet).toBeHidden();
+  await settings(page).getByRole('button', { name: 'Dismiss' }).click();
+  await expect(page.getByText('Settings reset.')).toBeHidden();
+  expect(await settings(page).evaluate((dialog) => dialog.contains(document.activeElement))).toBe(
+    true,
+  );
+});
