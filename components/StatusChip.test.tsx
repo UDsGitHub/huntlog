@@ -8,6 +8,11 @@ import App from '@/entrypoints/sidepanel/App';
 import { StatusChip } from './StatusChip';
 
 beforeEach(async () => {
+  // Sheets close at once, so focus is back on the chip without waiting for the slide.
+  const real = window.matchMedia.bind(window);
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+    query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+  );
   await db.delete();
   await db.open();
 });
@@ -20,6 +25,10 @@ const chipFor = (company: string) =>
     'button',
     { name: /^Status: / },
   );
+
+/** A status in the open sheet. */
+const option = (name: string) =>
+  within(screen.getByRole('dialog', { name: 'Change status' })).getByRole('button', { name });
 
 async function seedSaved(company = 'Acme') {
   const result = await saveApplication({
@@ -37,105 +46,81 @@ async function renderList() {
 }
 
 describe('StatusChip (unit)', () => {
-  const app = { company: 'Acme', status: 'applied' as const, appliedAt: '2026-10-01' };
+  const app = {
+    company: 'Acme',
+    title: 'Engineer',
+    status: 'applied' as const,
+    appliedAt: '2026-10-01',
+  };
+  const chip = () => screen.getByRole('button', { name: /^Status: / });
 
-  it('is a menu button labelled with the current status', () => {
+  it('is a button that opens a dialog, labelled with the current status', () => {
     render(<StatusChip application={app} onPick={() => {}} />);
-    const chip = screen.getByRole('button', { name: 'Status: Applied. Change status' });
-    expect(chip).toHaveAttribute('aria-haspopup', 'menu');
-    expect(chip).toHaveAttribute('aria-expanded', 'false');
+    expect(chip()).toHaveAccessibleName('Status: Applied. Change status');
+    expect(chip()).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
-  it('opens a menu of all 9 statuses in Active and Closed groups, current one checked and focused', async () => {
+  it('opens a sheet of all 9 statuses in Active and Closed groups, the current one marked and focused', async () => {
     const user = userEvent.setup();
     render(<StatusChip application={app} onPick={() => {}} />);
-    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
-    const menu = screen.getByRole('menu', { name: 'Change status for Acme' });
-    const items = within(menu).getAllByRole('menuitemradio');
-    expect(items.map((i) => i.textContent?.replace('✓', ''))).toEqual([
-      'Saved',
-      'Applied',
-      'Screening',
-      'Interviewing',
-      'Offer',
-      'Accepted',
-      'Rejected',
-      'Withdrawn',
-      'Ghosted',
-    ]);
-    expect(within(menu).getByRole('group', { name: 'Active' })).toBeInTheDocument();
-    expect(within(menu).getByRole('group', { name: 'Closed' })).toBeInTheDocument();
-    const current = within(menu).getByRole('menuitemradio', { name: /Applied/ });
-    expect(current).toHaveAttribute('aria-checked', 'true');
+    await user.click(chip());
+    const sheet = screen.getByRole('dialog', { name: 'Change status' });
+    expect(sheet).toHaveAccessibleDescription('Acme · Engineer');
+    expect(
+      within(within(sheet).getByRole('group', { name: 'Active' }))
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Saved', 'Applied(current)', 'Screening', 'Interviewing', 'Offer']);
+    expect(
+      within(within(sheet).getByRole('group', { name: 'Closed' }))
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Accepted', 'Rejected', 'Withdrawn', 'Ghosted']);
+    const current = within(sheet).getByRole('button', { name: 'Applied (current)' });
+    expect(current).toHaveAttribute('aria-current', 'true');
     expect(current).toHaveFocus();
-    expect(screen.getByRole('button', { name: /Status: Applied/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
   });
 
-  it('moves with arrows (wrapping), Home and End, and picks with Enter', async () => {
+  it('arrow keys move without changing anything (wrapping); Enter picks', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
     render(<StatusChip application={app} onPick={onPick} />);
-    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
+    await user.click(chip());
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('menuitemradio', { name: 'Screening' })).toHaveFocus();
+    expect(option('Screening')).toHaveFocus();
     await user.keyboard('{End}');
-    expect(screen.getByRole('menuitemradio', { name: 'Ghosted' })).toHaveFocus();
+    expect(option('Ghosted')).toHaveFocus();
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('menuitemradio', { name: 'Saved' })).toHaveFocus();
+    expect(option('Saved')).toHaveFocus();
     await user.keyboard('{ArrowUp}{Home}{ArrowDown}{ArrowDown}{ArrowDown}');
-    expect(screen.getByRole('menuitemradio', { name: 'Interviewing' })).toHaveFocus();
+    expect(option('Interviewing')).toHaveFocus();
+    expect(onPick).not.toHaveBeenCalled();
     await user.keyboard('{Enter}');
     expect(onPick).toHaveBeenCalledWith({ status: 'interviewing' });
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(screen.getByRole('button', { name: /Status: Applied/ })).toHaveFocus();
-  });
-
-  it('opens from the keyboard with ArrowDown and picks with Space', async () => {
-    const onPick = vi.fn();
-    const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={onPick} />);
-    act(() => screen.getByRole('button', { name: /Status: Applied/ }).focus());
-    await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('menu')).toBeInTheDocument();
-    await user.keyboard('{ArrowUp} ');
-    expect(onPick).toHaveBeenCalledWith({ status: 'saved' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(chip()).toHaveFocus();
   });
 
   it('Escape closes without a change and returns focus to the chip', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
     render(<StatusChip application={app} onPick={onPick} />);
-    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
+    await user.click(chip());
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(screen.getByRole('button', { name: /Status: Applied/ })).toHaveFocus();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(chip()).toHaveFocus();
     expect(onPick).not.toHaveBeenCalled();
-  });
-
-  it('Tab closes the menu and keeps focus on the chip', async () => {
-    const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={() => {}} />);
-    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
-    await user.keyboard('{ArrowDown}{Tab}');
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(screen.getByRole('button', { name: /Status: Applied/ })).toHaveFocus();
   });
 
   it('a click outside closes without a change', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
-    render(
-      <>
-        <StatusChip application={app} onPick={onPick} />
-        <p>elsewhere</p>
-      </>,
-    );
-    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
-    await user.click(screen.getByText('elsewhere'));
-    expect(screen.queryByRole('menu')).toBeNull();
+    render(<StatusChip application={app} onPick={onPick} />);
+    await user.click(chip());
+    const dialog = document.querySelector('dialog')!;
+    fireEvent.pointerDown(dialog);
+    fireEvent.click(dialog);
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(onPick).not.toHaveBeenCalled();
   });
 
@@ -143,33 +128,34 @@ describe('StatusChip (unit)', () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
     render(<StatusChip application={app} onPick={onPick} />);
-    await user.click(screen.getByRole('button', { name: /Status: Applied/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: /Applied/ }));
+    await user.click(chip());
+    await user.click(option('Applied (current)'));
     expect(onPick).not.toHaveBeenCalled();
-    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('never colors Rejected red', () => {
     render(<StatusChip application={{ ...app, status: 'rejected' }} onPick={() => {}} />);
-    expect(screen.getByRole('button', { name: /Status: Rejected/ }).className).not.toMatch(/red/);
+    expect(chip().className).not.toMatch(/red|destructive/);
   });
 });
 
-describe('Date applied prompt', () => {
+describe('Date applied step', () => {
   const saved = { company: 'Acme', status: 'saved' as const };
 
   async function pick(user: User, status: string, onPick = vi.fn()) {
     render(<StatusChip application={saved} onPick={onPick} />);
     await user.click(screen.getByRole('button', { name: /Status: Saved/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: status }));
+    await user.click(option(status));
     return onPick;
   }
 
-  it('asks when moving to a status that implies an application, defaulting to today', async () => {
+  it('asks in the same sheet when moving to a status that implies an application', async () => {
     const user = userEvent.setup();
     const onPick = await pick(user, 'Interviewing');
-    const dialog = screen.getByRole('dialog', { name: 'When did you apply?' });
-    const date = within(dialog).getByLabelText('Date applied');
+    const sheet = screen.getByRole('dialog', { name: 'When did you apply?' });
+    expect(sheet).toHaveAccessibleDescription('Moving Acme to Interviewing.');
+    const date = within(sheet).getByLabelText('Date applied');
     expect(date).toHaveValue(todayLocal());
     expect(date).toHaveFocus();
     expect(onPick).not.toHaveBeenCalled();
@@ -178,10 +164,9 @@ describe('Date applied prompt', () => {
   it('Set date passes the chosen date', async () => {
     const user = userEvent.setup();
     const onPick = await pick(user, 'Offer');
-    const date = screen.getByLabelText('Date applied');
-    fireEvent.change(date, { target: { value: '2026-09-20' } });
+    fireEvent.change(screen.getByLabelText('Date applied'), { target: { value: '2026-09-30' } });
     await user.click(screen.getByRole('button', { name: 'Set date' }));
-    expect(onPick).toHaveBeenCalledWith({ status: 'offer', appliedAt: '2026-09-20' });
+    expect(onPick).toHaveBeenCalledWith({ status: 'offer', appliedAt: '2026-09-30' });
     expect(screen.getByRole('button', { name: /Status: Saved/ })).toHaveFocus();
   });
 
@@ -194,40 +179,24 @@ describe('Date applied prompt', () => {
 
   it('rejects a future date with a linked error', async () => {
     const user = userEvent.setup();
-    const onPick = await pick(user, 'Screening');
-    const date = screen.getByLabelText('Date applied');
-    fireEvent.change(date, { target: { value: '2999-01-01' } });
+    const onPick = await pick(user, 'Offer');
+    fireEvent.change(screen.getByLabelText('Date applied'), { target: { value: '2999-01-01' } });
     await user.click(screen.getByRole('button', { name: 'Set date' }));
-    expect(date).toHaveAccessibleDescription("The date applied can't be in the future.");
+    const date = screen.getByLabelText('Date applied');
+    expect(date).toHaveAttribute('aria-invalid', 'true');
+    expect(date).toHaveAccessibleDescription(/future/);
     expect(onPick).not.toHaveBeenCalled();
   });
 
-  it('Escape cancels the whole change', async () => {
+  it('Escape cancels the whole change, and the next opening starts at the list', async () => {
     const user = userEvent.setup();
-    const onPick = await pick(user, 'Ghosted');
+    const onPick = await pick(user, 'Offer');
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(onPick).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /Status: Saved/ })).toHaveFocus();
-  });
-
-  it('tabbing out of the prompt cancels the change', async () => {
-    const onPick = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <>
-        <StatusChip application={saved} onPick={onPick} />
-        <button type="button">Next row</button>
-      </>,
-    );
     await user.click(screen.getByRole('button', { name: /Status: Saved/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
-    await user.tab(); // Set date
-    await user.tab(); // Skip
-    await user.tab(); // out of the prompt
-    expect(screen.getByRole('button', { name: 'Next row' })).toHaveFocus();
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(onPick).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Change status' })).toBeInTheDocument();
   });
 
   it.each([['Applied'], ['Withdrawn']])("doesn't ask for %s", async (status) => {
@@ -242,7 +211,7 @@ describe('Date applied prompt', () => {
     const user = userEvent.setup();
     render(<StatusChip application={{ ...saved, appliedAt: '2026-10-01' }} onPick={onPick} />);
     await user.click(screen.getByRole('button', { name: /Status: Saved/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Interviewing' }));
+    await user.click(option('Interviewing'));
     expect(onPick).toHaveBeenCalledWith({ status: 'interviewing' });
   });
 });
@@ -253,7 +222,7 @@ describe('Status changes in the panel', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipFor('Acme'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Interviewing' }));
+    await user.click(option('Interviewing'));
 
     await waitFor(() => expect(chipFor('Acme')).toHaveTextContent('Interviewing'));
     // Announced once, by the toast's live region, not also by the status region.
@@ -277,7 +246,7 @@ describe('Status changes in the panel', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipFor('Acme'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Interviewing' }));
+    await user.click(option('Interviewing'));
     fireEvent.change(screen.getByLabelText('Date applied'), {
       target: { value: '2026-09-30' },
     });
@@ -297,7 +266,7 @@ describe('Status changes in the panel', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipFor('Acme'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(option('Offer'));
     await screen.findByText('Moved Acme to Offer.');
     await act(async () => {
       await applications.setStatus(app.id, 'accepted');
@@ -314,7 +283,7 @@ describe('Status changes in the panel', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipFor('Acme'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(option('Offer'));
     const undo = await screen.findByRole('button', { name: 'Undo' });
     act(() => undo.focus());
     await user.keyboard('{Enter}');
@@ -330,7 +299,7 @@ describe('Status changes in the panel', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipFor('Acme'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(option('Offer'));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
         "Couldn't change the status of Acme: The date applied can't be in the future.",
@@ -346,7 +315,7 @@ describe('Status changes in the panel', () => {
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
     const detail = await screen.findByRole('region', { name: 'Acme' });
     await user.click(within(detail).getByRole('button', { name: /^Status: Applied/ }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Screening' }));
+    await user.click(option('Screening'));
     await waitFor(() =>
       expect(
         within(detail).getByRole('button', { name: /^Status: Screening/ }),
@@ -361,7 +330,7 @@ describe('Status changes in the panel', () => {
     const user = userEvent.setup();
     await renderList();
     await user.click(chipFor('Acme'));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(option('Offer'));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent("Couldn't change the status of Acme."),
     );

@@ -221,95 +221,97 @@ export function Sheet({
       }}
       className="sheet m-0 h-full max-h-none w-full max-w-none border-0 bg-transparent p-0 text-foreground"
     >
-      <div
-        className={`sheet-panel absolute inset-x-0 bottom-0 flex flex-col rounded-t-xl border-t bg-background shadow-xl ${
-          size === 'full' ? 'h-[calc(100%-0.75rem)]' : 'max-h-[calc(100%-2rem)]'
-        }`}
-      >
-        <div {...inert(panelInert)} className="flex shrink-0 items-center gap-2 px-4 pt-2 pb-2">
-          {closeButton === 'back' && (
-            <button
-              type="button"
-              onClick={requestClose}
-              aria-label="Back"
-              className="btn btn-ghost btn-icon -ml-2"
-            >
-              <ArrowLeftIcon />
-            </button>
-          )}
-          <div className="flex min-w-0 flex-1 flex-col py-1.5">
-            <h2 id={`${id}-title`} className="section-heading break-words">
-              {title}
-            </h2>
-            {description && (
-              <p id={`${id}-description`} className="text-sm text-muted-foreground">
-                {description}
-              </p>
+      {mounted && (
+        <div
+          className={`sheet-panel absolute inset-x-0 bottom-0 flex flex-col rounded-t-xl border-t bg-background shadow-xl ${
+            size === 'full' ? 'h-[calc(100%-0.75rem)]' : 'max-h-[calc(100%-2rem)]'
+          }`}
+        >
+          <div {...inert(panelInert)} className="flex shrink-0 items-center gap-2 px-4 pt-2 pb-2">
+            {closeButton === 'back' && (
+              <button
+                type="button"
+                onClick={requestClose}
+                aria-label="Back"
+                className="btn btn-ghost btn-icon -ml-2"
+              >
+                <ArrowLeftIcon />
+              </button>
+            )}
+            <div className="flex min-w-0 flex-1 flex-col py-1.5">
+              <h2 id={`${id}-title`} className="section-heading break-words">
+                {title}
+              </h2>
+              {description && (
+                <p id={`${id}-description`} className="text-sm text-muted-foreground">
+                  {description}
+                </p>
+              )}
+            </div>
+            {closeButton === 'close' && (
+              <button
+                type="button"
+                onClick={requestClose}
+                aria-label="Close"
+                className="btn btn-ghost btn-icon -mr-2"
+              >
+                <XIcon />
+              </button>
             )}
           </div>
-          {closeButton === 'close' && (
-            <button
-              type="button"
-              onClick={requestClose}
-              aria-label="Close"
-              className="btn btn-ghost btn-icon -mr-2"
-            >
-              <XIcon />
-            </button>
-          )}
-        </div>
-        <div
-          ref={body}
-          {...inert(panelInert)}
-          className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
-        >
-          {mounted && children}
-        </div>
-        <div className="relative shrink-0">
-          {/* Toasts render here while this sheet is open: just above the footer. Never inert. */}
           <div
-            ref={toastRegion}
-            aria-live="polite"
-            className="pointer-events-none absolute inset-x-3 bottom-full mb-2 flex justify-center"
-          />
-          {mounted && footer && (
-            <div {...inert(panelInert)} className="border-t bg-background px-4 py-3">
-              {footer}
-            </div>
-          )}
-        </div>
-        {confirming && (
-          <div
-            role="alertdialog"
-            aria-labelledby={`${id}-discard`}
-            className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-xl border-t bg-popover p-4 text-popover-foreground shadow-xl"
+            ref={body}
+            {...inert(panelInert)}
+            className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
           >
-            <p id={`${id}-discard`} className="text-sm font-medium">
-              Discard your changes?
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  confirmFrom.current = null;
-                  onClose();
-                }}
-                className="btn btn-destructive flex-1"
-              >
-                Discard
-              </button>
-              <button
-                ref={keepEditing}
-                type="button"
-                onClick={() => setConfirming(false)}
-                className="btn btn-outline flex-1"
-              >
-                Keep editing
-              </button>
-            </div>
+            {children}
           </div>
-        )}
-      </div>
+          <div className="relative shrink-0">
+            {/* Toasts render here while this sheet is open: just above the footer. Never inert. */}
+            <div
+              ref={toastRegion}
+              aria-live="polite"
+              className="pointer-events-none absolute inset-x-3 bottom-full mb-2 flex justify-center"
+            />
+            {footer && (
+              <div {...inert(panelInert)} className="border-t bg-background px-4 py-3">
+                {footer}
+              </div>
+            )}
+          </div>
+          {confirming && (
+            <div
+              role="alertdialog"
+              aria-labelledby={`${id}-discard`}
+              className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-xl border-t bg-popover p-4 text-popover-foreground shadow-xl"
+            >
+              <p id={`${id}-discard`} className="text-sm font-medium">
+                Discard your changes?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    confirmFrom.current = null;
+                    onClose();
+                  }}
+                  className="btn btn-destructive flex-1"
+                >
+                  Discard
+                </button>
+                <button
+                  ref={keepEditing}
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="btn btn-outline flex-1"
+                >
+                  Keep editing
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </dialog>
   );
 }

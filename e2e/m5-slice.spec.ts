@@ -23,7 +23,10 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
 
   const acme = page.getByRole('listitem').filter({ hasText: 'Acme' });
   await acme.getByRole('button', { name: /^Status: Applied/ }).click();
-  await page.getByRole('menuitemradio', { name: 'Interviewing' }).click();
+  await page
+    .getByRole('dialog', { name: 'Change status' })
+    .getByRole('button', { name: 'Interviewing', exact: true })
+    .click();
   await expect(acme.getByRole('button', { name: /^Status: / })).toHaveText('Interviewing');
 
   await page.getByRole('tab', { name: 'Stats' }).click();

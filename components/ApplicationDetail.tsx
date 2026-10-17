@@ -102,7 +102,7 @@ export function ApplicationDetail({
 
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
         <Row label="Status">
-          <StatusChip application={app} align="start" onPick={(pick) => onStatusPick(app, pick)} />
+          <StatusChip application={app} onPick={(pick) => onStatusPick(app, pick)} />
         </Row>
         {app.appliedAt && <Row label="Date applied">{formatLocalDate(app.appliedAt)}</Row>}
         {app.resumeId && (

@@ -193,7 +193,11 @@ describe('Tab bar', () => {
     render(<App />);
     const row = await screen.findByRole('button', { name: /^Acme/ });
     await user.click(within(row.parentElement!).getByRole('button', { name: /^Status: / }));
-    await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Change status' })).getByRole('button', {
+        name: 'Offer',
+      }),
+    );
     await user.click(tab('Resumes'));
     await user.click(await screen.findByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(tab('Applications')).toHaveAttribute('aria-selected', 'true'));
