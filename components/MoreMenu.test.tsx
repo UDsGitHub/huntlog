@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MoreMenu } from './MoreMenu';
 
@@ -72,5 +72,24 @@ describe('MoreMenu', () => {
     await user.click(button);
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toHaveClass('text-destructive');
     expect(screen.getByRole('menuitem', { name: 'Archive' })).not.toHaveClass('text-destructive');
+  });
+
+  it('closes when focus leaves it, and keeps Escape to itself', async () => {
+    const outerEscape = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <div onKeyDown={(event) => event.key === 'Escape' && outerEscape()}>
+        <MoreMenu label="More" items={[{ label: 'Delete', onSelect: () => {} }]} />
+        <button type="button">Other</button>
+      </div>,
+    );
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    await user.keyboard('{Escape}');
+    expect(outerEscape).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    // Focus moved by code (e.g. a capture), not by Tab or a click.
+    act(() => screen.getByRole('button', { name: 'Other' }).focus());
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });

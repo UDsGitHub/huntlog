@@ -22,6 +22,10 @@ export function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[
   const button = useRef<HTMLButtonElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Never longer than the items (a menu whose items shrink keeps no stale buttons).
+  useLayoutEffect(() => {
+    itemRefs.current.length = items.length;
+  });
 
   useLayoutEffect(() => {
     if (open) itemRefs.current[0]?.focus();
@@ -42,7 +46,15 @@ export function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[
   }
 
   return (
-    <div ref={container} className="relative">
+    <div
+      ref={container}
+      // Focus leaving the menu any way (window switch, code moving it) closes it, so it never
+      // lingers open with a Delete in it.
+      onBlur={(event) => {
+        if (open && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      className="relative"
+    >
       <button
         ref={button}
         type="button"
@@ -62,7 +74,9 @@ export function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[
           aria-label={label}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
+              // Closes the menu only, not a sheet or view around it.
               event.preventDefault();
+              event.stopPropagation();
               return close(true);
             }
             if (event.key === 'Tab') return close(false);
@@ -79,7 +93,7 @@ export function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[
         >
           {items.map((item, index) => (
             <button
-              key={item.label}
+              key={`${index}-${item.label}`}
               ref={(element) => {
                 itemRefs.current[index] = element;
               }}

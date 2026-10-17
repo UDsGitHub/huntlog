@@ -6,6 +6,7 @@ import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
 import { formatSalary } from '@/lib/format';
 import { ArrowLeftIcon, ExternalLinkIcon, PencilIcon, Trash2Icon } from './icons';
 import { MoreMenu } from './MoreMenu';
+import { toUnicodeHost } from '@/lib/punycode';
 import { StatusChip, type StatusPick } from './StatusChip';
 import { StatusTimeline } from './StatusTimeline';
 import { getResume } from '@/lib/resumes';
@@ -22,10 +23,13 @@ interface Props {
   onStatusPick: (application: Application, pick: StatusPick) => void;
 }
 
-/** A posting's site, for its button: the host without "www." (e.g. boards.greenhouse.io). */
+/**
+ * A posting's site, for its button: the host without "www." (e.g. boards.greenhouse.io), with an
+ * international domain shown as written, not in its xn-- form.
+ */
 export function postingSite(href: string): string {
   try {
-    return new URL(href).hostname.replace(/^www\./, '');
+    return toUnicodeHost(new URL(href).hostname.replace(/^www\./, ''));
   } catch {
     return href;
   }
@@ -50,6 +54,8 @@ export function ApplicationDetail({
   const heading = useRef<HTMLHeadingElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const loaded = app !== undefined;
+  // Slides in when it opens over the list; coming back from Edit, it's simply there again.
+  const slide = initialFocus === 'heading' ? 'page page-slide-in' : 'page';
 
   useLayoutEffect(() => {
     if (!loaded) return;
@@ -71,7 +77,7 @@ export function ApplicationDetail({
   if (app === undefined) return null;
   if (app === null) {
     return (
-      <section aria-labelledby="detail-heading" className="page-slide-in flex flex-col gap-3">
+      <section aria-labelledby="detail-heading" className={`${slide} flex flex-col gap-3`}>
         <div className="flex items-center gap-1">
           {back}
           <h2 id="detail-heading" ref={heading} tabIndex={-1} className="section-heading">
@@ -97,7 +103,7 @@ export function ApplicationDetail({
   const salary = formatSalary(app);
 
   return (
-    <section aria-labelledby="detail-heading" className="page-slide-in flex min-w-0 flex-col gap-4">
+    <section aria-labelledby="detail-heading" className={`${slide} flex min-w-0 flex-col gap-4`}>
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 items-center gap-1">
           {back}

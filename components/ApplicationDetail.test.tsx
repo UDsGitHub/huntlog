@@ -4,6 +4,7 @@ import * as applications from '@/lib/applications';
 import { addApplication, softDeleteApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
+import { postingSite } from './ApplicationDetail';
 
 beforeEach(async () => {
   await db.delete();
@@ -306,5 +307,15 @@ describe('focus after the review fixes', () => {
     await user.click(back);
     expect(await screen.findByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
     expect(app.id).toBeTruthy();
+  });
+});
+
+describe('postingSite', () => {
+  it.each([
+    ['https://www.boards.greenhouse.io/acme/1', 'boards.greenhouse.io'],
+    ['https://jobs.xn--mnchen-3ya.de/42', 'jobs.münchen.de'],
+    ['http://acme.com:8080/jobs', 'acme.com'],
+  ])('%s → %s', (href, site) => {
+    expect(postingSite(href)).toBe(site);
   });
 });

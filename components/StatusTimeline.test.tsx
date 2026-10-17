@@ -189,4 +189,43 @@ describe('Status timeline', () => {
     const input = await editDate(user, timeline, 'Applied', '0202-01-05');
     await waitFor(() => expect(input).toHaveAccessibleDescription('Enter a valid date.'));
   });
+
+  it('drops an open editor whose entry changed elsewhere, rather than saving onto another', async () => {
+    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    await setStatus(app.id, 'interviewing');
+    const user = userEvent.setup();
+    const timeline = await openDetail();
+    await startEdit(user, timeline, 'Interviewing', '2020-01-02');
+    // Another window replaces that entry in one write: Interviewing (undone) became Offer, at
+    // the same position with a new time.
+    await act(async () => {
+      const current = (await db.applications.get(app.id))!;
+      await db.applications.put({
+        ...current,
+        status: 'offer',
+        statusHistory: [
+          current.statusHistory[0]!,
+          { status: 'offer', at: new Date().toISOString() },
+        ],
+      });
+    });
+    await waitFor(() => expect(entries(timeline)).toEqual(['Applied', 'Offer']));
+    // Its editor is gone, not carried over with the typed date to the new entry.
+    expect(within(timeline).queryByLabelText('Offer date')).toBeNull();
+    expect(within(timeline).queryByLabelText('Interviewing date')).toBeNull();
+  });
+
+  it('saves once however fast Save is pressed twice', async () => {
+    const spy = vi.spyOn(applications, 'updateHistoryDate');
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+    const user = userEvent.setup();
+    const timeline = await openDetail();
+    await startEdit(user, timeline, 'Applied', '2025-01-05');
+    const save = within(timeline).getByRole('button', { name: 'Save the date for Applied' });
+    await act(async () => {
+      save.click();
+      save.click();
+    });
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+  });
 });

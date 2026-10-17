@@ -14,6 +14,8 @@ import { STATUS_SWATCH } from './statusColors';
  */
 export function StatusTimeline({ application }: { application: Application }) {
   const id = useId().replace(/:/g, '');
+  // The entry whose pencil gets focus once it re-renders after a saved date (its key changes).
+  const [focusAfterSave, setFocusAfterSave] = useState<number | null>(null);
   const history = application.statusHistory ?? [];
   // Stable: entries on the same instant keep their stored order.
   const sorted = history
@@ -31,13 +33,16 @@ export function StatusTimeline({ application }: { application: Application }) {
         <ol className="ml-1.5 flex flex-col gap-3 border-l-2 border-border pl-5">
           {sorted.map(({ entry, index }) => (
             <TimelineEntry
-              // Keyed by position only: a saved date re-sorts the list, but the entry (and its
-              // pencil, which gets focus back) stays the same component.
-              key={index}
+              // Keyed by position and time: if the entry changes (here or in another window),
+              // an editor open on the old one is dropped rather than saved onto the new one.
+              key={`${index}-${entry.at}`}
               applicationId={application.id}
               index={index}
               status={entry.status}
               at={entry.at}
+              focusPencil={focusAfterSave === index}
+              onSaved={() => setFocusAfterSave(index)}
+              onPencilFocused={() => setFocusAfterSave(null)}
             />
           ))}
         </ol>
@@ -51,11 +56,18 @@ function TimelineEntry({
   index,
   status,
   at,
+  focusPencil,
+  onSaved,
+  onPencilFocused,
 }: {
   applicationId: string;
   index: number;
   status: Status;
   at: string;
+  /** Just saved (and re-keyed): its pencil takes focus back. */
+  focusPencil: boolean;
+  onSaved: () => void;
+  onPencilFocused: () => void;
 }) {
   const id = useId();
   const label = STATUS_LABELS[status];
@@ -64,10 +76,22 @@ function TimelineEntry({
   const [value, setValue] = useState(stored);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // A ref, so a double activation before React re-renders can't save twice.
+  const savingNow = useRef(false);
+  // The panel can stay open past midnight; refreshed whenever the field is focused.
+  const [max, setMax] = useState(() => todayLocal());
   const input = useRef<HTMLInputElement>(null);
   const pencil = useRef<HTMLButtonElement>(null);
   // Where focus goes when the editor closes: the pencil, unless the closing came from elsewhere.
   const refocus = useRef(false);
+
+  useLayoutEffect(() => {
+    // Until the saved date arrives, the old entry (still editing, so without a pencil) is the
+    // one showing: wait for the new one rather than clearing the request.
+    if (!focusPencil || !pencil.current) return;
+    pencil.current.focus();
+    onPencilFocused();
+  }, [focusPencil, onPencilFocused]);
 
   useLayoutEffect(() => {
     if (editing) input.current?.focus();
@@ -89,18 +113,21 @@ function TimelineEntry({
   }
 
   async function save() {
-    if (saving) return;
+    if (savingNow.current) return;
     if (!value) return setError('Enter a date.');
     if (value === stored) return close();
+    savingNow.current = true;
     setSaving(true);
     try {
       const result = await updateHistoryDate(applicationId, { index, at }, value);
       if ('error' in result) setError(result.error);
-      else close();
+      // Saved: this entry re-renders under a new key, and its pencil gets focus there.
+      else onSaved();
     } catch (failure) {
       if (!(failure instanceof NotFoundError)) console.error('updateHistoryDate failed', failure);
       setError("Couldn't save this date.");
     } finally {
+      savingNow.current = false;
       setSaving(false);
     }
   }
@@ -151,7 +178,8 @@ function TimelineEntry({
               id={`${id}-date`}
               type="date"
               min={`${MIN_YEAR}-01-01`}
-              max={todayLocal()}
+              max={max}
+              onFocus={() => setMax(todayLocal())}
               value={value}
               readOnly={saving}
               aria-busy={saving || undefined}
