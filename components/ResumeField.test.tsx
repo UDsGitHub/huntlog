@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
@@ -35,14 +35,38 @@ afterEach(() => vi.restoreAllMocks());
 type User = ReturnType<typeof userEvent.setup>;
 // By role: the Resumes tab (mounted while hidden) has other fields labelled "Resume…".
 const resumeSelect = () => screen.getByRole('combobox', { name: /^Resume/ });
-const optionLabels = () =>
-  [...(resumeSelect() as HTMLSelectElement).options].map((option) => option.textContent);
+/** The options the resume dropdown lists (opened and closed again to read them). */
+function optionLabels() {
+  const field = resumeSelect();
+  if (field.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(screen.getByRole('button', { name: 'Show resumes', hidden: true }));
+  }
+  const labels = within(screen.getByRole('listbox', { name: 'Resumes' }))
+    .getAllByRole('option')
+    .map((option) => option.textContent);
+  fireEvent.keyDown(field, { key: 'Escape' });
+  return labels;
+}
+/** Picks a resume in the dropdown by its label. */
+async function pickResume(user: User, label: string) {
+  await user.click(resumeSelect());
+  await user.click(
+    within(screen.getByRole('listbox', { name: 'Resumes' })).getByRole('option', { name: label }),
+  );
+}
 
 /** Opens Add. Resumes load asynchronously: tests that need one wait for its option. */
 async function openAdd(user: User, waitForOption?: string) {
   render(<App />);
   await user.click(await screen.findByRole('button', { name: 'Add application' }));
-  if (waitForOption) await waitFor(() => expect(optionLabels()).toContain(waitForOption));
+  if (waitForOption) {
+    // Open once and wait for the option to arrive (polling open/close in waitFor is costly).
+    await user.click(resumeSelect());
+    await within(screen.getByRole('listbox', { name: 'Resumes' })).findByRole('option', {
+      name: waitForOption,
+    });
+    await user.keyboard('{Escape}');
+  }
 }
 
 describe('resumeOptionLabels', () => {
@@ -58,7 +82,7 @@ describe('resumeOptionLabels', () => {
 });
 
 describe('Resume field', () => {
-  it('sits in the top section: no resume, active resumes newest first, then Upload new', async () => {
+  it('sits in the top section: no resume, active resumes newest first, then a + to upload', async () => {
     await addResume(picked('Old.pdf'), {}, db, new Date(2026, 0, 1));
     await addResume(picked('New.pdf'), {}, db, new Date(2026, 5, 1));
     const archived = await addResume(picked('Gone.pdf'), {}, db, new Date(2026, 6, 1));
@@ -66,7 +90,7 @@ describe('Resume field', () => {
     const user = userEvent.setup();
     await openAdd(user, 'Old');
     expect(optionLabels()).toEqual(['No resume', 'New', 'Old']);
-    expect(screen.getByRole('button', { name: 'Upload new…' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Upload new resume' })).toHaveAttribute(
       'aria-expanded',
       'false',
     );
@@ -91,7 +115,7 @@ describe('Resume field', () => {
     await openAdd(user, 'Backend v3');
     await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
     await user.type(screen.getByLabelText('Company'), 'Acme');
-    await user.selectOptions(resumeSelect(), resume.id);
+    await pickResume(user, 'Backend v3');
     expect(resumeSelect()).not.toHaveAccessibleDescription(/Tip/);
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -114,7 +138,7 @@ describe('Resume field', () => {
   it('uploads a new resume from the form and selects it', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     expect(within(group).getByLabelText('Resume file')).toHaveFocus();
     await user.upload(within(group).getByLabelText('Resume file'), realFile('Data v2.pdf'));
@@ -124,23 +148,24 @@ describe('Resume field', () => {
     await waitFor(() =>
       expect(screen.queryByRole('group', { name: 'Upload a new resume' })).toBeNull(),
     );
-    const [resume] = await db.resumes.toArray();
-    expect(resumeSelect()).toHaveValue(resume!.id);
-    expect(optionLabels()).toContain('Data v2');
-    // Focus returns to the select, now showing the new resume.
+    // Picked, and the field shows it; focus returns to it.
+    expect(resumeSelect()).toHaveValue('Data v2');
     expect(resumeSelect()).toHaveFocus();
+    expect(optionLabels()).toContain('Data v2');
+    expect((await db.resumes.toArray())[0]?.name).toBe('Data v2');
   });
 
   it('keeps the current choice when the inline upload is cancelled', async () => {
     const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' }, db);
     const user = userEvent.setup();
     await openAdd(user, 'Backend v3');
-    await user.selectOptions(resumeSelect(), resume.id);
-    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    await pickResume(user, 'Backend v3');
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     await user.click(screen.getByRole('button', { name: 'Cancel upload' }));
     expect(screen.queryByRole('group', { name: 'Upload a new resume' })).toBeNull();
-    expect(resumeSelect()).toHaveValue(resume.id);
-    expect(screen.getByRole('button', { name: 'Upload new…' })).toHaveFocus();
+    expect(resumeSelect()).toHaveValue('Backend v3');
+    expect(resume.id).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Upload new resume' })).toHaveFocus();
     expect(screen.getByRole('form', { name: 'Add application' })).toBeInTheDocument();
   });
 
@@ -153,8 +178,9 @@ describe('Resume field', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await waitFor(() => expect(optionLabels()).toContain('Backend v3 (archived)'));
-    expect(resumeSelect()).toHaveValue(resume.id);
+    // Wait on what the field shows, then read the options once.
+    await waitFor(() => expect(resumeSelect()).toHaveValue('Backend v3 (archived)'));
+    expect(optionLabels()).toContain('Backend v3 (archived)');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
     expect((await db.applications.get(app.id))?.resumeId).toBe(resume.id);
@@ -185,7 +211,7 @@ describe('Resume field', () => {
     await openAdd(user);
     await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
     await user.type(screen.getByLabelText('Company'), 'Acme');
-    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     await user.upload(within(group).getByLabelText('Resume file'), realFile('cv.pdf'));
     await user.type(within(group).getByLabelText('Name'), '{Enter}');
@@ -197,7 +223,7 @@ describe('Resume field', () => {
   it('follows the picked file with the suggested name in the inline upload too', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     await user.upload(within(group).getByLabelText('Resume file'), realFile('old.pdf'));
     await user.upload(within(group).getByLabelText('Resume file'), realFile('Backend v3.pdf'));
@@ -207,7 +233,7 @@ describe('Resume field', () => {
   it('links inline upload errors to their fields and focuses the first', async () => {
     const user = userEvent.setup({ applyAccept: false });
     await openAdd(user);
-    await user.click(screen.getByRole('button', { name: 'Upload new…' }));
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
     const group = screen.getByRole('group', { name: 'Upload a new resume' });
     await user.upload(within(group).getByLabelText('Resume file'), realFile('cv.pdf', DOCX_HEAD));
     await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
@@ -220,12 +246,30 @@ describe('Resume field', () => {
     const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' }, db);
     const user = userEvent.setup();
     await openAdd(user, 'Backend v3');
-    await user.selectOptions(resumeSelect(), resume.id);
+    await pickResume(user, 'Backend v3');
     await act(async () => {
       await setResumeArchived(resume.id, true, db);
     });
-    await waitFor(() => expect(optionLabels()).toContain('Backend v3 (archived)'));
-    expect(resumeSelect()).toHaveValue(resume.id);
+    // Wait on what the field shows, then read the options once.
+    await waitFor(() => expect(resumeSelect()).toHaveValue('Backend v3 (archived)'));
+    expect(optionLabels()).toContain('Backend v3 (archived)');
     expect(resumeSelect()).not.toHaveAccessibleDescription(/Tip/);
+  });
+
+  it('offers a resume just uploaded here only until the live list has it', async () => {
+    const user = userEvent.setup();
+    await openAdd(user);
+    await user.click(screen.getByRole('button', { name: 'Upload new resume' }));
+    const group = screen.getByRole('group', { name: 'Upload a new resume' });
+    await user.upload(within(group).getByLabelText('Resume file'), realFile('Data v2.pdf'));
+    await user.click(within(group).getByRole('button', { name: 'Upload and use' }));
+    await waitFor(() => expect(resumeSelect()).toHaveValue('Data v2'));
+    const [resume] = await db.resumes.toArray();
+    // Deleted in another window: no longer offered as a live resume.
+    await act(async () => {
+      await deleteResume(resume!.id, db);
+    });
+    await waitFor(() => expect(resumeSelect()).toHaveValue('Resume (file not available)'));
+    expect(optionLabels()).not.toContain('Data v2');
   });
 });

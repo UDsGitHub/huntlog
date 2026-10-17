@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import * as applications from '@/lib/applications';
 import { addApplication, softDeleteApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
+import { chooseSource } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 import { postingSite } from './ApplicationDetail';
 
@@ -147,7 +148,7 @@ describe('Edit', () => {
 
     await user.clear(screen.getByLabelText(/Location/));
     await user.type(screen.getByLabelText(/Location/), 'Remote');
-    await user.clear(screen.getByLabelText(/Source/));
+    await chooseSource(user, '');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await screen.findByRole('heading', { level: 2, name: 'Acme' });

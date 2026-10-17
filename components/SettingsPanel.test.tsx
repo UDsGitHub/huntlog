@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import * as deleteAll from '@/lib/deleteAll';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
 import { readSettings, SETTINGS_KEYS, updateSettings } from '@/lib/settings';
+import { sourceValue } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -410,6 +411,6 @@ describe('Settings tab', () => {
     await act(() => fakeBrowser.storage.local.remove(FORM_DEFAULTS_KEY));
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     await user.click(screen.getByRole('button', { name: 'More details' }));
-    expect(screen.getByLabelText(/Source/)).toHaveValue('');
+    expect(sourceValue()).toBe('');
   });
 });

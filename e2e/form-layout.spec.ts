@@ -99,7 +99,10 @@ test('remembered source and work mode survive a panel reload', async ({ session 
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
   await page.getByRole('button', { name: 'More details' }).click();
-  await page.getByLabel(/Source/).fill('Referral');
+  await page
+    .getByRole('group', { name: /^Source/ })
+    .getByRole('button', { name: 'Referral' })
+    .click();
   await page.getByLabel(/Work mode/).selectOption('remote');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Acme/ })).toBeVisible();
@@ -116,7 +119,9 @@ test('remembered source and work mode survive a panel reload', async ({ session 
   await page.getByRole('button', { name: 'Add application' }).click();
   await expect(page.getByText('Remote · Referral')).toBeVisible();
   await page.getByRole('button', { name: 'More details' }).click();
-  await expect(page.getByLabel(/Source/)).toHaveValue('Referral');
+  await expect(
+    page.getByRole('group', { name: /^Source/ }).getByRole('button', { name: 'Referral' }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('a job logged as Saved has no date applied', async ({ session }) => {

@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useRef, useState, type Ref } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { Combobox } from './Combobox';
+import { PlusIcon } from './icons';
 import { ResumeUpload } from './ResumeUpload';
 import { formatTimestampDate } from '@/lib/dates';
 import { formatLabel, listResumes } from '@/lib/resumes';
@@ -29,20 +31,38 @@ interface Props {
   /** Edit: the stored link and its snapshot name, shown if that resume is gone. */
   linked?: { resumeId: string; snapshot?: string };
   error?: string;
-  selectRef?: Ref<HTMLSelectElement>;
+  /** Receives the field, e.g. so an error can focus it. */
+  inputRef?: (element: HTMLInputElement | null) => void;
 }
 
 /**
- * The form's Resume field (spec §4.2, §4.6): active resumes newest first, and an "Upload new…"
- * button beside it that opens a compact upload, saves the resume and selects it. Optional: with
- * none picked a gentle tip shows, and saving still works.
+ * The form's Resume field (spec §4.2, §4.6): a searchable dropdown of "No resume" and the active
+ * resumes, newest first, and a + button beside it that opens a compact upload, saves the resume
+ * and picks it. Optional: with none picked a gentle tip shows, and saving still works.
  */
-export function ResumeField({ id, value, onChange, linked, error, selectRef }: Props) {
+export function ResumeField({ id, value, onChange, linked, error, inputRef }: Props) {
   const resumes = useLiveQuery(() => listResumes(), []);
   const [uploading, setUploading] = useState(false);
-  const select = useRef<HTMLSelectElement | null>(null);
+  const field = useRef<HTMLInputElement | null>(null);
+  const setField = useCallback(
+    (element: HTMLInputElement | null) => {
+      field.current = element;
+      inputRef?.(element);
+    },
+    [inputRef],
+  );
   const uploadButton = useRef<HTMLButtonElement>(null);
-  const active = (resumes ?? []).filter((resume) => !resume.archived);
+  // The resume just uploaded here: on offer at once, before the live list catches up, so the
+  // field never shows blank while it's picked.
+  const [uploaded, setUploaded] = useState<Resume>();
+  const listed = resumes ?? [];
+  // Only until the live list has it: after that, the list alone says what's on offer (so a
+  // deleted one doesn't come back).
+  if (uploaded && listed.some((resume) => resume.id === uploaded.id)) setUploaded(undefined);
+  const active = [
+    ...(uploaded && !listed.some((resume) => resume.id === uploaded.id) ? [uploaded] : []),
+    ...listed.filter((resume) => !resume.archived),
+  ];
   const labels = resumeOptionLabels(active);
   // The selected resume isn't on offer: archived (or archived meanwhile in another window), or
   // gone. Keep it as an option, so the select shows what's really chosen.
@@ -64,38 +84,31 @@ export function ResumeField({ id, value, onChange, linked, error, selectRef }: P
         Resume <span className="font-normal text-muted-foreground">(optional)</span>
       </label>
       <div className="flex min-w-0 gap-2">
-        <select
-          ref={(element) => {
-            select.current = element;
-            if (typeof selectRef === 'function') selectRef(element);
-          }}
+        <Combobox
           id={id}
-          name="resumeId"
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={
-            [!value && hintId, error && errorId].filter(Boolean).join(' ') || undefined
-          }
-          className="field"
-        >
-          <option value="">No resume</option>
-          {chosenElsewhere && <option value={value}>{chosenElsewhere}</option>}
-          {active.map((resume) => (
-            <option key={resume.id} value={resume.id}>
-              {labels.get(resume.id)}
-            </option>
-          ))}
-        </select>
-        {/* A button, not a select option: arrowing through options must not open an upload. */}
+          onChange={onChange}
+          listLabel="Resumes"
+          inputRef={setField}
+          invalid={Boolean(error)}
+          describedBy={[!value && hintId, error && errorId].filter(Boolean).join(' ') || undefined}
+          options={[
+            { value: '', label: 'No resume' },
+            ...(chosenElsewhere ? [{ value, label: chosenElsewhere }] : []),
+            ...active.map((resume) => ({ value: resume.id, label: labels.get(resume.id)! })),
+          ]}
+        />
+        {/* A button, not an option: moving through the options must never open an upload. */}
         <button
           ref={uploadButton}
           type="button"
+          aria-label="Upload new resume"
+          title="Upload new resume"
           aria-expanded={uploading}
           onClick={() => setUploading((open) => !open)}
-          className="btn btn-outline"
+          className="btn btn-outline btn-icon"
         >
-          Upload new…
+          <PlusIcon />
         </button>
       </div>
       {!value && (
@@ -113,8 +126,9 @@ export function ResumeField({ id, value, onChange, linked, error, selectRef }: P
           variant="inline"
           onUploaded={(resume) => {
             setUploading(false);
+            setUploaded(resume);
             onChange(resume.id);
-            select.current?.focus();
+            field.current?.focus();
           }}
           onCancel={() => {
             setUploading(false);

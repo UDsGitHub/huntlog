@@ -297,3 +297,33 @@
     animation: none;
   }
 }
+
+/* Textareas that grow with their text (components/AutoGrowTextarea.tsx), Chrome 123+. */
+@utility field-sizing-content {
+  field-sizing: content;
+}
+
+/* More details (ApplicationForm): slides open and shut. */
+.details-panel[data-state='open'] {
+  animation: details-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.details-panel[data-state='closing'] {
+  animation: details-out 200ms ease-in forwards;
+}
+@keyframes details-in {
+  from {
+    opacity: 0;
+    translate: 0 -0.5rem;
+  }
+}
+@keyframes details-out {
+  to {
+    opacity: 0;
+    translate: 0 -0.5rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .details-panel {
+    animation: none !important;
+  }
+}
