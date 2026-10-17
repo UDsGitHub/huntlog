@@ -8,42 +8,42 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| No applications yet. | `components/ApplicationList.tsx:125` |
-| Add your first application | `components/ApplicationList.tsx:128` |
-| Tip: right-click any job posting and choose Add job to Job Log to fill it in for you. | `components/ApplicationList.tsx:131` |
-| Showing | `components/ApplicationList.tsx:149` |
-| of | `components/ApplicationList.tsx:149` |
-| Clear | `components/ApplicationList.tsx:152` |
-| No applications match. | `components/ApplicationList.tsx:158` |
-| Clear search and filters | `components/ApplicationList.tsx:160` |
-| Applications | `components/ApplicationList.tsx:164` |
-| Open job posting for ${app.company}${app.title ? `: ${app.title}` : ''} | `components/ApplicationList.tsx:207` |
-| Applied ${formatLocalDate(app.appliedAt)} | `components/ApplicationList.tsx:232` |
-| Added ${formatTimestampDate(app.createdAt)} | `components/ApplicationList.tsx:233` |
-| Last activity | `components/ListControls.tsx:23` |
-| Date applied | `components/ListControls.tsx:24` |
-| Company | `components/ListControls.tsx:25` |
-| Any time | `components/ListControls.tsx:29` |
-| this-week | `components/ListControls.tsx:30` |
-| This week | `components/ListControls.tsx:30` |
-| this-month | `components/ListControls.tsx:31` |
-| This month | `components/ListControls.tsx:31` |
-| last-30-days | `components/ListControls.tsx:32` |
-| Last 30 days | `components/ListControls.tsx:32` |
-| Custom | `components/ListControls.tsx:33` |
-| Active | `components/ListControls.tsx:36` |
-| Closed | `components/ListControls.tsx:36` |
-| Find applications | `components/ListControls.tsx:58` |
-| Search | `components/ListControls.tsx:61` |
-| Search applications | `components/ListControls.tsx:69` |
-| Filter and sort | `components/ListControls.tsx:127` |
-| Reset | `components/ListControls.tsx:136` |
-| Done | `components/ListControls.tsx:139` |
-| Sort by | `components/ListControls.tsx:145` |
-| Jobs without a date applied (such as Saved ones) are hidden. | `components/ListControls.tsx:264` |
-| Status | `components/ListControls.tsx:286` |
-| None chosen: every status shows. | `components/ListControls.tsx:315` |
-| ${statuses.length} chosen. | `components/ListControls.tsx:315` |
+| No applications yet. | `components/ApplicationList.tsx:128` |
+| Add your first application | `components/ApplicationList.tsx:131` |
+| Tip: right-click any job posting and choose Add job to Job Log to fill it in for you. | `components/ApplicationList.tsx:134` |
+| Showing | `components/ApplicationList.tsx:158` |
+| of | `components/ApplicationList.tsx:158` |
+| Clear | `components/ApplicationList.tsx:161` |
+| No applications match. | `components/ApplicationList.tsx:167` |
+| Clear search and filters | `components/ApplicationList.tsx:169` |
+| Applications | `components/ApplicationList.tsx:173` |
+| Open job posting for ${app.company}${app.title ? `: ${app.title}` : ''} | `components/ApplicationList.tsx:216` |
+| Applied ${formatLocalDate(app.appliedAt)} | `components/ApplicationList.tsx:242` |
+| Added ${formatTimestampDate(app.createdAt)} | `components/ApplicationList.tsx:243` |
+| Last activity | `components/ListControls.tsx:25` |
+| Date applied | `components/ListControls.tsx:26` |
+| Company | `components/ListControls.tsx:27` |
+| Any time | `components/ListControls.tsx:31` |
+| this-week | `components/ListControls.tsx:32` |
+| This week | `components/ListControls.tsx:32` |
+| this-month | `components/ListControls.tsx:33` |
+| This month | `components/ListControls.tsx:33` |
+| last-30-days | `components/ListControls.tsx:34` |
+| Last 30 days | `components/ListControls.tsx:34` |
+| Custom | `components/ListControls.tsx:35` |
+| Active | `components/ListControls.tsx:38` |
+| Closed | `components/ListControls.tsx:38` |
+| Find applications | `components/ListControls.tsx:64` |
+| Search | `components/ListControls.tsx:67` |
+| Search applications | `components/ListControls.tsx:75` |
+| Filter and sort | `components/ListControls.tsx:157` |
+| Reset | `components/ListControls.tsx:166` |
+| Apply | `components/ListControls.tsx:169` |
+| Sort by | `components/ListControls.tsx:175` |
+| Jobs without a date applied (such as Saved ones) are hidden. | `components/ListControls.tsx:282` |
+| Status | `components/ListControls.tsx:304` |
+| None chosen: every status shows. | `components/ListControls.tsx:333` |
+| ${statuses.length} chosen. | `components/ListControls.tsx:333` |
 | Status: ${STATUS_LABELS[application.status]}. Change status | `components/StatusChip.tsx:31` |
 | (current) | `components/StatusSheet.tsx:183` |
 | hasn't got a date applied yet. | `components/StatusSheet.tsx:237` |
@@ -65,16 +65,16 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Couldn't change the status of ${application.company}. | `entrypoints/sidepanel/App.tsx:279` |
 | Job Log | `entrypoints/sidepanel/App.tsx:309` |
 | Job Log sections | `entrypoints/sidepanel/App.tsx:322` |
-| Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:451` |
-| Saved changes. | `entrypoints/sidepanel/App.tsx:483` |
-| Upload resume | `entrypoints/sidepanel/App.tsx:507` |
-| Upload | `entrypoints/sidepanel/App.tsx:508` |
-| Add application | `entrypoints/sidepanel/App.tsx:533` |
-| Add | `entrypoints/sidepanel/App.tsx:534` |
-| Edit application | `entrypoints/sidepanel/App.tsx:576` |
-| This application isn't available any more. | `entrypoints/sidepanel/App.tsx:579` |
-| Job captured. Check the auto-filled fields. | `entrypoints/sidepanel/App.tsx:599` |
-| Add the job details below. | `entrypoints/sidepanel/App.tsx:600` |
+| Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:453` |
+| Saved changes. | `entrypoints/sidepanel/App.tsx:485` |
+| Upload resume | `entrypoints/sidepanel/App.tsx:509` |
+| Upload | `entrypoints/sidepanel/App.tsx:510` |
+| Add application | `entrypoints/sidepanel/App.tsx:535` |
+| Add | `entrypoints/sidepanel/App.tsx:536` |
+| Edit application | `entrypoints/sidepanel/App.tsx:578` |
+| This application isn't available any more. | `entrypoints/sidepanel/App.tsx:581` |
+| Job captured. Check the auto-filled fields. | `entrypoints/sidepanel/App.tsx:601` |
+| Add the job details below. | `entrypoints/sidepanel/App.tsx:602` |
 | Saved | `lib/status.ts:18` |
 | Applied | `lib/status.ts:19` |
 | Screening | `lib/status.ts:20` |
@@ -90,36 +90,32 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| This application was deleted, so the changes can't be saved. | `components/ApplicationForm.tsx:248` |
-| Couldn't save. Please try again. | `components/ApplicationForm.tsx:252` |
-| Saving… | `components/ApplicationForm.tsx:314` |
-| Fields marked * are required. | `components/ApplicationForm.tsx:336` |
-| Company | `components/ApplicationForm.tsx:339` |
-| Job title | `components/ApplicationForm.tsx:351` |
-| Job posting URL | `components/ApplicationForm.tsx:365` |
-| Status | `components/ApplicationForm.tsx:380` |
-| Active | `components/ApplicationForm.tsx:386` |
-| Closed | `components/ApplicationForm.tsx:393` |
-| Date applied | `components/ApplicationForm.tsx:407` |
-| More details | `components/ApplicationForm.tsx:447` |
-| Location, work mode, salary, source, notes | `components/ApplicationForm.tsx:456` |
-| Location | `components/ApplicationForm.tsx:470` |
-| Work mode | `components/ApplicationForm.tsx:481` |
-| Not set | `components/ApplicationForm.tsx:487` |
-| Salary | `components/ApplicationForm.tsx:499` |
-| (optional) | `components/ApplicationForm.tsx:499` |
-| Minimum | `components/ApplicationForm.tsx:503` |
-| Maximum | `components/ApplicationForm.tsx:517` |
-| Currency | `components/ApplicationForm.tsx:530` |
-| Common | `components/ApplicationForm.tsx:536` |
-| All currencies | `components/ApplicationForm.tsx:543` |
-| Per | `components/ApplicationForm.tsx:553` |
-| Notes | `components/ApplicationForm.tsx:578` |
-| Couldn't read this page, so only its address was filled in. | `components/ApplicationForm.tsx:644` |
-| Couldn't read this page, so fill in the details below. | `components/ApplicationForm.tsx:645` |
-| Auto-filled, please check | `components/ApplicationForm.tsx:651` |
-| Show ${listLabel.toLowerCase()} | `components/Combobox.tsx:150` |
-| No matches | `components/Combobox.tsx:194` |
+| This application was deleted, so the changes can't be saved. | `components/ApplicationForm.tsx:261` |
+| Couldn't save. Please try again. | `components/ApplicationForm.tsx:265` |
+| Saving… | `components/ApplicationForm.tsx:339` |
+| Fields marked * are required. | `components/ApplicationForm.tsx:361` |
+| Company | `components/ApplicationForm.tsx:364` |
+| Job title | `components/ApplicationForm.tsx:376` |
+| Job posting URL | `components/ApplicationForm.tsx:390` |
+| Status | `components/ApplicationForm.tsx:405` |
+| Date applied | `components/ApplicationForm.tsx:421` |
+| More details | `components/ApplicationForm.tsx:460` |
+| Location, work mode, salary, source, notes | `components/ApplicationForm.tsx:469` |
+| Location | `components/ApplicationForm.tsx:486` |
+| Work mode | `components/ApplicationForm.tsx:497` |
+| Work modes | `components/ApplicationForm.tsx:500` |
+| Not set | `components/ApplicationForm.tsx:504` |
+| Salary | `components/ApplicationForm.tsx:512` |
+| Minimum | `components/ApplicationForm.tsx:515` |
+| Maximum | `components/ApplicationForm.tsx:527` |
+| Currency | `components/ApplicationForm.tsx:538` |
+| Per | `components/ApplicationForm.tsx:551` |
+| Notes | `components/ApplicationForm.tsx:575` |
+| Couldn't read this page, so only its address was filled in. | `components/ApplicationForm.tsx:638` |
+| Couldn't read this page, so fill in the details below. | `components/ApplicationForm.tsx:639` |
+| Auto-filled, please check | `components/ApplicationForm.tsx:645` |
+| Show ${listLabel.toLowerCase()} | `components/Combobox.tsx:155` |
+| No matches | `components/Combobox.tsx:202` |
 | You may have logged this already | `components/DuplicateWarning.tsx:43` |
 | Same job posting URL | `components/DuplicateWarning.tsx:50` |
 | Same company and title | `components/DuplicateWarning.tsx:50` |
@@ -131,10 +127,9 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${snapshot ?? 'Resume'} (file not available) | `components/ResumeField.tsx:75` |
 | Resume | `components/ResumeField.tsx:84` |
 | No resume | `components/ResumeField.tsx:96` |
-| Upload new resume | `components/ResumeField.tsx:105` |
-| Tip: pick the resume you sent, so you can find it later. | `components/ResumeField.tsx:116` |
+| Tip: pick the resume you sent, so you can find it later. | `components/ResumeField.tsx:117` |
 | Source | `components/SourceField.tsx:72` |
-| Other… | `components/SourceField.tsx:87` |
+| Other | `components/SourceField.tsx:87` |
 | Other source | `components/SourceField.tsx:93` |
 | Remote | `lib/applicationInput.ts:8` |
 | Hybrid | `lib/applicationInput.ts:9` |
@@ -216,25 +211,25 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${remaining} more to reach your goal. | `components/StatsCharts.tsx:227` |
 | Goal reached, and ${count - goal} beyond it. | `components/StatsCharts.tsx:229` |
 | Goal reached. Nice work. | `components/StatsCharts.tsx:230` |
-| ${formatLocalDate(from)} – ${formatLocalDate(to)} | `components/StatsPanel.tsx:31` |
-| Stats | `components/StatsPanel.tsx:83` |
-| Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:106` |
-| Headline numbers | `components/StatsPanel.tsx:111` |
-| Applied | `components/StatsPanel.tsx:112` |
-| Interviews | `components/StatsPanel.tsx:113` |
-| Offers | `components/StatsPanel.tsx:114` |
-| Rates | `components/StatsPanel.tsx:116` |
-| Response rate | `components/StatsPanel.tsx:117` |
-| Interview rate | `components/StatsPanel.tsx:118` |
-| Nothing applied in this range yet. The rates fill in as you apply. | `components/StatsPanel.tsx:122` |
-| Range | `components/StatsPanel.tsx:170` |
-| Custom… | `components/StatsPanel.tsx:195` |
-| Custom range | `components/StatsPanel.tsx:225` |
-| Both dates are included. | `components/StatsPanel.tsx:226` |
-| Apply | `components/StatsPanel.tsx:229` |
-| None applied in range | `components/StatsPanel.tsx:299` |
-| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:299` |
-| No rate yet | `components/StatsPanel.tsx:312` |
+| ${formatLocalDate(from)} – ${formatLocalDate(to)} | `components/StatsPanel.tsx:32` |
+| Stats | `components/StatsPanel.tsx:84` |
+| Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:107` |
+| Headline numbers | `components/StatsPanel.tsx:112` |
+| Applied | `components/StatsPanel.tsx:113` |
+| Interviews | `components/StatsPanel.tsx:114` |
+| Offers | `components/StatsPanel.tsx:115` |
+| Rates | `components/StatsPanel.tsx:117` |
+| Response rate | `components/StatsPanel.tsx:118` |
+| Interview rate | `components/StatsPanel.tsx:119` |
+| Nothing applied in this range yet. The rates fill in as you apply. | `components/StatsPanel.tsx:123` |
+| Range | `components/StatsPanel.tsx:175` |
+| Custom… | `components/StatsPanel.tsx:202` |
+| Custom range | `components/StatsPanel.tsx:232` |
+| Both dates are included. | `components/StatsPanel.tsx:233` |
+| Apply | `components/StatsPanel.tsx:236` |
+| None applied in range | `components/StatsPanel.tsx:306` |
+| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:306` |
+| No rate yet | `components/StatsPanel.tsx:319` |
 | this-week | `lib/stats.ts:31` |
 | This week | `lib/stats.ts:31` |
 | last-7-days | `lib/stats.ts:32` |
@@ -254,54 +249,52 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| Choose a file to upload. | `components/ResumeUpload.tsx:97` |
-| Couldn't save this file. Please try again. | `components/ResumeUpload.tsx:110` |
-| Drop one file at a time. | `components/ResumeUpload.tsx:123` |
-| Resume file | `components/ResumeUpload.tsx:136` |
-| Change file | `components/ResumeUpload.tsx:185` |
-| Drop it here | `components/ResumeUpload.tsx:191` |
-| Choose a file or drag it here | `components/ResumeUpload.tsx:191` |
-| Choose file… | `components/ResumeUpload.tsx:194` |
-| PDF, DOCX, DOC, TXT or RTF, up to 10 MB. | `components/ResumeUpload.tsx:200` |
-| Name | `components/ResumeUpload.tsx:206` |
-| e.g. Backend v3 | `components/ResumeUpload.tsx:213` |
-| Note | `components/ResumeUpload.tsx:228` |
-| (optional) | `components/ResumeUpload.tsx:228` |
-| Upload a resume | `components/ResumeUpload.tsx:255` |
-| Upload a new resume | `components/ResumeUpload.tsx:270` |
-| Uploading… | `components/ResumeUpload.tsx:286` |
-| Upload and use | `components/ResumeUpload.tsx:286` |
-| Cancel upload | `components/ResumeUpload.tsx:290` |
-| Archived ${resume.name}. | `components/ResumesPanel.tsx:83` |
-| ${resume.name} is back in your resumes. | `components/ResumesPanel.tsx:83` |
-| Couldn't change ${resume.name}. It may have been deleted. | `components/ResumesPanel.tsx:87` |
-| ${resume.name} is used by applications, so it stays archived. | `components/ResumesPanel.tsx:98` |
-| ${resume.name} is used by applications, so it was archived instead. | `components/ResumesPanel.tsx:100` |
-| Deleted ${resume.name}. | `components/ResumesPanel.tsx:107` |
-| Restored ${resume.name}. | `components/ResumesPanel.tsx:112` |
-| Couldn't restore ${resume.name}. | `components/ResumesPanel.tsx:113` |
-| Couldn't delete ${resume.name}. | `components/ResumesPanel.tsx:123` |
-| Resumes | `components/ResumesPanel.tsx:164` |
-| Find resumes | `components/ResumesPanel.tsx:172` |
-| Search resumes | `components/ResumesPanel.tsx:174` |
-| Search by name or file name | `components/ResumesPanel.tsx:181` |
-| No resumes match. | `components/ResumesPanel.tsx:195` |
-| All your resumes are archived. | `components/ResumesPanel.tsx:199` |
-| Only archived resumes match. Open Archived to see them. | `components/ResumesPanel.tsx:200` |
-| Archived | `components/ResumesPanel.tsx:215` |
-| Archived resumes | `components/ResumesPanel.tsx:227` |
-| Uploaded ${resume.name}. | `components/ResumesPanel.tsx:244` |
-| Saved. | `components/ResumesPanel.tsx:259` |
-| No resumes yet. Upload the versions you send, so you always know which one went with each application. | `components/ResumesPanel.tsx:282` |
-| Upload your first resume | `components/ResumesPanel.tsx:287` |
-| ${resume.name} isn't available any more. | `components/ResumesPanel.tsx:313` |
-| ${formatLabel(resume.fileName)} · ${formatBytes(resume.size)} · Uploaded ${formatTimestampDate(resume.createdAt)} | `components/ResumesPanel.tsx:315` |
-| ${verb} ${resume.name} | `components/ResumesPanel.tsx:324` |
-| More actions for ${resume.name} | `components/ResumesPanel.tsx:344` |
-| Couldn't save. It may have been deleted. | `components/ResumesPanel.tsx:457` |
-| Rename resume | `components/ResumesPanel.tsx:477` |
-| Saving… | `components/ResumesPanel.tsx:487` |
-| Rename ${resume.name} | `components/ResumesPanel.tsx:495` |
+| Choose a file to upload. | `components/ResumeUpload.tsx:98` |
+| Couldn't save this file. Please try again. | `components/ResumeUpload.tsx:111` |
+| Drop one file at a time. | `components/ResumeUpload.tsx:124` |
+| Resume file | `components/ResumeUpload.tsx:137` |
+| Change file | `components/ResumeUpload.tsx:186` |
+| Drop it here | `components/ResumeUpload.tsx:192` |
+| Choose a file or drag it here | `components/ResumeUpload.tsx:192` |
+| Choose file… | `components/ResumeUpload.tsx:195` |
+| PDF, DOCX, DOC, TXT or RTF, up to 10 MB. | `components/ResumeUpload.tsx:201` |
+| Name | `components/ResumeUpload.tsx:207` |
+| e.g. Software Engineer 2026 | `components/ResumeUpload.tsx:214` |
+| Note | `components/ResumeUpload.tsx:229` |
+| Upload a resume | `components/ResumeUpload.tsx:256` |
+| Upload a new resume | `components/ResumeUpload.tsx:271` |
+| Uploading… | `components/ResumeUpload.tsx:293` |
+| Archived ${resume.name}. | `components/ResumesPanel.tsx:86` |
+| ${resume.name} is back in your resumes. | `components/ResumesPanel.tsx:86` |
+| Couldn't change ${resume.name}. It may have been deleted. | `components/ResumesPanel.tsx:90` |
+| ${resume.name} is used by applications, so it stays archived. | `components/ResumesPanel.tsx:101` |
+| ${resume.name} is used by applications, so it was archived instead. | `components/ResumesPanel.tsx:103` |
+| Deleted ${resume.name}. | `components/ResumesPanel.tsx:110` |
+| Restored ${resume.name}. | `components/ResumesPanel.tsx:115` |
+| Couldn't restore ${resume.name}. | `components/ResumesPanel.tsx:116` |
+| Couldn't delete ${resume.name}. | `components/ResumesPanel.tsx:126` |
+| Resumes | `components/ResumesPanel.tsx:173` |
+| Find resumes | `components/ResumesPanel.tsx:181` |
+| Search resumes | `components/ResumesPanel.tsx:183` |
+| Search by name or file name | `components/ResumesPanel.tsx:190` |
+| No resumes match. | `components/ResumesPanel.tsx:204` |
+| All your resumes are archived. | `components/ResumesPanel.tsx:208` |
+| Only archived resumes match. Open Archived to see them. | `components/ResumesPanel.tsx:209` |
+| Archived | `components/ResumesPanel.tsx:224` |
+| Archived resumes | `components/ResumesPanel.tsx:239` |
+| Uploaded ${resume.name}. | `components/ResumesPanel.tsx:257` |
+| Renamed to ${saved.name}. | `components/ResumesPanel.tsx:272` |
+| No resumes yet. Upload the versions you send, so you always know which one went with each application. | `components/ResumesPanel.tsx:295` |
+| Upload your first resume | `components/ResumesPanel.tsx:300` |
+| ${resume.name} isn't available any more. | `components/ResumesPanel.tsx:326` |
+| ${formatLabel(resume.fileName)} · ${formatBytes(resume.size)} | `components/ResumesPanel.tsx:328` |
+| ${verb} ${resume.name} | `components/ResumesPanel.tsx:337` |
+| Uploaded | `components/ResumesPanel.tsx:353` |
+| More actions for ${resume.name} | `components/ResumesPanel.tsx:364` |
+| Couldn't save. It may have been deleted. | `components/ResumesPanel.tsx:476` |
+| Rename resume | `components/ResumesPanel.tsx:496` |
+| Saving… | `components/ResumesPanel.tsx:506` |
+| Rename ${resume.name} | `components/ResumesPanel.tsx:514` |
 | This resume isn't available. It may have been deleted. | `entrypoints/resume-viewer/main.ts:23` |
 | Couldn't open this resume. | `entrypoints/resume-viewer/main.ts:35` |
 | Choose a file of 10 MB or less. | `lib/resumes.ts:75` |
@@ -318,43 +311,45 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:65` |
-| Settings | `components/SettingsPanel.tsx:73` |
-| Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:133` |
-| Weekly goal | `components/SettingsPanel.tsx:146` |
-| Set a weekly goal | `components/SettingsPanel.tsx:149` |
-| Applications per week | `components/SettingsPanel.tsx:160` |
-| Stats shows how this week is going against it. | `components/SettingsPanel.tsx:183` |
-| Display | `components/SettingsPanel.tsx:234` |
-| Theme | `components/SettingsPanel.tsx:237` |
-| First day of the week | `components/SettingsPanel.tsx:260` |
-| Locale default ( | `components/SettingsPanel.tsx:273` |
-| Used for This week and the weekly goal. | `components/SettingsPanel.tsx:280` |
-| Your data | `components/SettingsPanel.tsx:297` |
-| Everything is stored only in this browser. Export and import arrive in a later version. | `components/SettingsPanel.tsx:299` |
-| Delete all data | `components/SettingsPanel.tsx:308` |
-| Reset settings | `components/SettingsPanel.tsx:312` |
-| All your data was deleted. | `components/SettingsPanel.tsx:319` |
-| Settings reset, and all your data deleted. | `components/SettingsPanel.tsx:327` |
-| Settings reset. | `components/SettingsPanel.tsx:327` |
-| Type | `components/SettingsPanel.tsx:341` |
-| to confirm | `components/SettingsPanel.tsx:341` |
-| Your data was deleted, but the settings couldn't be reset. Try again. | `components/SettingsPanel.tsx:402` |
-| Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them. | `components/SettingsPanel.tsx:405` |
-| Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:407` |
-| Delete all data? | `components/SettingsPanel.tsx:455` |
-| This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:456` |
-| Deleting… | `components/SettingsPanel.tsx:472` |
-| Reset settings? | `components/SettingsPanel.tsx:513` |
-| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:514` |
-| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:536` |
-| Working… | `components/SettingsPanel.tsx:542` |
-| Reset and delete everything | `components/SettingsPanel.tsx:542` |
-| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:558` |
-| About | `components/SettingsPanel.tsx:586` |
-| Privacy policy | `components/SettingsPanel.tsx:590` |
-| Third-party notices | `components/SettingsPanel.tsx:596` |
-| Job Log | `components/SettingsPanel.tsx:601` |
+| Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:70` |
+| Settings | `components/SettingsPanel.tsx:78` |
+| Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:138` |
+| Weekly goal | `components/SettingsPanel.tsx:172` |
+| Set a weekly goal | `components/SettingsPanel.tsx:175` |
+| Applications per week | `components/SettingsPanel.tsx:186` |
+| Decrease weekly goal | `components/SettingsPanel.tsx:191` |
+| Increase weekly goal | `components/SettingsPanel.tsx:219` |
+| Stats shows how this week is going against it. | `components/SettingsPanel.tsx:234` |
+| Display | `components/SettingsPanel.tsx:285` |
+| Theme | `components/SettingsPanel.tsx:287` |
+| First day of the week | `components/SettingsPanel.tsx:294` |
+| Locale default (${localeDay}) | `components/SettingsPanel.tsx:304` |
+| Used for This week and the weekly goal. | `components/SettingsPanel.tsx:308` |
+| Your data | `components/SettingsPanel.tsx:325` |
+| Everything is stored only in this browser. Export and import arrive in a later version. | `components/SettingsPanel.tsx:327` |
+| Delete all data | `components/SettingsPanel.tsx:332` |
+| Reset settings | `components/SettingsPanel.tsx:336` |
+| All your data was deleted. | `components/SettingsPanel.tsx:343` |
+| Settings reset, and all your data deleted. | `components/SettingsPanel.tsx:351` |
+| Settings reset. | `components/SettingsPanel.tsx:351` |
+| Type | `components/SettingsPanel.tsx:365` |
+| to confirm | `components/SettingsPanel.tsx:365` |
+| Your data was deleted, but the settings couldn't be reset. Try again. | `components/SettingsPanel.tsx:426` |
+| Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them. | `components/SettingsPanel.tsx:429` |
+| Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:431` |
+| Delete all data? | `components/SettingsPanel.tsx:479` |
+| This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:480` |
+| Deleting… | `components/SettingsPanel.tsx:496` |
+| Reset settings? | `components/SettingsPanel.tsx:537` |
+| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:538` |
+| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:560` |
+| Resetting… | `components/SettingsPanel.tsx:569` |
+| Reset and delete everything | `components/SettingsPanel.tsx:571` |
+| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:588` |
+| About | `components/SettingsPanel.tsx:616` |
+| Privacy policy | `components/SettingsPanel.tsx:620` |
+| Third-party notices | `components/SettingsPanel.tsx:626` |
+| Job Log | `components/SettingsPanel.tsx:631` |
 | Job Log: third-party notices | `entrypoints/notices/index.html:6` |
 | Job Log bundles the following open-source work. Nothing is loaded from the internet. | `entrypoints/notices/index.html:32` |
 | Geist font | `entrypoints/notices/index.html:34` |
@@ -380,14 +375,15 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| ${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] ${ FIELD_SIZING ? 'resize-y' : 'resize-none' } | `components/AutoGrowTextarea.tsx:53` |
-| Back | `components/Sheet.tsx:250` |
-| Close | `components/Sheet.tsx:270` |
-| Discard your changes? | `components/Sheet.tsx:304` |
-| Discard | `components/Sheet.tsx:315` |
-| Keep editing | `components/Sheet.tsx:323` |
+| ${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] resize-none | `components/AutoGrowTextarea.tsx:59` |
+| Back | `components/Sheet.tsx:253` |
+| Close | `components/Sheet.tsx:273` |
+| Discard your changes? | `components/Sheet.tsx:315` |
+| What you've changed here won't be saved. | `components/Sheet.tsx:318` |
+| Keep editing | `components/Sheet.tsx:328` |
+| Discard | `components/Sheet.tsx:338` |
 | ${index * 100}% 0 | `components/TabBar.tsx:94` |
-| Dismiss | `components/Toast.tsx:188` |
+| Dismiss | `components/Toast.tsx:190` |
 | Add job to Job Log | `entrypoints/background.ts:11` |
 | Add linked job to Job Log | `entrypoints/background.ts:13` |
 | This date can't be in the future. | `lib/dates.ts:43` |
@@ -399,4 +395,5 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | From ${money(min)} | `lib/format.ts:42` |
 | Up to ${money(max!)} | `lib/format.ts:43` |
 | ${range} per ${PERIOD_LABELS[salaryPeriod]} | `lib/format.ts:44` |
+| ${code} · ${name} | `lib/locale.ts:173` |
 | Job Log | `entrypoints/sidepanel/index.html:6` |

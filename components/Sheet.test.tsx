@@ -164,6 +164,11 @@ describe('Sheet', () => {
     await user.keyboard('{Escape}');
     const question = screen.getByRole('alertdialog', { name: 'Discard your changes?' });
     expect(screen.getByRole('button', { name: 'Keep editing' })).toHaveFocus();
+    expect(question).toHaveAccessibleDescription("What you've changed here won't be saved.");
+    // A dialog of its own over the sheet, not a bar inside it.
+    expect(question.closest('.sheet-panel')).toBeNull();
+    // Toasts stay above its dimmed layer.
+    expect(dialog().querySelector('[aria-live]')).toHaveClass('z-20');
     // The form behind the question is out of reach meanwhile.
     expect(screen.getByLabelText('First').closest('[inert]')).not.toBeNull();
     await user.click(screen.getByRole('button', { name: 'Keep editing' }));
@@ -181,6 +186,50 @@ describe('Sheet', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
     await user.click(screen.getByRole('button', { name: 'Discard' }));
     expect(dialog().open).toBe(false);
+  });
+
+  it('the question goes as soon as Discard starts the slide out', async () => {
+    const user = userEvent.setup();
+    render(<Harness dirty />);
+    await openSheet(user);
+    await user.keyboard('{Escape}');
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    // Still sliding out, but the question isn't left floating over it.
+    expect(dialog().open).toBe(true);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    act(() => vi.advanceTimersByTime(SHEET_ANIMATION_MS));
+    expect(dialog().open).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('a close from outside ends the question, and the next opening focuses as usual', async () => {
+    function Controlled({ open }: { open: boolean }) {
+      return (
+        <Sheet open={open} onClose={() => {}} title="Edit" dirty>
+          <label>
+            First <input />
+          </label>
+          <label>
+            Second <input />
+          </label>
+        </Sheet>
+      );
+    }
+    const user = userEvent.setup();
+    const { rerender } = render(<Controlled open />);
+    screen.getByLabelText('Second').focus();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    // E.g. a capture closes it: the question goes with the sheet, not after it.
+    vi.useFakeTimers();
+    rerender(<Controlled open={false} />);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    // Reopened before it finished sliding out: focus starts on the first field, not on the one
+    // that had it when the question opened.
+    rerender(<Controlled open />);
+    expect(screen.getByLabelText('First')).toHaveFocus();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it("doesn't ask again on the next opening", async () => {
