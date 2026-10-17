@@ -131,7 +131,7 @@ export function ApplicationList({
           Add your first application
         </button>
         <p className="text-xs text-muted-foreground">
-          Tip: right-click any job posting and choose Add job to Job Log to fill it in for you.
+          Tip: right-click any job posting and choose Add job to Huntlog to fill it in for you.
         </p>
       </div>
     );

@@ -10,7 +10,7 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | --- | --- |
 | No applications yet. | `components/ApplicationList.tsx:128` |
 | Add your first application | `components/ApplicationList.tsx:131` |
-| Tip: right-click any job posting and choose Add job to Job Log to fill it in for you. | `components/ApplicationList.tsx:134` |
+| Tip: right-click any job posting and choose Add job to Huntlog to fill it in for you. | `components/ApplicationList.tsx:134` |
 | Showing | `components/ApplicationList.tsx:158` |
 | of | `components/ApplicationList.tsx:158` |
 | Clear | `components/ApplicationList.tsx:161` |
@@ -63,9 +63,9 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Couldn't undo the status change. | `entrypoints/sidepanel/App.tsx:277` |
 | Couldn't change the status of ${application.company}: ${error.fields.appliedAt ?? 'check the date'} | `entrypoints/sidepanel/App.tsx:287` |
 | Couldn't change the status of ${application.company}. | `entrypoints/sidepanel/App.tsx:292` |
-| Job Log | `entrypoints/sidepanel/App.tsx:326` |
+| Huntlog | `entrypoints/sidepanel/App.tsx:326` |
 | Settings | `entrypoints/sidepanel/App.tsx:330` |
-| Job Log sections | `entrypoints/sidepanel/App.tsx:349` |
+| Huntlog sections | `entrypoints/sidepanel/App.tsx:349` |
 | Saved ${application.company}. | `entrypoints/sidepanel/App.tsx:481` |
 | Saved changes. | `entrypoints/sidepanel/App.tsx:513` |
 | Upload resume | `entrypoints/sidepanel/App.tsx:537` |
@@ -349,9 +349,9 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | About | `components/SettingsPanel.tsx:618` |
 | Privacy policy | `components/SettingsPanel.tsx:622` |
 | Third-party notices | `components/SettingsPanel.tsx:628` |
-| Job Log | `components/SettingsPanel.tsx:633` |
-| Job Log: third-party notices | `entrypoints/notices/index.html:6` |
-| Job Log bundles the following open-source work. Nothing is loaded from the internet. | `entrypoints/notices/index.html:32` |
+| Huntlog | `components/SettingsPanel.tsx:633` |
+| Huntlog: third-party notices | `entrypoints/notices/index.html:6` |
+| Huntlog bundles the following open-source work. Nothing is loaded from the internet. | `entrypoints/notices/index.html:32` |
 | Geist font | `entrypoints/notices/index.html:34` |
 | Geist Sans, a Latin subset, by Vercel in collaboration with basement.studio ( | `entrypoints/notices/index.html:36` |
 | vercel.com/font | `entrypoints/notices/index.html:37` |
@@ -360,14 +360,14 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Icons from Lucide ( | `entrypoints/notices/index.html:137` |
 | lucide.dev | `entrypoints/notices/index.html:137` |
 | ), version 0.460.0. Licensed under the ISC License. | `entrypoints/notices/index.html:1` |
-| Job Log: privacy policy | `entrypoints/privacy/index.html:6` |
-| Draft. This page is a placeholder; the final policy is written before Job Log is published on the Chrome Web Store. | `entrypoints/privacy/index.html:29` |
+| Huntlog: privacy policy | `entrypoints/privacy/index.html:6` |
+| Draft. This page is a placeholder; the final policy is written before Huntlog is published on the Chrome Web Store. | `entrypoints/privacy/index.html:29` |
 | Your data stays on this device | `entrypoints/privacy/index.html:32` |
-| Job Log stores the applications you log, the resumes you upload and your settings only in this browser, on this device. It has no account and no server, and it never sends your data anywhere. | `entrypoints/privacy/index.html:34` |
+| Huntlog stores the applications you log, the resumes you upload and your settings only in this browser, on this device. It has no account and no server, and it never sends your data anywhere. | `entrypoints/privacy/index.html:34` |
 | Nothing is collected | `entrypoints/privacy/index.html:38` |
-| Job Log doesn't collect, sell or share any information, and it uses no analytics or tracking. | `entrypoints/privacy/index.html:40` |
+| Huntlog doesn't collect, sell or share any information, and it uses no analytics or tracking. | `entrypoints/privacy/index.html:40` |
 | Reading pages only when you ask | `entrypoints/privacy/index.html:43` |
-| Job Log reads a web page only when you choose "Add job to Job Log" or press its shortcut, to fill in the form for you. It can't read pages otherwise. | `entrypoints/privacy/index.html:45` |
+| Huntlog reads a web page only when you choose "Add job to Huntlog" or press its shortcut, to fill in the form for you. It can't read pages otherwise. | `entrypoints/privacy/index.html:45` |
 | Deleting your data | `entrypoints/privacy/index.html:48` |
 | Settings → Your data → Delete all data removes everything. Removing the extension removes it too. | `entrypoints/privacy/index.html:50` |
 
@@ -384,8 +384,8 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Discard | `components/Sheet.tsx:339` |
 | ${index * 100}% 0 | `components/TabBar.tsx:95` |
 | Dismiss | `components/Toast.tsx:190` |
-| Add job to Job Log | `entrypoints/background.ts:11` |
-| Add linked job to Job Log | `entrypoints/background.ts:13` |
+| Add job to Huntlog | `entrypoints/background.ts:11` |
+| Add linked job to Huntlog | `entrypoints/background.ts:13` |
 | This date can't be in the future. | `lib/dates.ts:43` |
 | Enter a valid date. | `lib/dates.ts:46` |
 | year | `lib/format.ts:3` |
@@ -396,4 +396,4 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Up to ${money(max!)} | `lib/format.ts:43` |
 | ${range} per ${PERIOD_LABELS[salaryPeriod]} | `lib/format.ts:44` |
 | ${code} · ${name} | `lib/locale.ts:173` |
-| Job Log | `entrypoints/sidepanel/index.html:6` |
+| Huntlog | `entrypoints/sidepanel/index.html:6` |

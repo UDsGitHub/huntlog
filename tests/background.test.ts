@@ -122,7 +122,7 @@ describe('background startup', () => {
       expect.any(Function),
     );
     expect(api.contextMenus.create).toHaveBeenCalledWith(
-      { id: LINK_MENU_ID, title: 'Add linked job to Job Log', contexts: ['link'] },
+      { id: LINK_MENU_ID, title: 'Add linked job to Huntlog', contexts: ['link'] },
       expect.any(Function),
     );
   });

@@ -24,7 +24,7 @@ test('production manifest has only the M4 permissions', () => {
   expect(manifest.commands).toEqual({
     'add-job': {
       suggested_key: { default: 'Alt+Shift+J' },
-      description: 'Add the current page to Job Log',
+      description: 'Add the current page to Huntlog',
     },
   });
   expect(manifest.web_accessible_resources).toBeUndefined();

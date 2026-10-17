@@ -1,4 +1,4 @@
-# Job Log — Product Spec (v1)
+# Huntlog — Product Spec (v1)
 
 A Chrome extension that helps job seekers log every application they send, remember which resume they used, move each application through a clear status pipeline, and see how their search is going.
 
@@ -41,7 +41,7 @@ A Chrome extension that helps job seekers log every application they send, remem
 | Surface                     | Purpose                                                                                             |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
 | **Side panel** (primary UI) | All app screens: Applications list, Add/Edit form, Stats, Resumes, Settings. A header (the name and a Settings gear) and a tab bar at the top. |
-| **Context menu**            | "Add job to Job Log" on any page (reads the page), and "Add linked job to Job Log" on links (captures only the link URL). |
+| **Context menu**            | "Add job to Huntlog" on any page (reads the page), and "Add linked job to Huntlog" on links (captures only the link URL). |
 | **Keyboard shortcut**       | `Alt+Shift+J` (user-configurable) works the same as the page context-menu item.                     |
 | **Toolbar icon**            | Opens the side panel (`openPanelOnActionClick`).                                                    |
 
@@ -71,13 +71,13 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 
 ### 4.1 Add application: prefilled from a page (user-initiated)
 
-1. On a job posting, the user right-clicks and chooses **"Add job to Job Log"**, or presses the shortcut.
+1. On a job posting, the user right-clicks and chooses **"Add job to Huntlog"**, or presses the shortcut.
 2. That gesture grants `activeTab`. The background service worker first calls `chrome.sidePanel.open` for the tab's window, synchronously inside the gesture handler (before any `await`), then runs a one-off extractor in the tab with `chrome.scripting.executeScript`.
 3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the Add form without asking, since the capture itself is the user's explicit request. While an existing application is being edited, the capture waits instead (a toast says so) and opens once the edit closes: saved, or left with Back or Escape (after confirming any discard). If the user cancels the discard prompt, Edit stays open and the capture keeps waiting, so unsaved edits are never discarded.
 4. The side panel shows the Add form prefilled with the draft. Prefilled fields get a subtle "auto-filled, please check" hint.
 5. The user reviews the fields, picks a resume, and saves. If a duplicate is detected, a warning appears (§4.5).
 
-**From a link:** right-clicking a job link (for example in a search results list) and choosing "Add linked job to Job Log" captures only `linkUrl`, with no page read. The form opens with the link filled in and the other fields blank.
+**From a link:** right-clicking a job link (for example in a search results list) and choosing "Add linked job to Huntlog" captures only `linkUrl`, with no page read. The form opens with the link filled in and the other fields blank.
 
 ### 4.2 Add application: manual
 
@@ -288,7 +288,7 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 | `sidePanel`        | The extension's entire UI lives in the side panel next to the job posting.               |
 | `storage`          | Saves settings and the in-progress form draft locally.                                   |
 | `unlimitedStorage` | Stores the user's uploaded resume files locally in IndexedDB.                            |
-| `contextMenus`     | Provides the "Add job to Job Log" right-click action.                                    |
+| `contextMenus`     | Provides the "Add job to Huntlog" right-click action.                                    |
 | `activeTab`        | Reads the current job page **only when the user clicks "Add job"**, to prefill the form. |
 | `scripting`        | Runs the one-off extractor in the active tab after that user gesture.                    |
 
@@ -308,7 +308,7 @@ The extractor runs only on user gesture, via `activeTab` and `scripting`. It is 
 - `chrome://` pages stay unreadable even with `activeTab`, so the form falls back to blank.
 - `sidePanel.open()` works from the page and link context-menu handlers and from the `Alt+Shift+J` command handler. The panel opens with the capture prefilled, and restricted pages fall back as described in §4.1. Verified manually by the owner on the production build (M1, 2026-10-16). Chrome documents that `open()` must run while the gesture is active, so it is called before any `await`. Unit tests (`tests/background.test.ts`) enforce that order; the manual check didn't test a broken order.
 
-**Known limitation:** a button *inside* the side panel does not grant `activeTab`, so the blank manual form cannot read the current tab. Page prefill happens only through the context menu or the shortcut, and the side panel's empty state should explain this ("Tip: right-click any job posting → Add job to Job Log").
+**Known limitation:** a button *inside* the side panel does not grant `activeTab`, so the blank manual form cannot read the current tab. Page prefill happens only through the context menu or the shortcut, and the side panel's empty state should explain this ("Tip: right-click any job posting → Add job to Huntlog").
 
 ## 9. Tech stack & project layout
 
@@ -362,7 +362,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 12. Open questions
 
-- **Product name and icon:** decided in the post-M6 review: **Huntlog**. A web search found no Web Store listing under it on 2026-10-17 (Huntr is a near neighbour); the rename PR first confirms it with the store's own search and hands back if it's taken. The rename and an icon land in a v0.6.x PR, which also replaces "Job Log" throughout this spec.
+- **Product name and icon:** decided in the post-M6 review: **Huntlog** (it replaced the working name Job Log in v0.6.1). The Chrome Web Store's own search (`chromewebstore.google.com/search/Huntlog`) returned no results on 2026-10-17 (Huntr is a near neighbour); M9 repeats the check before submitting. The icon is a white crosshair around a check on the blue chart color, so it shows on light and dark toolbars (`assets/icon.svg`; a simpler `assets/icon-16.svg` for the 16px toolbar size; the 128px store size keeps 16px of transparent padding; rendered to `public/icon/` by `scripts/render-icons.ts`).
 - **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
 - **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
 
