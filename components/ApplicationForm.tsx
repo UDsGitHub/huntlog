@@ -529,7 +529,9 @@ export function ApplicationForm({
       {/* Sticky: Save is always reachable without scrolling (spec §4.2, §10). */}
       <div
         ref={stickyBar}
-        className="sticky bottom-0 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3"
+        // Sticks to the section's padding edge; -bottom-4 cancels its 1rem bottom padding, so the bar
+        // sits flush with the panel's bottom.
+        className="sticky -bottom-4 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3"
       >
         <button type="submit" aria-disabled={isSaving || undefined} className="btn btn-primary">
           {isSaving ? 'Saving…' : 'Save'}

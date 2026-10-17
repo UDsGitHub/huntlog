@@ -1,4 +1,5 @@
-import { useRef, type KeyboardEvent } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { TAB_SLIDE_MS } from './TabPanels';
 
 /** Element ids for a tab and its panel; App and TabBar must agree, so both use these. */
 export const tabId = (prefix: string, id: string) => `${prefix}-tab-${id}`;
@@ -7,6 +8,8 @@ export const panelId = (prefix: string, id: string) => `${prefix}-panel-${id}`;
 export interface Tab<Id extends string> {
   id: Id;
   label: string;
+  /** Decorative: the label names the tab. */
+  icon?: ReactNode;
 }
 
 /**
@@ -50,12 +53,18 @@ export function TabBar<Id extends string>({
     buttons.current.get(next)?.focus();
   }
 
+  const index = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.id === selected),
+  );
   return (
     <div
       role="tablist"
       aria-label={label}
       onKeyDown={onKeyDown}
-      className="flex gap-1 border-b border-border"
+      // Equal columns, so the underline can slide between them by its own width.
+      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      className="relative grid border-b border-border"
     >
       {tabs.map((tab) => {
         const active = tab.id === selected;
@@ -73,16 +82,25 @@ export function TabBar<Id extends string>({
             aria-controls={panelId(idPrefix, tab.id)}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(tab.id)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium focus-ring ${
-              active
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+            className={`focus-ring flex min-w-0 flex-col items-center gap-1 rounded-t-md px-1 pt-1.5 pb-2 text-xs font-medium transition-colors ${
+              active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tab.label}
+            {tab.icon}
+            <span className="max-w-full truncate">{tab.label}</span>
           </button>
         );
       })}
+      {/* The selected tab's underline, sliding to it (instantly under reduced motion). */}
+      <span
+        aria-hidden="true"
+        style={{
+          width: `${100 / tabs.length}%`,
+          translate: `${index * 100}% 0`,
+          transitionDuration: `${TAB_SLIDE_MS}ms`,
+        }}
+        className="pointer-events-none absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-primary transition-[translate] ease-out motion-reduce:transition-none"
+      />
     </div>
   );
 }
