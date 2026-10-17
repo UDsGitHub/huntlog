@@ -80,7 +80,7 @@ describe('Resume field', () => {
     expect((await db.applications.toArray())[0]).not.toHaveProperty('resumeId');
   });
 
-  it('links the picked resume, shows it in the row and the detail view', async () => {
+  it('links the picked resume, and shows it in the detail view (not on the row)', async () => {
     const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' }, db);
     const user = userEvent.setup();
     await openAdd(user, 'Backend v3');
@@ -91,7 +91,8 @@ describe('Resume field', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     const row = (await screen.findByRole('button', { name: /^Acme/ })).closest('li')!;
-    expect(row).toHaveTextContent('Backend v3');
+    // Spec §4.4: the row leaves the resume out; Detail shows it.
+    expect(row).not.toHaveTextContent('Backend v3');
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
     const detail = await screen.findByRole('region', { name: 'Acme' });
     await waitFor(() =>
@@ -166,7 +167,8 @@ describe('Resume field', () => {
     const user = userEvent.setup();
     render(<App />);
     const row = (await screen.findByRole('button', { name: /^Acme/ })).closest('li')!;
-    expect(row).toHaveTextContent('Backend v3');
+    // Spec §4.4: the row leaves the resume out; Detail shows it.
+    expect(row).not.toHaveTextContent('Backend v3');
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
     const detail = await screen.findByRole('region', { name: 'Acme' });
     expect(await within(detail).findByText('Backend v3 (file not available)')).toBeInTheDocument();

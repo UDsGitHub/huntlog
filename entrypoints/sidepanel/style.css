@@ -147,6 +147,18 @@
   @apply text-xs text-destructive;
 }
 
+/* Chips: toggles and single choices (filters), round, shadcn's outline look. */
+@utility chip {
+  @apply inline-flex items-center gap-1 rounded-full border border-input bg-background px-3 py-1 text-sm text-foreground transition-colors select-none hover:bg-accent;
+  cursor: pointer;
+}
+@utility chip-on {
+  @apply border-primary bg-primary text-primary-foreground hover:bg-primary/90;
+}
+@utility chip-mixed {
+  @apply border-primary bg-accent;
+}
+
 @utility card {
   @apply rounded-lg border bg-card text-card-foreground;
 }

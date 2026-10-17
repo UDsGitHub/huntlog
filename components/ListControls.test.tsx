@@ -31,40 +31,160 @@ async function seed() {
   await add('Gamma', { status: 'rejected', appliedAt: '2026-08-15' }, '2026-10-04T10:00:00Z');
 }
 
-/** Companies in list order: each row's open button starts with the company name. */
+/** Companies in list order. */
 const rows = () =>
   within(screen.getByRole('list', { name: 'Applications' }))
     .getAllByRole('listitem')
-    .map((li) => li.querySelector('button span')?.textContent);
+    .map((li) => li.querySelector('.row-open')?.textContent);
+
+/** The status chip on a company's row. */
+const chipOf = (company: string) =>
+  within(screen.getByRole('button', { name: new RegExp(`^${company}`) }).closest('li')!).getByRole(
+    'button',
+    { name: /^Status: / },
+  );
+
+type User = ReturnType<typeof userEvent.setup>;
 
 async function renderList() {
   render(<App />);
   await screen.findByRole('list', { name: 'Applications' });
 }
 
+/** Opens the filter sheet and returns it. */
+async function openFilters(user: User) {
+  await user.click(screen.getByRole('button', { name: /^Filters/ }));
+  return screen.getByRole('dialog', { name: 'Filter and sort' });
+}
+
 describe('List controls', () => {
+  beforeEach(() => {
+    // Sheets close at once, so tests don't wait for their slide.
+    const real = window.matchMedia.bind(window);
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+      query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+    );
+  });
+  afterEach(() => vi.restoreAllMocks());
+
   it('sorts by last activity by default, and by date applied or company', async () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
     expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale', 'Acme']);
-    await user.selectOptions(screen.getByLabelText('Sort by'), 'applied');
+    const sheet = await openFilters(user);
+    expect(within(sheet).getByRole('radio', { name: 'Last activity' })).toBeChecked();
+    await user.click(within(sheet).getByRole('radio', { name: 'Date applied' }));
     expect(rows()).toEqual(['Société Générale', 'Acme', 'Gamma', 'beta']);
-    await user.selectOptions(screen.getByLabelText('Sort by'), 'company');
+    await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
     expect(rows()).toEqual(['Acme', 'beta', 'Gamma', 'Société Générale']);
+    // Sort isn't a filter: no count, nothing hidden.
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
 
-  it('filters by Active, Closed and a single status, and says how many show', async () => {
+  it('filters by status chips, several at once, and says how many show', async () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    await user.selectOptions(screen.getByLabelText('Show'), 'closed');
+    const sheet = await openFilters(user);
+    const press = (name: string) => user.click(within(sheet).getByRole('button', { name }));
+
+    await press('Closed');
     expect(rows()).toEqual(['Gamma']);
     expect(screen.getByText('Showing 1 of 4')).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Show'), 'active');
+    expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeInTheDocument();
+    await press('Closed');
+    await press('Active');
     expect(rows()).toEqual(['beta', 'Société Générale', 'Acme']);
-    await user.selectOptions(screen.getByLabelText('Show'), 'saved');
+    await press('Active');
+    await press('Saved');
     expect(rows()).toEqual(['beta']);
+    await press('Rejected');
+    expect(rows()).toEqual(['Gamma', 'beta']);
+  });
+
+  it('shows a group as mixed when only part of it is on', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    const active = within(sheet).getByRole('button', { name: 'Active' });
+    expect(active).toHaveAttribute('aria-pressed', 'false');
+    await user.click(within(sheet).getByRole('button', { name: 'Saved' }));
+    expect(active).toHaveAttribute('aria-pressed', 'mixed');
+    // Pressing a mixed group turns the rest on.
+    await user.click(active);
+    expect(active).toHaveAttribute('aria-pressed', 'true');
+    expect(within(sheet).getByRole('button', { name: 'Interviewing' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('filters by date applied, hiding jobs without one', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 16, 15));
+    try {
+      await seed();
+      const user = userEvent.setup();
+      await renderList();
+      const sheet = await openFilters(user);
+      await user.click(within(sheet).getByRole('radio', { name: 'Last 30 days' }));
+      expect(rows()).toEqual(['Société Générale']);
+      expect(within(sheet).getByText(/Jobs without a date applied/)).toBeInTheDocument();
+
+      await user.click(within(sheet).getByRole('radio', { name: 'Custom' }));
+      // Starts from the last 30 days, already valid: no errors before anything is typed.
+      const from = within(sheet).getByLabelText('From');
+      const to = within(sheet).getByLabelText('To');
+      expect(from).toHaveValue('2026-09-17');
+      expect(to).toHaveValue('2026-10-16');
+      expect(from).not.toHaveAttribute('aria-invalid');
+      expect(rows()).toEqual(['Société Générale']);
+
+      await user.clear(from);
+      // Unfinished: filters nothing, and isn't counted.
+      expect(rows()).toHaveLength(4);
+      expect(from).toHaveAccessibleDescription('Enter a date.');
+      expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
+      expect(screen.queryByText(/^Showing/)).toBeNull();
+      expect(within(sheet).queryByText(/Jobs without a date applied/)).toBeNull();
+
+      await user.type(from, '2026-08-01');
+      await user.clear(to);
+      await user.type(to, '2026-09-05');
+      expect(rows()).toEqual(['Gamma', 'Acme']);
+      // A preset keeps the Custom range for later.
+      await user.click(within(sheet).getByRole('radio', { name: 'This month' }));
+      await user.click(within(sheet).getByRole('radio', { name: 'Custom' }));
+      expect(within(sheet).getByLabelText('From')).toHaveValue('2026-08-01');
+      expect(within(sheet).getByLabelText('To')).toHaveValue('2026-09-05');
+      expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Reset clears the filters and sort; Done and Escape close the sheet', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    let sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
+    await user.click(within(sheet).getByRole('radio', { name: 'This week' }));
+    expect(screen.getByRole('button', { name: 'Filters, 2 on' })).toBeInTheDocument();
+    await user.click(within(sheet).getByRole('button', { name: 'Reset' }));
+    expect(within(sheet).getByRole('radio', { name: 'Last activity' })).toBeChecked();
+    expect(within(sheet).getByRole('radio', { name: 'Any time' })).toBeChecked();
+    expect(within(sheet).getByRole('button', { name: 'Reset' })).toBeDisabled();
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    expect(sheet).not.toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveFocus();
+
+    sheet = await openFilters(user);
+    await user.keyboard('{Escape}');
+    expect(sheet).not.toHaveAttribute('open');
   });
 
   it('searches company, title, location and notes, ignoring accents', async () => {
@@ -86,15 +206,32 @@ describe('List controls', () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    await user.selectOptions(screen.getByLabelText('Show'), 'offer');
+    const sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Offer' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
     expect(screen.getByText('No applications match.')).toBeInTheDocument();
     expect(screen.queryByText(/No applications yet/)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Clear search and filter' }));
+    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
     expect(rows()).toHaveLength(4);
-    expect(screen.getByLabelText('Show')).toHaveValue('all');
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
 
-  it('keeps search and filter after opening a job and coming back', async () => {
+  it('the Showing line has its own Clear, which keeps the sort', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('radio', { name: 'Company' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Closed' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+    await user.type(screen.getByLabelText('Search'), 'gam');
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByLabelText('Search')).toHaveValue('');
+    expect(rows()).toEqual(['Acme', 'beta', 'Gamma', 'Société Générale']);
+    expect(screen.queryByText(/^Showing/)).toBeNull();
+  });
+
+  it('keeps search and filters after opening a job and coming back', async () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
@@ -115,13 +252,7 @@ describe('List controls', () => {
     await act(async () => {
       await setStatus(acme.id, 'screening', {}, undefined, new Date('2026-10-10T10:00:00Z'));
     });
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole('button', { name: /^Acme/ }).parentElement!).getByRole('button', {
-          name: /^Status: Screening/,
-        }),
-      ).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(chipOf('Acme')).toHaveTextContent('Screening'));
     expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale', 'Acme']);
 
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
@@ -143,29 +274,29 @@ describe('List controls', () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
-    await user.selectOptions(screen.getByLabelText('Show'), 'applied');
+    let sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Applied' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Done' }));
     expect(rows()).toEqual(['Société Générale', 'Acme']);
-    const chip = within(screen.getByRole('button', { name: /^Acme/ }).parentElement!).getByRole(
-      'button',
-      { name: /^Status: / },
-    );
+    const chip = chipOf('Acme');
     await user.click(chip);
     await user.click(screen.getByRole('menuitemradio', { name: 'Offer' }));
     await waitFor(() => expect(chip).toHaveTextContent('Offer'));
     expect(rows()).toEqual(['Société Générale', 'Acme']);
     expect(chip).toHaveFocus();
     // Changing the query refreshes membership.
-    await user.selectOptions(screen.getByLabelText('Show'), 'all');
-    await user.selectOptions(screen.getByLabelText('Show'), 'applied');
+    sheet = await openFilters(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Applied' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Applied' }));
     expect(rows()).toEqual(['Société Générale']);
   });
 
-  it('keeps focus in the controls after Clear search and filter', async () => {
+  it('keeps focus in the controls after Clear search and filters', async () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
     await user.type(screen.getByLabelText('Search'), 'nothing matches this');
-    await user.click(screen.getByRole('button', { name: 'Clear search and filter' }));
+    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
     expect(screen.getByLabelText('Search')).toHaveFocus();
   });
 
@@ -182,5 +313,63 @@ describe('List controls', () => {
     );
     await user.clear(screen.getByLabelText('Search'));
     expect(screen.getByRole('button', { name: /^Gamma/ })).not.toHaveFocus();
+  });
+});
+
+describe('List rows', () => {
+  it('shows the company with its status, then where, the title and the date', async () => {
+    await saveApplication(
+      {
+        url: 'https://acme.com/1',
+        company: 'Acme Corporation International',
+        title: 'Senior Backend Engineer',
+        location: 'Berlin',
+        workMode: 'remote',
+        appliedAt: '2026-10-01',
+      },
+      { allowDuplicate: true },
+    );
+    await saveApplication({ url: 'https://beta.com/1', company: 'Beta', status: 'saved' }, {});
+    await renderList();
+    const acme = screen.getByRole('button', {
+      name: 'Acme Corporation International, Senior Backend Engineer',
+    });
+    // Its full name on hover, when the row cuts it off.
+    expect(acme).toHaveAttribute('title', 'Acme Corporation International');
+    const row = acme.closest('li')!;
+    expect(row).toHaveTextContent('Berlin · Remote');
+    expect(row).toHaveTextContent('Applied Oct 1, 2026');
+    expect(within(row).getByRole('link', { name: /^Open job posting for Acme/ })).toHaveAttribute(
+      'href',
+      'https://acme.com/1',
+    );
+    // No date applied: when it was logged instead.
+    expect(screen.getByRole('button', { name: 'Beta' }).closest('li')).toHaveTextContent(/Added /);
+  });
+
+  it('opens from anywhere on the card, but the chip and link keep their own actions', async () => {
+    await saveApplication({ url: 'https://acme.com/1', company: 'Acme' }, {});
+    const user = userEvent.setup();
+    await renderList();
+    await user.click(chipOf('Acme'));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Acme' })).toBeNull();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: /^Acme/ }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
+  });
+
+  it("shows a URL that isn't a web link as text, never as a link", async () => {
+    await saveApplication({ url: 'https://acme.com/1', company: 'Acme' }, {});
+    const stored = (await db.applications.toArray())[0]!;
+    // As an old or imported row might have it.
+    await db.applications.update(stored.id, { url: 'file:///C:/jobs/acme.html' });
+    await renderList();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Acme/ }).closest('li')).toHaveTextContent(
+        'file:///C:/jobs/acme.html',
+      ),
+    );
+    expect(screen.queryByRole('link', { name: /Open job posting/ })).toBeNull();
   });
 });

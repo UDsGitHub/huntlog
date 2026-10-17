@@ -2,13 +2,21 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { listApplications, safeHref } from '@/lib/applications';
-import { listResumes } from '@/lib/resumes';
-import { formatLocalDate } from '@/lib/dates';
-import { DEFAULT_QUERY, queryApplications, rankOf, type ListQuery } from '@/lib/listQuery';
+import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
+import {
+  activeFilterCount,
+  queryApplications,
+  rankOf,
+  withoutFilters,
+  type ListQuery,
+} from '@/lib/listQuery';
+import { effectiveWeekStart } from '@/lib/settings';
 import type { Application } from '@/lib/types';
+import { ExternalLinkIcon, PlusIcon } from './icons';
 import { ListControls } from './ListControls';
-import { PlusIcon } from './icons';
 import { StatusChip, type StatusPick } from './StatusChip';
+import { useSettings } from './useSettings';
+import { useToday } from './useToday';
 
 interface Props {
   /** Opens a new application (the empty state's button). */
@@ -39,29 +47,38 @@ export function ApplicationList({
   onRowMissing,
 }: Props) {
   const applications = useLiveQuery(() => listApplications(), []);
-  // Current resume names (renames show everywhere); the snapshot covers a resume that's gone.
-  const resumeNames = useLiveQuery(
-    async () => new Map((await listResumes()).map((resume) => [resume.id, resume.name])),
-    [],
+  const settings = useSettings();
+  const today = useToday();
+  // "Today" and the first day of the week, for the date filter's presets.
+  const weekStartsOn = effectiveWeekStart(settings ?? {});
+  const context = useMemo(
+    () => ({ now: new Date(`${today}T12:00:00`), weekStartsOn }),
+    [today, weekStartsOn],
   );
   // While the list is on screen, a status change (which bumps `updatedAt`, and may stop the row
   // matching a status filter) mustn't move or hide the row under the pointer. Order and
-  // membership are frozen per query; they refresh when the query changes or the list is shown
-  // again. New rows still appear, at the top.
-  const queryKey = JSON.stringify(query);
+  // membership are frozen per query (and per day, for the date presets); they refresh when the
+  // query changes or the list is shown again. New rows still appear, at the top.
+  // A date filter depends on the day and the week start; nothing else does, so only then do they
+  // refresh the frozen list (spec §4.4: otherwise only a query change or showing it again does).
+  const queryKey = JSON.stringify(
+    query.dates.kind === 'any' ? [query] : [query, today, weekStartsOn],
+  );
   const [frozen, setFrozen] = useState<{
     queryKey: string;
     ranks: Map<string, number>;
     shown: Set<string>;
   }>();
   if (applications && frozen?.queryKey !== queryKey) {
-    const fresh = queryApplications(applications, query);
+    const fresh = queryApplications(applications, query, context);
     setFrozen({ queryKey, ranks: rankOf(fresh), shown: new Set(fresh.map((app) => app.id)) });
   }
   const current = frozen?.queryKey === queryKey ? frozen : undefined;
   const visible = useMemo(
-    () => applications && queryApplications(applications, query, current?.ranks, current?.shown),
-    [applications, query, current],
+    () =>
+      applications &&
+      queryApplications(applications, query, context, current?.ranks, current?.shown),
+    [applications, query, context, current],
   );
   const search = useRef<HTMLInputElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -97,69 +114,44 @@ export function ApplicationList({
     );
   }
 
-  const filtered = visible.length !== applications.length;
+  const narrowed = query.search.trim() !== '' || activeFilterCount(query, context) > 0;
+  function clear() {
+    onQueryChange({ ...withoutFilters(query), search: '' });
+    // The button may disappear with the line; keep focus in the controls.
+    search.current?.focus();
+  }
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <ListControls query={query} onChange={onQueryChange} searchRef={search} />
-      {filtered && (
-        <p className="text-xs text-muted-foreground">
-          Showing {visible.length} of {applications.length}
-        </p>
+      <ListControls query={query} context={context} onChange={onQueryChange} searchRef={search} />
+      {narrowed && visible.length > 0 && (
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>
+            Showing {visible.length} of {applications.length}
+          </span>
+          <button type="button" onClick={clear} className="btn btn-ghost btn-sm">
+            Clear
+          </button>
+        </div>
       )}
       {visible.length === 0 ? (
         <div className="flex flex-col items-start gap-2">
           <p className="text-sm text-muted-foreground">No applications match.</p>
-          <button
-            type="button"
-            onClick={() => {
-              onQueryChange({ ...DEFAULT_QUERY, sort: query.sort });
-              // This button disappears with the empty state; keep focus in the controls.
-              search.current?.focus();
-            }}
-            className="btn btn-outline"
-          >
-            Clear search and filter
+          <button type="button" onClick={clear} className="btn btn-outline">
+            Clear search and filters
           </button>
         </div>
       ) : (
         <ul aria-label="Applications" className="flex flex-col divide-y divide-border">
           {visible.map((app) => (
-            <li key={app.id} className="flex min-w-0 flex-col gap-0.5 py-2">
-              {/* The chip sits beside the row button, never inside it (no nested controls). */}
-              <div className="flex items-start gap-2">
-                <button
-                  type="button"
-                  ref={(element) => {
-                    if (element) rowButtons.current.set(app.id, element);
-                    else rowButtons.current.delete(app.id);
-                  }}
-                  onClick={() => onOpen(app.id)}
-                  className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-sm text-left hover:bg-accent focus-ring"
-                >
-                  <span className="text-sm font-medium break-words">{app.company}</span>
-                  {app.title && (
-                    <span className="text-sm break-words text-muted-foreground">{app.title}</span>
-                  )}
-                  {(app.location || app.workMode) && (
-                    <span className="text-xs break-words text-muted-foreground">
-                      {[app.location, app.workMode && WORK_MODE_LABELS[app.workMode]]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
-                  )}
-                </button>
-                <StatusChip application={app} onPick={(pick) => onStatusPick(app, pick)} />
-              </div>
-              <RowMeta
-                company={app.company}
-                title={app.title}
-                url={app.url}
-                appliedAt={app.appliedAt}
-                resumeName={
-                  app.resumeId
-                    ? (resumeNames?.get(app.resumeId) ?? app.resumeNameSnapshot)
-                    : undefined
-                }
+            <li key={app.id} className="py-1">
+              <Row
+                app={app}
+                buttonRef={(element) => {
+                  if (element) rowButtons.current.set(app.id, element);
+                  else rowButtons.current.delete(app.id);
+                }}
+                onOpen={() => onOpen(app.id)}
+                onStatusPick={(pick) => onStatusPick(app, pick)}
               />
             </li>
           ))}
@@ -169,71 +161,79 @@ export function ApplicationList({
   );
 }
 
-function ExternalLinkIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 16 16"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 2.5h4.5V7M13.5 2.5 7 9M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" />
-    </svg>
-  );
-}
-
 /**
- * Date applied and a small icon link to the posting, not the full URL, which would wrap over
- * several lines at 320px. A URL that isn't a web link (e.g. imported) shows as one truncated line.
+ * One application (spec §4.4): the company and its status chip on top; below, location and work
+ * mode, the title and the date, with the posting's link on the right. The company is the row's
+ * button, and its ::after covers the whole card, so the card opens the job; the chip and the
+ * link sit above that layer with their own actions (no nested controls).
  */
-function RowMeta({
-  company,
-  title,
-  url,
-  appliedAt,
-  resumeName,
+function Row({
+  app,
+  buttonRef,
+  onOpen,
+  onStatusPick,
 }: {
-  company: string;
-  title?: string;
-  url: string;
-  appliedAt?: string;
-  resumeName?: string;
+  app: Application;
+  buttonRef: (element: HTMLButtonElement | null) => void;
+  onOpen: () => void;
+  onStatusPick: (pick: StatusPick) => void;
 }) {
-  const href = safeHref(url);
-  if (!appliedAt && !href && !url) return null;
+  const href = safeHref(app.url);
+  const where = [app.location, app.workMode && WORK_MODE_LABELS[app.workMode]]
+    .filter(Boolean)
+    .join(' · ');
+  const name = `${app.company}${app.title ? `, ${app.title}` : ''}`;
   // Unique when several roles share a company.
-  const label = `Open job posting for ${company}${title ? `: ${title}` : ''}`;
+  const linkLabel = `Open job posting for ${app.company}${app.title ? `: ${app.title}` : ''}`;
   return (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-      {appliedAt && <span className="shrink-0">Applied {formatLocalDate(appliedAt)}</span>}
-      {resumeName && (
-        <span className="min-w-0 truncate" title={`Resume: ${resumeName}`}>
-          <span className="sr-only">Resume: </span>
-          {resumeName}
-        </span>
-      )}
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={label}
-          title={label}
-          // 24px target (WCAG 2.5.8), next to other controls in a narrow panel.
-          className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-ring"
+    <div className="relative -mx-2 flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 transition-colors hover:bg-accent/60 has-[.row-open:focus-visible]:outline-2 has-[.row-open:focus-visible]:outline-ring">
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          ref={buttonRef}
+          onClick={onOpen}
+          aria-label={name}
+          // The full name on hover when it's cut off.
+          title={app.company}
+          className="row-open min-w-0 flex-1 truncate text-left text-sm font-semibold outline-none after:absolute after:inset-0 after:rounded-lg after:content-['']"
         >
-          <ExternalLinkIcon />
-        </a>
-      ) : (
-        <span className="min-w-0 truncate" title={url}>
-          {url}
-        </span>
-      )}
+          {app.company}
+        </button>
+        <div className="relative z-10 shrink-0">
+          <StatusChip application={app} onPick={onStatusPick} />
+        </div>
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {where && <span className="truncate text-xs text-muted-foreground">{where}</span>}
+          {app.title && <span className="text-sm break-words">{app.title}</span>}
+          <span className="text-xs text-muted-foreground">
+            {app.appliedAt
+              ? `Applied ${formatLocalDate(app.appliedAt)}`
+              : `Added ${formatTimestampDate(app.createdAt)}`}
+          </span>
+        </div>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={linkLabel}
+            title={linkLabel}
+            className="btn btn-ghost btn-icon relative z-10 size-8 shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLinkIcon />
+          </a>
+        ) : (
+          // Not a web link (e.g. imported): shown as text, never as a link.
+          <span
+            title={app.url}
+            className="max-w-28 shrink-0 truncate text-xs text-muted-foreground"
+          >
+            {app.url}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
