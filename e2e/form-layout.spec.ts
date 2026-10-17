@@ -1,5 +1,12 @@
 import type { Locator, Page } from '@playwright/test';
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import {
+  activePanel,
+  expect,
+  expectNoHorizontalScroll,
+  panelUrl,
+  scrollPanel,
+  test,
+} from './fixtures';
 
 // The service worker has the raw `chrome` global; borrow WXT's typings for it.
 declare const chrome: typeof browser;
@@ -33,9 +40,9 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
   await page.getByLabel('Minimum').fill('85,000');
   await page.getByLabel(/Notes/).fill('A long note.\n'.repeat(20));
   // The form is now taller than the panel; the sticky bar keeps Save on screen.
-  const { scrollHeight, clientHeight } = await page.evaluate(() => ({
-    scrollHeight: document.documentElement.scrollHeight,
-    clientHeight: document.documentElement.clientHeight,
+  const { scrollHeight, clientHeight } = await activePanel(page).evaluate((element) => ({
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
   }));
   expect(scrollHeight).toBeGreaterThan(clientHeight);
   expect(await inViewport(page, save)).toBe(true);
@@ -78,7 +85,7 @@ test('a focused field is never hidden behind the sticky bar', async ({ session }
   // Every panel height from short to tall: the invalid field must land above the bar.
   for (let height = 380; height <= 700; height += 40) {
     await page.setViewportSize({ width: 320, height });
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await scrollPanel(page, 0);
     await save.click();
     const location = page.getByLabel(/Location/);
     await expect(location).toBeFocused();

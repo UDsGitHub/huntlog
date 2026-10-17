@@ -113,9 +113,22 @@ export const panelUrl = (extensionId: string) => `chrome-extension://${extension
 
 /** The 320px rule (CLAUDE.md DoD #6): the panel never scrolls sideways. */
 export async function expectNoHorizontalScroll(page: Page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  // The page, and each tab section that scrolls on its own (they must not scroll sideways either).
+  const overflows = await page.evaluate(() =>
+    [document.documentElement, ...document.querySelectorAll<HTMLElement>('[data-tab-panel]')]
+      .filter((element) => element.scrollWidth > element.clientWidth)
+      .map((element) => element.id || element.tagName),
+  );
+  expect(overflows).toEqual([]);
+}
+
+/** The tab section on screen; each scrolls on its own (spec §3). */
+export const activePanel = (page: Page) => page.locator('[data-tab-panel][data-active]');
+
+/** Scrolls the section on screen to `top` (a number, or 'end'). */
+export async function scrollPanel(page: Page, top: number | 'end') {
+  await activePanel(page).evaluate(
+    (element, to) => element.scrollTo(0, to === 'end' ? element.scrollHeight : to),
+    top,
+  );
 }

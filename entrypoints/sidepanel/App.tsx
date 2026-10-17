@@ -5,8 +5,9 @@ import { ApplicationList } from '@/components/ApplicationList';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ResumesPanel } from '@/components/ResumesPanel';
 import { Fab } from '@/components/Fab';
-import { PlusIcon } from '@/components/icons';
+import { BriefcaseIcon, ChartColumnIcon, FileTextIcon, PlusIcon } from '@/components/icons';
 import { StatsPanel } from '@/components/StatsPanel';
+import { panelState, TabPanel, useTabSlide } from '@/components/TabPanels';
 import { useTheme } from '@/components/useTheme';
 import { panelId, TabBar, tabId, type Tab } from '@/components/TabBar';
 import { Toast, useToast, type DismissReason } from '@/components/Toast';
@@ -30,10 +31,12 @@ import type { Application } from '@/lib/types';
 type TabId = 'applications' | 'stats' | 'resumes';
 const TAB_PREFIX = 'section';
 const TABS: Tab<TabId>[] = [
-  { id: 'applications', label: 'Applications' },
-  { id: 'stats', label: 'Stats' },
-  { id: 'resumes', label: 'Resumes' },
+  { id: 'applications', label: 'Applications', icon: <BriefcaseIcon className="size-5" /> },
+  { id: 'stats', label: 'Stats', icon: <ChartColumnIcon className="size-5" /> },
+  { id: 'resumes', label: 'Resumes', icon: <FileTextIcon className="size-5" /> },
 ];
+
+const TAB_ORDER = TABS.map((tab) => tab.id);
 
 type View =
   | { name: 'list' }
@@ -58,6 +61,7 @@ export default function App() {
     tabRef.current = next;
     setTab(next);
   }, []);
+  const slide = useTabSlide(tab, TAB_ORDER);
   const [view, setView] = useState<View>({ name: 'list' });
   // The view on screen, readable from async handlers. Every navigation creates a new object, so
   // a handler can tell whether the view it belongs to is still showing (see isCurrent).
@@ -235,159 +239,168 @@ export default function App() {
   const focusAddInstead = useCallback(() => setFocusTarget({ kind: 'add' }), []);
 
   return (
-    <main className="flex flex-col gap-4 p-4">
-      <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
-        Job Log
-      </h1>
-      {/* One live region for the whole panel, mounted before anything is announced. */}
-      <p role="status" className="sr-only">
-        {/* A zero-width space alternates so a repeated message still changes the region. */}
-        {announcement.text}
-        {announcement.count % 2 ? '​' : ''}
-      </p>
-      {/* Tabs are hidden while a form is open (spec §3): its sticky Save bar owns the panel. */}
-      {!inForm && (
-        <TabBar
-          tabs={TABS}
-          selected={tab}
-          onSelect={selectTab}
-          idPrefix={TAB_PREFIX}
-          label="Job Log sections"
-        />
-      )}
-      <div
-        role={inForm ? undefined : 'tabpanel'}
-        id={panelId(TAB_PREFIX, 'applications')}
-        aria-labelledby={inForm ? undefined : tabId(TAB_PREFIX, 'applications')}
-        hidden={tab !== 'applications'}
-        className="flex min-w-0 flex-col gap-4"
-      >
-        {view.name === 'detail' ? (
-          <ApplicationDetail
-            key={view.id}
-            id={view.id}
-            initialFocus={view.focus}
-            onBack={() => toList({ kind: 'row', id: view.id })}
-            onEdit={() => navigate({ name: 'edit', id: view.id })}
-            onDeleted={(application) => handleDeleted(view, application)}
-            onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
+    // The panel's height, split between the header (title and tabs) and the tab sections, which
+    // each scroll on their own (spec §3).
+    <main className="flex h-dvh flex-col">
+      <div className="flex shrink-0 flex-col gap-4 px-4 pt-4">
+        <h1 ref={heading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+          Job Log
+        </h1>
+        {/* One live region for the whole panel, mounted before anything is announced. */}
+        <p role="status" className="sr-only">
+          {/* A zero-width space alternates so a repeated message still changes the region. */}
+          {announcement.text}
+          {announcement.count % 2 ? '​' : ''}
+        </p>
+        {/* Tabs are hidden while a form is open (spec §3): its sticky Save bar owns the panel. */}
+        {!inForm && (
+          <TabBar
+            tabs={TABS}
+            selected={tab}
+            onSelect={selectTab}
+            idPrefix={TAB_PREFIX}
+            label="Job Log sections"
           />
-        ) : view.name === 'edit' ? (
-          <EditView
-            id={view.id}
-            onViewExisting={(id) => {
-              if (isCurrent(view)) navigate({ name: 'detail', id, focus: 'heading' });
-            }}
-            onDone={(saved) => {
-              if (saved) announce('Saved changes.');
-              if (!isCurrent(view)) return;
-              // This handler may come from the render where Save was pressed, before the capture
-              // arrived, so it checks the ref rather than `prefill`.
-              if (deferredCapture.current) {
-                deferredCapture.current = false;
-                return navigate({ name: 'add' });
-              }
-              navigate({ name: 'detail', id: view.id, focus: 'edit' });
-            }}
-          />
-        ) : view.name === 'add' ? (
-          <section aria-labelledby="add-heading" className="flex flex-col gap-3">
-            <h2 id="add-heading" className="section-heading">
-              Add application
-            </h2>
-            {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
-            {/* A manual Add waits for the remembered defaults (read once, on mount); a capture
-                doesn't use them, so it never waits. */}
-            {(prefill || formDefaults) && (
-              <ApplicationForm
-                key={`${formSession}-${prefill?.nonce ?? 0}`}
-                prefill={prefill}
-                defaults={formDefaults}
-                onSaved={(application) => {
-                  announce(`Saved ${application.company}.`);
-                  // Every new application, manual or captured, sets the next manual Add's defaults.
-                  void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
-                    setFormDefaults,
-                  );
-                  if (!isCurrent(view)) return;
-                  consume();
-                  toList({ kind: 'add' });
-                }}
-                onCancel={() => {
-                  consume();
-                  toList({ kind: 'add' });
-                }}
-                onViewExisting={(id) => {
-                  if (!isCurrent(view)) return;
-                  consume();
-                  navigate({ name: 'detail', id, focus: 'heading' });
-                }}
-              />
-            )}
-          </section>
-        ) : (
-          // Bottom padding keeps the last row clear of the floating + Add.
-          <section aria-labelledby="applications-heading" className="flex flex-col gap-2 pb-16">
-            <h2 id="applications-heading" className="section-heading">
-              Applications
-            </h2>
-            {/* Only while Applications shows: it floats over the whole panel. */}
-            {tab === 'applications' && (
-              <AddButton
-                focus={focusTarget?.kind === 'add'}
-                onFocused={clearFocusTarget}
-                onClick={openAdd}
-              />
-            )}
-            <ErrorBoundary
-              fallback={
-                <p role="alert" className="text-sm text-muted-foreground">
-                  Couldn't load your applications. Close and reopen the side panel to try again.
-                </p>
-              }
-            >
-              <ApplicationList
-                onAdd={openAdd}
-                query={listQuery}
-                onQueryChange={setListQuery}
-                onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
-                onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
-                focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
-                awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
-                onRowFocused={clearFocusTarget}
-                onRowMissing={focusAddInstead}
-              />
-            </ErrorBoundary>
-          </section>
         )}
       </div>
-      <div
-        role="tabpanel"
-        id={panelId(TAB_PREFIX, 'stats')}
-        aria-labelledby={tabId(TAB_PREFIX, 'stats')}
-        hidden={inForm || tab !== 'stats'}
-      >
-        <ErrorBoundary
-          fallback={
-            <p role="alert" className="text-sm text-muted-foreground">
-              Couldn't load your stats. Close and reopen the side panel to try again.
-            </p>
-          }
+      {/* Clipped, not hidden: overflow hidden would still let focus scroll it sideways. */}
+      <div className="relative mt-4 min-h-0 flex-1 overflow-clip">
+        <TabPanel
+          state={panelState('applications', tab, slide.leaving)}
+          direction={slide.direction}
+          role={inForm ? undefined : 'tabpanel'}
+          id={panelId(TAB_PREFIX, 'applications')}
+          aria-labelledby={inForm ? undefined : tabId(TAB_PREFIX, 'applications')}
+          className="flex min-w-0 flex-col gap-4"
         >
-          <StatsPanel />
-        </ErrorBoundary>
-      </div>
-      {/* Mounted while hidden, like Applications, so the tab keeps its state. Focusable itself:
-          until it has controls, Tab from the tab bar must still reach its content. */}
-      <div
-        role="tabpanel"
-        id={panelId(TAB_PREFIX, 'resumes')}
-        aria-labelledby={tabId(TAB_PREFIX, 'resumes')}
-        tabIndex={0}
-        hidden={inForm || tab !== 'resumes'}
-        className="focus-ring"
-      >
-        <ResumesPanel showToast={showToast} announce={announce} />
+          {view.name === 'detail' ? (
+            <ApplicationDetail
+              key={view.id}
+              id={view.id}
+              initialFocus={view.focus}
+              onBack={() => toList({ kind: 'row', id: view.id })}
+              onEdit={() => navigate({ name: 'edit', id: view.id })}
+              onDeleted={(application) => handleDeleted(view, application)}
+              onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
+            />
+          ) : view.name === 'edit' ? (
+            <EditView
+              id={view.id}
+              onViewExisting={(id) => {
+                if (isCurrent(view)) navigate({ name: 'detail', id, focus: 'heading' });
+              }}
+              onDone={(saved) => {
+                if (saved) announce('Saved changes.');
+                if (!isCurrent(view)) return;
+                // This handler may come from the render where Save was pressed, before the capture
+                // arrived, so it checks the ref rather than `prefill`.
+                if (deferredCapture.current) {
+                  deferredCapture.current = false;
+                  return navigate({ name: 'add' });
+                }
+                navigate({ name: 'detail', id: view.id, focus: 'edit' });
+              }}
+            />
+          ) : view.name === 'add' ? (
+            <section aria-labelledby="add-heading" className="flex flex-col gap-3">
+              <h2 id="add-heading" className="section-heading">
+                Add application
+              </h2>
+              {/* Remount per capture: a new capture replaces whatever is in the form (spec §4.1). */}
+              {/* A manual Add waits for the remembered defaults (read once, on mount); a capture
+                doesn't use them, so it never waits. */}
+              {(prefill || formDefaults) && (
+                <ApplicationForm
+                  key={`${formSession}-${prefill?.nonce ?? 0}`}
+                  prefill={prefill}
+                  defaults={formDefaults}
+                  onSaved={(application) => {
+                    announce(`Saved ${application.company}.`);
+                    // Every new application, manual or captured, sets the next manual Add's defaults.
+                    void rememberFormDefaults(application, { captured: Boolean(prefill) }).then(
+                      setFormDefaults,
+                    );
+                    if (!isCurrent(view)) return;
+                    consume();
+                    toList({ kind: 'add' });
+                  }}
+                  onCancel={() => {
+                    consume();
+                    toList({ kind: 'add' });
+                  }}
+                  onViewExisting={(id) => {
+                    if (!isCurrent(view)) return;
+                    consume();
+                    navigate({ name: 'detail', id, focus: 'heading' });
+                  }}
+                />
+              )}
+            </section>
+          ) : (
+            // Bottom padding keeps the last row clear of the floating + Add.
+            <section aria-labelledby="applications-heading" className="flex flex-col gap-2 pb-16">
+              <h2 id="applications-heading" className="section-heading">
+                Applications
+              </h2>
+              {/* Only while Applications shows: it floats over the whole panel. */}
+              {tab === 'applications' && (
+                <AddButton
+                  focus={focusTarget?.kind === 'add'}
+                  onFocused={clearFocusTarget}
+                  onClick={openAdd}
+                />
+              )}
+              <ErrorBoundary
+                fallback={
+                  <p role="alert" className="text-sm text-muted-foreground">
+                    Couldn't load your applications. Close and reopen the side panel to try again.
+                  </p>
+                }
+              >
+                <ApplicationList
+                  onAdd={openAdd}
+                  query={listQuery}
+                  onQueryChange={setListQuery}
+                  onOpen={(id) => navigate({ name: 'detail', id, focus: 'heading' })}
+                  onStatusPick={(application, pick) => void handleStatusPick(application, pick)}
+                  focusRowId={focusTarget?.kind === 'row' ? focusTarget.id : undefined}
+                  awaitRow={focusTarget?.kind === 'row' && focusTarget.awaitRow}
+                  onRowFocused={clearFocusTarget}
+                  onRowMissing={focusAddInstead}
+                />
+              </ErrorBoundary>
+            </section>
+          )}
+        </TabPanel>
+        <TabPanel
+          state={panelState('stats', tab, slide.leaving)}
+          direction={slide.direction}
+          role="tabpanel"
+          id={panelId(TAB_PREFIX, 'stats')}
+          aria-labelledby={tabId(TAB_PREFIX, 'stats')}
+        >
+          <ErrorBoundary
+            fallback={
+              <p role="alert" className="text-sm text-muted-foreground">
+                Couldn't load your stats. Close and reopen the side panel to try again.
+              </p>
+            }
+          >
+            <StatsPanel />
+          </ErrorBoundary>
+        </TabPanel>
+        {/* Focusable itself: until it has controls, Tab from the tab bar must still reach it. */}
+        <TabPanel
+          state={panelState('resumes', tab, slide.leaving)}
+          direction={slide.direction}
+          role="tabpanel"
+          id={panelId(TAB_PREFIX, 'resumes')}
+          aria-labelledby={tabId(TAB_PREFIX, 'resumes')}
+          tabIndex={0}
+          className="focus-ring"
+        >
+          <ResumesPanel showToast={showToast} announce={announce} />
+        </TabPanel>
       </div>
       <Toast toast={toast} onDismiss={handleToastDismiss} />
     </main>

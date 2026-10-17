@@ -39,9 +39,43 @@ describe('Tab bar', () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText(/No applications yet/);
+    const applications = screen.getByRole('tabpanel', { name: 'Applications' });
     await user.click(tab('Resumes'));
     expect(tab('Resumes')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel', { name: 'Resumes' })).toHaveTextContent('No resumes yet.');
+    // Sliding out: still painted, but out of reach and hidden from assistive tech.
+    expect(applications).toHaveAttribute('inert');
+    expect(applications).toHaveAttribute('aria-hidden', 'true');
+    expect(applications).toHaveAttribute('data-slide', 'out-forward');
+    expect(screen.getByRole('tabpanel', { name: 'Resumes' })).toHaveAttribute(
+      'data-slide',
+      'in-forward',
+    );
+    // Then out of sight.
+    await waitFor(() => expect(screen.queryByText(/No applications yet/)).not.toBeVisible());
+    expect(applications).not.toHaveAttribute('data-slide');
+  });
+
+  it('slides back when moving left, and not at all under reduced motion', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    await screen.findByText(/No applications yet/);
+    await user.click(tab('Resumes'));
+    await user.click(tab('Stats'));
+    expect(screen.getByRole('tabpanel', { name: 'Stats' })).toHaveAttribute(
+      'data-slide',
+      'in-back',
+    );
+    unmount();
+
+    const real = window.matchMedia.bind(window);
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) =>
+      query.includes('reduce') ? ({ matches: true } as MediaQueryList) : real(query),
+    );
+    render(<App />);
+    await screen.findByText(/No applications yet/);
+    await user.click(tab('Resumes'));
+    expect(screen.getByRole('tabpanel', { name: 'Resumes' })).not.toHaveAttribute('data-slide');
     expect(screen.queryByText(/No applications yet/)).not.toBeVisible();
   });
 
@@ -116,11 +150,13 @@ describe('Tab bar', () => {
     render(<App />);
     await screen.findByText(/No applications yet/);
     const panel = document.getElementById(tab('Resumes').getAttribute('aria-controls')!)!;
-    expect(panel).toHaveAttribute('hidden');
+    expect(panel).not.toBeVisible();
+    expect(panel).toHaveAttribute('inert');
     await user.click(tab('Resumes'));
-    expect(panel).not.toHaveAttribute('hidden');
+    expect(panel).toBeVisible();
+    expect(panel).not.toHaveAttribute('inert');
     // Focusable itself; that Tab really reaches it is checked in real Chrome (e2e/tab-bar.spec.ts),
-    // since happy-dom has no CSS and lets Tab into the hidden Applications panel.
+    // since happy-dom ignores inert and lets Tab into the hidden Applications panel.
     expect(panel).toHaveAttribute('tabindex', '0');
   });
 

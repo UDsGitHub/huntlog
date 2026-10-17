@@ -83,11 +83,6 @@
   }
 }
 
-/* Keep focused or scrolled-to fields clear of the forms' sticky Save bar (WCAG 2.4.11). */
-html {
-  scroll-padding-bottom: calc(var(--sticky-bar-height, 0px) + 1rem);
-}
-
 /*
  * Shared styles (shadcn's button and input variants), so a look changes in one place. Combine a
  * base with a variant: `btn btn-outline`, `btn btn-primary btn-sm`, `field`.
@@ -216,6 +211,49 @@ html {
   .sheet-panel,
   .sheet::backdrop,
   .toast {
+    animation: none !important;
+  }
+}
+
+/* Tab sections (components/TabPanels.tsx): the next one slides in as the last slides out. */
+.tab-panel {
+  /* Keep focused or scrolled-to fields clear of the forms' sticky Save bar (WCAG 2.4.11). */
+  scroll-padding-bottom: calc(var(--sticky-bar-height, 0px) + 1rem);
+}
+.tab-panel[data-slide='in-forward'] {
+  animation: tab-in-from-right 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.tab-panel[data-slide='in-back'] {
+  animation: tab-in-from-left 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.tab-panel[data-slide='out-forward'] {
+  animation: tab-out-to-left 250ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+.tab-panel[data-slide='out-back'] {
+  animation: tab-out-to-right 250ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes tab-in-from-right {
+  from {
+    translate: 100% 0;
+  }
+}
+@keyframes tab-in-from-left {
+  from {
+    translate: -100% 0;
+  }
+}
+@keyframes tab-out-to-left {
+  to {
+    translate: -100% 0;
+  }
+}
+@keyframes tab-out-to-right {
+  to {
+    translate: 100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel {
     animation: none !important;
   }
 }

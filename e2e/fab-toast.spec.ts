@@ -1,4 +1,4 @@
-import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
+import { expect, expectNoHorizontalScroll, panelUrl, scrollPanel, test } from './fixtures';
 
 // Spec §3, §4.2: a floating + Add on the Applications list, an empty state with a full-size
 // button, and toasts that sit above the floating button and slide out.
@@ -56,7 +56,7 @@ test('the last row stays reachable above the floating button', async ({ session 
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('listitem').filter({ hasText: company })).toBeVisible();
   }
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await scrollPanel(page, 'end');
   // Newest first, so "One" is last.
   const lastLink = page
     .getByRole('listitem')
