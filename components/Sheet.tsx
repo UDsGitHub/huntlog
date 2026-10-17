@@ -243,7 +243,7 @@ export function Sheet({
                 {title}
               </h2>
               {description && (
-                <p id={`${id}-description`} className="text-sm text-muted-foreground">
+                <p id={`${id}-description`} className="text-sm break-words text-muted-foreground">
                   {description}
                 </p>
               )}

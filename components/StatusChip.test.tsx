@@ -6,6 +6,11 @@ import { todayLocal } from '@/lib/dates';
 import { db } from '@/lib/db';
 import App from '@/entrypoints/sidepanel/App';
 import { StatusChip } from './StatusChip';
+import { StatusSheetProvider } from './StatusSheet';
+
+/** Chips need the panel's status sheet above them, as in the app. */
+const renderWithSheet = (ui: React.ReactElement) =>
+  render(<StatusSheetProvider>{ui}</StatusSheetProvider>);
 
 beforeEach(async () => {
   // Sheets close at once, so focus is back on the chip without waiting for the slide.
@@ -55,14 +60,14 @@ describe('StatusChip (unit)', () => {
   const chip = () => screen.getByRole('button', { name: /^Status: / });
 
   it('is a button that opens a dialog, labelled with the current status', () => {
-    render(<StatusChip application={app} onPick={() => {}} />);
+    renderWithSheet(<StatusChip application={app} onPick={() => {}} />);
     expect(chip()).toHaveAccessibleName('Status: Applied. Change status');
     expect(chip()).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
   it('opens a sheet of all 9 statuses in Active and Closed groups, the current one marked and focused', async () => {
     const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={() => {}} />);
+    renderWithSheet(<StatusChip application={app} onPick={() => {}} />);
     await user.click(chip());
     const sheet = screen.getByRole('dialog', { name: 'Change status' });
     expect(sheet).toHaveAccessibleDescription('Acme · Engineer');
@@ -84,7 +89,7 @@ describe('StatusChip (unit)', () => {
   it('arrow keys move without changing anything (wrapping); Enter picks', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={onPick} />);
+    renderWithSheet(<StatusChip application={app} onPick={onPick} />);
     await user.click(chip());
     await user.keyboard('{ArrowDown}');
     expect(option('Screening')).toHaveFocus();
@@ -104,7 +109,7 @@ describe('StatusChip (unit)', () => {
   it('Escape closes without a change and returns focus to the chip', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={onPick} />);
+    renderWithSheet(<StatusChip application={app} onPick={onPick} />);
     await user.click(chip());
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -115,7 +120,7 @@ describe('StatusChip (unit)', () => {
   it('a click outside closes without a change', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={onPick} />);
+    renderWithSheet(<StatusChip application={app} onPick={onPick} />);
     await user.click(chip());
     const dialog = document.querySelector('dialog')!;
     fireEvent.pointerDown(dialog);
@@ -127,7 +132,7 @@ describe('StatusChip (unit)', () => {
   it('picking the current status changes nothing', async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
-    render(<StatusChip application={app} onPick={onPick} />);
+    renderWithSheet(<StatusChip application={app} onPick={onPick} />);
     await user.click(chip());
     await user.click(option('Applied (current)'));
     expect(onPick).not.toHaveBeenCalled();
@@ -135,8 +140,41 @@ describe('StatusChip (unit)', () => {
   });
 
   it('never colors Rejected red', () => {
-    render(<StatusChip application={{ ...app, status: 'rejected' }} onPick={() => {}} />);
+    renderWithSheet(<StatusChip application={{ ...app, status: 'rejected' }} onPick={() => {}} />);
     expect(chip().className).not.toMatch(/red|destructive/);
+  });
+  it('shows when its sheet is open, and opens with ArrowDown too', async () => {
+    const user = userEvent.setup();
+    renderWithSheet(<StatusChip application={app} onPick={() => {}} />);
+    expect(chip()).toHaveAttribute('aria-expanded', 'false');
+    act(() => chip().focus());
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('dialog', { name: 'Change status' })).toBeInTheDocument();
+    expect(chip()).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{Escape}');
+    expect(chip()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('every chip shares one sheet, opened for the right job', async () => {
+    const user = userEvent.setup();
+    const picks: string[] = [];
+    renderWithSheet(
+      <>
+        <StatusChip application={app} onPick={() => picks.push('acme')} />
+        <StatusChip
+          application={{ company: 'Globex', status: 'offer', appliedAt: '2026-10-01' }}
+          onPick={() => picks.push('globex')}
+        />
+      </>,
+    );
+    expect(document.querySelectorAll('dialog')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: /^Status: Offer/ }));
+    expect(screen.getByRole('dialog', { name: 'Change status' })).toHaveAccessibleDescription(
+      'Globex',
+    );
+    await user.click(option('Rejected'));
+    expect(picks).toEqual(['globex']);
+    expect(screen.getByRole('button', { name: /^Status: Offer/ })).toHaveFocus();
   });
 });
 
@@ -144,7 +182,7 @@ describe('Date applied step', () => {
   const saved = { company: 'Acme', status: 'saved' as const };
 
   async function pick(user: User, status: string, onPick = vi.fn()) {
-    render(<StatusChip application={saved} onPick={onPick} />);
+    renderWithSheet(<StatusChip application={saved} onPick={onPick} />);
     await user.click(screen.getByRole('button', { name: /Status: Saved/ }));
     await user.click(option(status));
     return onPick;
@@ -209,10 +247,42 @@ describe('Date applied step', () => {
   it("doesn't ask when a date is already stored", async () => {
     const onPick = vi.fn();
     const user = userEvent.setup();
-    render(<StatusChip application={{ ...saved, appliedAt: '2026-10-01' }} onPick={onPick} />);
+    renderWithSheet(
+      <StatusChip application={{ ...saved, appliedAt: '2026-10-01' }} onPick={onPick} />,
+    );
     await user.click(screen.getByRole('button', { name: /Status: Saved/ }));
     await user.click(option('Interviewing'));
     expect(onPick).toHaveBeenCalledWith({ status: 'interviewing' });
+  });
+  it('has a way back to the list', async () => {
+    const user = userEvent.setup();
+    const onPick = await pick(user, 'Offer');
+    await user.click(screen.getByRole('button', { name: 'Choose another status' }));
+    expect(screen.getByRole('dialog', { name: 'Change status' })).toBeInTheDocument();
+    expect(option('Saved (current)')).toHaveFocus();
+    await user.click(option('Interviewing'));
+    expect(screen.getByRole('dialog', { name: 'When did you apply?' })).toHaveAccessibleDescription(
+      'Moving Acme to Interviewing.',
+    );
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("isn't closed by a click outside while a date is asked for", async () => {
+    const user = userEvent.setup();
+    const onPick = await pick(user, 'Offer');
+    const dialog = document.querySelector('dialog')!;
+    fireEvent.pointerDown(dialog);
+    fireEvent.click(dialog);
+    expect(screen.getByRole('dialog', { name: 'When did you apply?' })).toBeInTheDocument();
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('says why it asks, with the date field', async () => {
+    const user = userEvent.setup();
+    await pick(user, 'Offer');
+    expect(screen.getByLabelText('Date applied')).toHaveAccessibleDescription(
+      "Acme hasn't got a date applied yet. Offer means you applied, so when was it?",
+    );
   });
 });
 

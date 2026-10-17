@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { rovingIndex } from './rovingIndex';
 import { TAB_SLIDE_MS } from './TabPanels';
 
 /** Element ids for a tab and its panel; App and TabBar must agree, so both use these. */
@@ -36,16 +37,10 @@ export function TabBar<Id extends string>({
     // Leave modified keys (e.g. Cmd+ArrowLeft) to the browser and assistive tech.
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const index = tabs.findIndex((tab) => tab.id === selected);
-    const to =
-      event.key === 'ArrowRight'
-        ? (index + 1) % tabs.length
-        : event.key === 'ArrowLeft'
-          ? (index - 1 + tabs.length) % tabs.length
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? tabs.length - 1
-              : undefined;
+    const to = rovingIndex(event.key, index, tabs.length, {
+      next: 'ArrowRight',
+      previous: 'ArrowLeft',
+    });
     if (to === undefined) return;
     event.preventDefault();
     const next = tabs[to]!.id;

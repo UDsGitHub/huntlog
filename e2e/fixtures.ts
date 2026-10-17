@@ -113,9 +113,14 @@ export const panelUrl = (extensionId: string) => `chrome-extension://${extension
 
 /** The 320px rule (CLAUDE.md DoD #6): the panel never scrolls sideways. */
 export async function expectNoHorizontalScroll(page: Page) {
-  // The page, and each tab section that scrolls on its own (they must not scroll sideways either).
+  // The page, each tab section that scrolls on its own, and open sheets: none may scroll sideways.
   const overflows = await page.evaluate(() =>
-    [document.documentElement, ...document.querySelectorAll<HTMLElement>('[data-tab-panel]')]
+    [
+      document.documentElement,
+      ...document.querySelectorAll<HTMLElement>('[data-tab-panel]'),
+      // Open sheets sit in the top layer, outside the page's own overflow.
+      ...document.querySelectorAll<HTMLElement>('dialog[open], dialog[open] .sheet-panel > *'),
+    ]
       .filter((element) => element.scrollWidth > element.clientWidth)
       .map((element) => element.id || element.tagName),
   );
