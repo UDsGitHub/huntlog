@@ -116,7 +116,7 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 **Sheet shortcut (v0.6.6):** ⌘/Ctrl+Enter presses a sheet's main button from any control in it (never a destructive one), and Escape leaves the detail view.
 
-## M7 — Export & import
+## M7 — Export & import ✅ (v0.7.0)
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
 
 - JSON backup with resumes base64-encoded, CSV export, and a downloadable CSV template (§6).

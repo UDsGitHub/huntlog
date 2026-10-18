@@ -9,6 +9,13 @@ const OUT =
   process.env.SCREENSHOT_DIR ??
   path.resolve(import.meta.dirname, '../docs/design-review/screenshots');
 const PDF = Buffer.from('%PDF-1.7\n' + ' '.repeat(200));
+const IMPORT_CSV = [
+  'Company,Job title,URL,Status,Date applied',
+  'Stark Industries,Frontend Engineer,https://stark.example/jobs/7,Applied,2026-10-15',
+  'Wayne Enterprises,UI Engineer,https://wayne.example/careers/3,Phone screen,2026-10-14',
+  'Acme,Frontend Engineer,https://acme.example/jobs/1,Interviewing,2026-10-12',
+  ',Designer,https://nocompany.example/1,Applied,2026-10-10',
+].join('\r\n');
 
 const JOBS = [
   { company: 'Acme', title: 'Frontend Engineer', applied: '2026-10-12', status: 'Interviewing' },
@@ -105,6 +112,18 @@ test('design-review screenshots', async ({ session }) => {
     await shot(page, 'sheet-delete-all', theme);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Delete all data?' })).toBeHidden();
+    // Import, previewing a CSV: rows to add, one already logged, a note, a row skipped.
+    await settings.getByRole('button', { name: 'Import…' }).click();
+    const importing = page.getByRole('dialog', { name: 'Import' });
+    await importing.getByLabel('File to import').setInputFiles({
+      name: 'applications.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(IMPORT_CSV),
+    });
+    await expect(importing.getByText(/ready to import/)).toBeVisible();
+    await shot(page, 'sheet-import', theme);
+    await page.keyboard.press('Escape');
+    await expect(importing).toBeHidden();
     await page.keyboard.press('Escape');
     await sheetsClosed(page);
 

@@ -30,7 +30,10 @@ const SCREENS: [string, RegExp][] = [
   ['Detail', /ApplicationDetail|StatusTimeline|MoreMenu/],
   ['Stats', /Stats|stats\.ts|WeeklyGoalCard|DateRangeFields/],
   ['Resumes', /resume|dropGuard/i],
-  ['Settings', /Settings|deleteAll|settings\.ts|theme|privacy|notices/],
+  [
+    'Settings',
+    /Settings|deleteAll|settings\.ts|theme|privacy|notices|Import|backup|[cC]sv|useLastBackup/,
+  ],
   ['Shared (sheets, toasts, tabs)', /Sheet|Toast|Tab|.*/],
 ];
 
