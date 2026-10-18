@@ -53,6 +53,10 @@ const TEXT: [string, string][] = [
   ['destructive', 'accent'],
   ['destructive-foreground', 'destructive-solid'],
   ['warning-foreground', 'warning'],
+  ['success', 'card'],
+  ['success', 'background'],
+  // The goal card's check, on its green tint.
+  ['success', 'status-success'],
   ['status-neutral-foreground', 'status-neutral'],
   ['status-progress-foreground', 'status-progress'],
   ['status-progress-strong-foreground', 'status-progress-strong'],

@@ -27,6 +27,7 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-border: var(--warning-border);
   --color-chart-1: var(--chart-1);
+  --color-success: var(--success);
   --color-status-neutral: var(--status-neutral);
   --color-status-neutral-foreground: var(--status-neutral-foreground);
   --color-status-progress: var(--status-progress);

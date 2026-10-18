@@ -20,7 +20,6 @@ import {
   resolveRange,
   weeklyGoalProgress,
   type DateRange,
-  type GoalProgress,
   type RangeKind,
   type Rate,
 } from '@/lib/stats';
@@ -28,7 +27,7 @@ import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
-import { ActivityChart, GoalRing, goalMessage, OutcomesBar } from './StatsCharts';
+import { ActivityChart, applicationWord, OutcomesBar, WeeklyGoalCard } from './StatsCharts';
 import { useEdgeFade } from './useEdgeFade';
 import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
@@ -78,7 +77,8 @@ export function StatsPanel({ active }: { active: boolean }) {
   const resultNow = result?.now;
   const progress = useMemo(
     () =>
-      apps && resultNow && goal !== undefined && weekStartsOn !== undefined
+      // A goal that isn't a positive number counts as none (no goal card, the no-goal layout).
+      apps && resultNow && goal !== undefined && goal > 0 && weekStartsOn !== undefined
         ? weeklyGoalProgress(apps, resultNow, weekStartsOn, goal)
         : undefined,
     [apps, resultNow, goal, weekStartsOn],
@@ -116,22 +116,37 @@ export function StatsPanel({ active }: { active: boolean }) {
       />
 
       {/* The goal shows whenever one is set, even before anything is logged. */}
-      {apps.length === 0 && progress && <AppliedCard progress={progress} />}
+      {apps.length === 0 && progress && <WeeklyGoalCard progress={progress} />}
       {apps.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Your stats show up here once you log applications. Every one you send counts.
         </p>
       ) : !stats ? (
-        progress && <AppliedCard progress={progress} />
+        progress && <WeeklyGoalCard progress={progress} />
       ) : (
         stats && (
           <>
             <div role="group" aria-label="Headline numbers" className="flex flex-col gap-2">
-              <AppliedCard applied={stats.applied} progress={progress} />
-              <dl className="grid grid-cols-2 gap-2">
-                <Count label="Interviews" value={stats.interviews} />
-                <Count label="Offers" value={stats.offers} />
-              </dl>
+              {/* With a goal, its card leads and the range's Applied joins Interviews and Offers;
+                  without one, Applied leads on its own. */}
+              {progress ? (
+                <>
+                  <WeeklyGoalCard progress={progress} />
+                  <dl className="grid grid-cols-3 gap-2">
+                    <Count label="Applied" value={stats.applied} />
+                    <Count label="Interviews" value={stats.interviews} />
+                    <Count label="Offers" value={stats.offers} />
+                  </dl>
+                </>
+              ) : (
+                <>
+                  <AppliedCard applied={stats.applied} />
+                  <dl className="grid grid-cols-2 gap-2">
+                    <Count label="Interviews" value={stats.interviews} />
+                    <Count label="Offers" value={stats.offers} />
+                  </dl>
+                </>
+              )}
             </div>
             <dl aria-label="Rates" className="grid grid-cols-2 gap-2">
               <RateCard label="Response rate" rate={stats.responseRate} outcome="heard back" />
@@ -331,37 +346,18 @@ function CustomRangeForm({
 }
 
 /**
- * The first card (spec §4.7): the range's Applied count, large, with the weekly goal ring beside
- * it while a goal is set (counting this week, whatever the range). Just the ring when there's no
- * count to show (nothing logged yet, or no usable range).
+ * The range's Applied count when no weekly goal is set: the headline number in a card of its own,
+ * laid out like the goal card (label on top, the number large, left-aligned), with a quiet pointer
+ * to the goal setting.
  */
-function AppliedCard({ applied, progress }: { applied?: number; progress?: GoalProgress }) {
-  const id = useId();
-  // With a goal, the ring leads (larger, on the left) and Applied supports it on the right;
-  // without one, Applied stands alone, centered.
-  if (!progress) {
-    return (
-      <div className="card flex min-w-0 justify-center p-4">
-        {applied !== undefined && (
-          <dl className="min-w-0">
-            <Count label="Applied" value={applied} size="lg" />
-          </dl>
-        )}
-      </div>
-    );
-  }
+function AppliedCard({ applied }: { applied: number }) {
   return (
-    <div className="card flex min-w-0 flex-col gap-3 p-4">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <GoalRing progress={progress} describedBy={`${id}-goal`} />
-        {applied !== undefined && (
-          <dl className="shrink-0">
-            <Count label="Applied" value={applied} size="side" />
-          </dl>
-        )}
-      </div>
-      <p id={`${id}-goal`} className="text-xs text-muted-foreground">
-        {goalMessage(progress)}
+    <div className="card flex min-w-0 flex-col gap-4 p-4">
+      <dl className="min-w-0">
+        <Count label="Applied" value={applied} size="lg" />
+      </dl>
+      <p className="text-xs text-muted-foreground">
+        Set a weekly goal in Settings to track how each week is going.
       </p>
     </div>
   );
@@ -370,8 +366,8 @@ function AppliedCard({ applied, progress }: { applied?: number; progress?: GoalP
 const card = 'card flex min-w-0 flex-col-reverse gap-0.5 p-2';
 
 /**
- * A label and its number. `lg`: the Applied number alone in its card, centered; `side`: Applied
- * beside the weekly goal, smaller and right-aligned.
+ * A label and its number. `lg`: the Applied number alone in its card (no weekly goal), with
+ * "applications submitted" beside it, like the goal card.
  */
 function Count({
   label,
@@ -380,25 +376,17 @@ function Count({
 }: {
   label: string;
   value: number;
-  size?: 'md' | 'lg' | 'side';
+  size?: 'md' | 'lg';
 }) {
-  if (size === 'lg') {
-    return (
-      <div className="flex flex-col-reverse items-center gap-1.5 text-center">
-        <dt className="text-sm text-muted-foreground">{label}</dt>
-        <dd className="text-4xl leading-none font-semibold tabular-nums">{value}</dd>
-      </div>
-    );
-  }
-  if (size === 'side') {
-    return (
-      <div className="flex flex-col-reverse items-end gap-1 text-right">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="text-lg leading-none font-semibold tabular-nums">{value}</dd>
-      </div>
-    );
-  }
-  return (
+  return size === 'lg' ? (
+    <div className="flex flex-col gap-1.5">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-4xl leading-none font-semibold tabular-nums">{value}</span>{' '}
+        <span className="text-sm text-muted-foreground">{applicationWord(value)} submitted</span>
+      </dd>
+    </div>
+  ) : (
     <div className={card}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xl font-semibold tabular-nums">{value}</dd>

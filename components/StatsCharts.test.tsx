@@ -1,6 +1,12 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import type { Activity } from '@/lib/stats';
-import { ActivityChart, OutcomesBar, outcomeLabel } from './StatsCharts';
+import {
+  ActivityChart,
+  OutcomesBar,
+  outcomeLabel,
+  segmentFill,
+  WeeklyGoalCard,
+} from './StatsCharts';
 
 describe('OutcomesBar', () => {
   it('labels rejections neutrally, never as "Rejected"', () => {
@@ -165,5 +171,92 @@ describe('ActivityChart', () => {
     const { container } = render(<ActivityChart activity={empty} total={0} />);
     expect(screen.getByText('No applications in this range yet.')).toBeInTheDocument();
     expect(container.querySelectorAll('[data-bar]')).toHaveLength(0);
+  });
+});
+
+describe('WeeklyGoalCard', () => {
+  const week = { from: '2026-10-11', to: '2026-10-17' };
+  const progress = (count: number, goal = 5) => ({
+    count,
+    goal,
+    fraction: Math.min(1, count / goal),
+    remaining: Math.max(0, goal - count),
+    week,
+  });
+  const fills = () =>
+    [...document.querySelectorAll<HTMLElement>('[data-segment] > div')].map(
+      (fill) => fill.style.width,
+    );
+  const bar = () => screen.getByRole('progressbar', { name: 'Weekly application goal' });
+
+  it.each([
+    [
+      0,
+      '0 applications submitted',
+      ['0%', '0%', '0%', '0%', '0%'],
+      'Goal: 5 applications · 5 more applications to reach your goal',
+    ],
+    [
+      1,
+      '1 application submitted',
+      ['100%', '0%', '0%', '0%', '0%'],
+      'Goal: 5 applications · 4 more applications to reach your goal',
+    ],
+    [
+      3,
+      '3 applications submitted',
+      ['100%', '100%', '100%', '0%', '0%'],
+      'Goal: 5 applications · 2 more applications to reach your goal',
+    ],
+    [
+      5,
+      '5 applications submitted',
+      ['100%', '100%', '100%', '100%', '100%'],
+      'Goal: 5 applications · Weekly goal complete',
+    ],
+    [
+      12,
+      '12 applications submitted',
+      ['100%', '100%', '100%', '100%', '100%'],
+      'Goal: 5 applications · 7 above your goal',
+    ],
+  ])('with %i of 5: "%s"', (count, submitted, widths, summary) => {
+    render(<WeeklyGoalCard progress={progress(count)} />);
+    const card = screen.getByRole('region', { name: 'Weekly application goal' });
+    expect(card).toHaveTextContent(`${submitted} this week`);
+    expect(card).toHaveAccessibleDescription(summary);
+    expect(fills()).toEqual(widths);
+    expect(bar()).toHaveAttribute('aria-valuenow', String(Math.min(count, 5)));
+    expect(bar()).toHaveAttribute('aria-valuetext', `${count} of 5 applications this week`);
+    const reached = count >= 5;
+    expect(screen.queryByText("You've reached your goal!") !== null).toBe(reached);
+    // Blue toward the goal, green once it's reached.
+    for (const fill of document.querySelectorAll('[data-segment] > div')) {
+      expect(fill).toHaveClass(reached ? 'bg-success' : 'bg-chart-1');
+    }
+  });
+
+  it('fills a segment partly between steps, and says "application" for one', () => {
+    render(<WeeklyGoalCard progress={progress(3, 10)} />);
+    expect(fills()).toEqual(['100%', '50%', '0%', '0%', '0%']);
+    cleanup();
+    render(<WeeklyGoalCard progress={progress(0, 1)} />);
+    expect(screen.getByRole('region')).toHaveAccessibleDescription(
+      'Goal: 1 application · 1 more application to reach your goal',
+    );
+  });
+
+  it('shows nothing for a goal of zero', () => {
+    const { container } = render(<WeeklyGoalCard progress={progress(2, 0)} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('segmentFill', () => {
+  it('clamps to the bar, never overflowing', () => {
+    expect(segmentFill(2.4, 4)).toBe(1);
+    expect(segmentFill(-1, 0)).toBe(0);
+    expect(segmentFill(Number.NaN, 0)).toBe(0);
+    expect(segmentFill(0.5, 2)).toBe(0.5);
   });
 });
