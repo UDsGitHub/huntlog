@@ -115,6 +115,32 @@ describe('Detail view', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
   });
 
+  it('Escape goes back to the list too, but closes only an open menu first', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('button', { name: 'More actions for Acme' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
+
+    // With focus anywhere on the page, or on nothing (after a click on plain text).
+    (document.activeElement as HTMLElement).blur();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+  });
+
+  it('Escape does nothing while another tab is showing', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('tab', { name: /Stats/ }));
+    (document.activeElement as HTMLElement).blur();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('tab', { name: /Applications/ }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
+  });
+
   it('says so when the application was deleted in another window', async () => {
     const app = await seed();
     const user = userEvent.setup();
@@ -158,6 +184,23 @@ describe('Edit', () => {
     const [saved] = await db.applications.toArray();
     expect(saved?.location).toBe('Remote');
     expect(saved).not.toHaveProperty('source');
+  });
+
+  it('saves with ⌘/Ctrl+Enter, without Escape on the form leaving the detail view', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.type(screen.getByLabelText('Company'), ' Corp');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+    expect((await db.applications.toArray())[0]?.company).toBe('Acme Corp');
+
+    // Escape in a form closes just the form: the detail view stays.
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
+    expect(screen.getByRole('heading', { level: 2, name: 'Acme Corp' })).toBeInTheDocument();
   });
 
   it('Cancel goes back to the detail view without saving', async () => {

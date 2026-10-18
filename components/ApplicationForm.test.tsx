@@ -297,6 +297,29 @@ describe('Add view', () => {
     expect(await db.applications.count()).toBe(0);
   });
 
+  it('saves with ⌘/Ctrl+Enter from any field, even Notes and a select', async () => {
+    const user = userEvent.setup();
+    await openAddForm(user);
+    await user.type(field('Company'), 'Acme');
+    await user.type(field('Job posting URL'), 'acme.com/jobs/1');
+    await user.click(screen.getByRole('button', { name: /More details/ }));
+    await user.type(field(/Notes/), 'Call back');
+    // Where plain Enter is a new line, the shortcut saves.
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(screen.queryByRole('form')).toBeNull();
+    const [saved] = await db.applications.toArray();
+    expect(saved).toMatchObject({ company: 'Acme', notes: 'Call back' });
+
+    // From a closed Select too (Enter there would open it).
+    await user.click(screen.getByRole('button', { name: 'Add application' }));
+    await user.type(field('Company'), 'Beta');
+    await user.type(field('Job posting URL'), 'beta.com/jobs/2');
+    field('Status').focus();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(screen.queryByRole('form')).toBeNull();
+    await waitFor(async () => expect(await db.applications.count()).toBe(2));
+  });
+
   it('opens a fresh form each time', async () => {
     const user = userEvent.setup();
     await openAddForm(user);

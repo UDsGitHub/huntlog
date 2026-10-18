@@ -35,6 +35,7 @@ import { useCollapsing } from './useCollapsing';
 import { useDebouncedSearch } from './useDebouncedSearch';
 import { useFieldErrors } from './useFieldErrors';
 import { useFocusRescue } from './useFocusRescue';
+import { SUBMIT_SHORTCUT } from './submitShortcut';
 
 interface Props {
   showToast: (toast: Omit<ToastData, 'id'>) => void;
@@ -426,6 +427,7 @@ function UploadSheet({
           type="submit"
           form={formId}
           aria-disabled={state.saving || undefined}
+          {...SUBMIT_SHORTCUT}
           className="btn btn-primary w-full"
         >
           {state.saving ? 'Uploading…' : 'Upload'}
@@ -504,6 +506,7 @@ function RenameSheet({
           type="submit"
           form={`${id}-form`}
           aria-disabled={saving || undefined}
+          {...SUBMIT_SHORTCUT}
           className="btn btn-primary w-full"
         >
           {saving ? 'Saving…' : 'Save'}

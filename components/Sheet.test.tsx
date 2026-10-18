@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useRef, useState } from 'react';
 import { Sheet, SHEET_ANIMATION_MS } from './Sheet';
+import { SUBMIT_SHORTCUT } from './submitShortcut';
 import { Toast, useToast } from './Toast';
 
 afterEach(() => {
@@ -375,5 +376,84 @@ describe('Sheet', () => {
     expect(screen.queryByLabelText('First')).toBeNull();
     await openSheet(user);
     expect(screen.getByLabelText('First')).toHaveValue('');
+  });
+});
+
+/** A sheet with a main button marked for the submit shortcut. */
+function SubmitHarness({ onSubmit, busy = false }: { onSubmit: () => void; busy?: boolean }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Sheet
+      open={open}
+      onClose={() => setOpen(false)}
+      title="Edit"
+      dirty
+      footer={
+        <button
+          type="button"
+          onClick={onSubmit}
+          aria-disabled={busy || undefined}
+          {...SUBMIT_SHORTCUT}
+        >
+          Save
+        </button>
+      }
+    >
+      <label>
+        Notes <textarea />
+      </label>
+      <label>
+        Picker
+        <input
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.preventDefault();
+          }}
+        />
+      </label>
+    </Sheet>
+  );
+}
+
+describe('Sheet submit shortcut', () => {
+  it('presses the main button from anywhere in the sheet, with ⌘ or Ctrl', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<SubmitHarness onSubmit={onSubmit} />);
+    const notes = screen.getByLabelText('Notes');
+    await user.type(notes, 'line');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    // The key went to the button, not into the text.
+    expect(notes).toHaveValue('line');
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    // Plain Enter is still a new line.
+    await user.keyboard('{Enter}');
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    expect(notes).toHaveValue('line\n');
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Meta+Enter Control+Enter',
+    );
+  });
+
+  it('leaves the key to a control that used it, and does nothing while busy or asking', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(<SubmitHarness onSubmit={onSubmit} />);
+    screen.getByLabelText('Picker').focus();
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    rerender(<SubmitHarness onSubmit={onSubmit} busy />);
+    screen.getByLabelText('Notes').focus();
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    rerender(<SubmitHarness onSubmit={onSubmit} />);
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

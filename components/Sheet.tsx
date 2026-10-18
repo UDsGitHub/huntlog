@@ -13,6 +13,7 @@ import {
 import { ArrowLeftIcon, XIcon } from './icons';
 import { inert } from './inert';
 import { prefersReducedMotion } from './motion';
+import { isSubmitShortcut } from './submitShortcut';
 import { registerToastLayer } from './toastLayer';
 
 /**
@@ -195,6 +196,17 @@ export function Sheet({
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    if (isSubmitShortcut(event)) {
+      // Presses the sheet's main button (marked by SUBMIT_SHORTCUT) from anywhere in it. Not when
+      // a control already used the key (a Combobox picking, the inline upload), not while the
+      // discard question is up or sliding out, and not on a held-down key, so it saves once.
+      if (event.defaultPrevented || !open || confirming || event.repeat) return;
+      const button = dialog.current?.querySelector<HTMLButtonElement>('[data-sheet-submit]');
+      if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+      event.preventDefault();
+      button.click();
+      return;
+    }
     if (event.key !== 'Escape') return;
     // Handled here rather than by the dialog's own cancel, so every close goes one way.
     event.preventDefault();

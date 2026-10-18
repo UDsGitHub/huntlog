@@ -19,6 +19,7 @@ import {
 import type { Resume } from '@/lib/types';
 import { carriesFiles } from './dropGuard';
 import { FileIcon, UploadIcon } from './icons';
+import { isSubmitShortcut } from './submitShortcut';
 import { useFieldErrors } from './useFieldErrors';
 
 interface Props {
@@ -283,7 +284,12 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
       // the file input, Enter opens the picker.)
       onKeyDown={(event) => {
         const target = event.target as HTMLElement;
-        if (event.key === 'Enter' && target instanceof HTMLInputElement && target.type !== 'file') {
+        // ⌘/Ctrl+Enter anywhere in it uploads too, rather than saving the application with the
+        // chosen file left behind.
+        if (
+          isSubmitShortcut(event) ||
+          (event.key === 'Enter' && target instanceof HTMLInputElement && target.type !== 'file')
+        ) {
           event.preventDefault();
           void upload();
         } else if (event.key === 'Escape') {

@@ -46,6 +46,7 @@ import { NumberField } from './NumberField';
 import { Select } from './Select';
 import { SourceField } from './SourceField';
 import { sourceFromUrl } from '@/lib/captureSource';
+import { SUBMIT_SHORTCUT, SubmitShortcutHint } from './submitShortcut';
 
 interface Props {
   /** The sheet is showing (it stays mounted while it slides out after closing). */
@@ -340,9 +341,11 @@ export function ApplicationForm({
           type="submit"
           form={formId}
           aria-disabled={isSaving || undefined}
-          className="btn btn-primary w-full"
+          {...SUBMIT_SHORTCUT}
+          className="btn btn-primary relative w-full"
         >
           {isSaving ? 'Saving…' : 'Save'}
+          <SubmitShortcutHint />
         </button>
       }
     >
