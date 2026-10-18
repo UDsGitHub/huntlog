@@ -7,7 +7,7 @@ import { createDraft, draftKey } from '@/lib/captureDraft';
 import * as deleteAll from '@/lib/deleteAll';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
 import { readSettings, SETTINGS_KEYS, updateSettings } from '@/lib/settings';
-import { sourceValue, chooseOption } from '@/tests/formHelpers';
+import { chooseOption } from '@/tests/formHelpers';
 import App from '@/entrypoints/sidepanel/App';
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -244,7 +244,7 @@ describe('Settings', () => {
   describe('delete all data', () => {
     async function seeded() {
       await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
-      await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
+      await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
       await updateSettings({ theme: 'dark', weeklyGoal: 7 });
     }
 
@@ -546,14 +546,13 @@ describe('Settings', () => {
   });
 
   it('a delete in another window clears this window’s remembered form defaults', async () => {
-    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText('No applications yet.');
     // Another window deletes everything.
     await act(() => fakeBrowser.storage.local.remove(FORM_DEFAULTS_KEY));
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    await user.click(screen.getByRole('button', { name: 'More details' }));
-    expect(sourceValue()).toBe('');
+    expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', '');
   });
 });

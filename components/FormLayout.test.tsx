@@ -204,7 +204,7 @@ describe('Currency picker', () => {
 describe('Remembered defaults', () => {
   it('reach a form opened before they finished loading', async () => {
     let release!: () => void;
-    const stored = { [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } };
+    const stored = { [FORM_DEFAULTS_KEY]: { workMode: 'remote' } };
     // Delay only the first defaults read: other reads (e.g. settings) may come first.
     const get = fakeBrowser.storage.local.get.bind(fakeBrowser.storage.local);
     let delayed = false;
@@ -219,7 +219,9 @@ describe('Remembered defaults', () => {
     await user.click(await screen.findByRole('button', { name: 'Add application' }));
     expect(screen.queryByRole('form')).toBeNull();
     release();
-    await waitFor(() => expect(sourceValue()).toBe('LinkedIn'));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'remote'),
+    );
   });
 
   async function addOne(
@@ -242,38 +244,42 @@ describe('Remembered defaults', () => {
     await screen.findByRole('button', { name: new RegExp(`^${fields.company}`) });
   }
 
-  it('start the next manual Add with the last source and work mode, shown while collapsed', async () => {
+  it('start the next manual Add with the last work mode, shown while collapsed, but never the source', async () => {
     const user = userEvent.setup();
     await openAdd(user);
     await leaveForm(user);
     await addOne(user, { company: 'acme', source: 'Referral', workMode: 'remote' });
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(sourceValue()).toBe('Referral');
+    expect(sourceValue()).toBe('');
     expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'remote');
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Remote · Referral')).toBeInTheDocument();
+    expect(detailsToggle()).toHaveAccessibleDescription('Remote');
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
-      source: 'Referral',
       workMode: 'remote',
     });
   });
 
-  it('load from storage when the panel opens', async () => {
-    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
+  it('load from storage when the panel opens, ignoring a source an older version stored', async () => {
+    await fakeBrowser.storage.local.set({
+      [FORM_DEFAULTS_KEY]: { source: 'LinkedIn', workMode: 'hybrid' },
+    });
     const user = userEvent.setup();
     await openAdd(user);
-    await waitFor(() => expect(sourceValue()).toBe('LinkedIn'));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'hybrid'),
+    );
+    expect(sourceValue()).toBe('');
   });
 
   it('remember a blank too: the defaults follow the last application', async () => {
-    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText(/No applications yet/);
     await addOne(user, { company: 'beta' });
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(sourceValue()).toBe('');
+    expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', '');
   });
 
   it("don't hold up a capture's form while they load", async () => {
@@ -290,10 +296,8 @@ describe('Remembered defaults', () => {
     await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
   });
 
-  it("aren't wiped by saving a capture that had no source or work mode", async () => {
-    await fakeBrowser.storage.local.set({
-      [FORM_DEFAULTS_KEY]: { source: 'LinkedIn', workMode: 'remote' },
-    });
+  it("aren't wiped by saving a capture that had no work mode", async () => {
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
     await fakeBrowser.storage.session.set({
       [draftKey(WINDOW_ID)]: createDraft('page', {
         url: 'https://jobs.example.test/1',
@@ -306,14 +310,11 @@ describe('Remembered defaults', () => {
     await user.type(screen.getByLabelText('Company'), 'Captured Co{Enter}');
     await screen.findByRole('button', { name: /^Captured Co/ });
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(sourceValue()).toBe('LinkedIn');
     expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'remote');
   });
 
   it("don't apply to a capture", async () => {
-    await fakeBrowser.storage.local.set({
-      [FORM_DEFAULTS_KEY]: { source: 'LinkedIn', workMode: 'remote' },
-    });
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
     await fakeBrowser.storage.session.set({
       [draftKey(WINDOW_ID)]: createDraft('page', {
         url: 'https://jobs.example.test/1',
@@ -322,24 +323,23 @@ describe('Remembered defaults', () => {
     });
     render(<App />);
     await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
-    expect(sourceValue()).toBe('');
     expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', '');
   });
 
   it("don't apply to Edit, and editing doesn't change them", async () => {
-    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { source: 'LinkedIn' } });
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
     await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    expect(sourceValue()).toBe('');
+    expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', '');
     await user.click(detailsToggle());
-    await chooseSource(user, 'Recruiter');
+    await chooseOption(user, screen.getByLabelText(/Work mode/), 'Hybrid');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Edit' })).toHaveFocus());
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
-      source: 'LinkedIn',
+      workMode: 'remote',
     });
   });
 

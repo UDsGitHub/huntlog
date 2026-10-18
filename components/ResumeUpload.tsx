@@ -133,7 +133,8 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
   const fields = (
     <>
       <div className="flex min-w-0 flex-col gap-1">
-        <span id={`${id}-file-label`} className="field-label">
+        {/* The drop zone says what it's for; the name stays for screen readers. */}
+        <span id={`${id}-file-label`} className="sr-only">
           Resume file
         </span>
         {/* Visually hidden but focusable: the drop zone below is its label, so a click anywhere
@@ -166,7 +167,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
             }
           }}
           onDrop={onDrop}
-          className={`flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-dashed px-3 py-4 text-center transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring hover:bg-accent/50 ${
+          className={`group flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-dashed px-3 py-4 text-center transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring hover:bg-accent/50 ${
             dragging
               ? 'border-primary bg-accent'
               : errors.file
@@ -183,7 +184,12 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
                   {formatLabel(file.name)} · {formatBytes(file.size)}
                 </span>
               </span>
-              <span className="text-xs font-medium underline underline-offset-4">Change file</span>
+              <span
+                aria-hidden="true"
+                className="btn btn-link pointer-events-none group-hover:underline"
+              >
+                Change file
+              </span>
             </>
           ) : (
             <>
@@ -191,8 +197,11 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
               <span className="text-sm">
                 {dragging ? 'Drop it here' : 'Choose a file or drag it here'}
               </span>
-              <span aria-hidden="true" className="btn btn-outline btn-sm pointer-events-none">
-                Choose file…
+              <span
+                aria-hidden="true"
+                className="btn btn-link pointer-events-none group-hover:underline"
+              >
+                Choose file
               </span>
             </>
           )}
@@ -211,7 +220,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
           id={`${id}-name`}
           type="text"
           autoComplete="off"
-          placeholder="e.g. Software Engineer 2026"
+          placeholder="e.g. John_Doe_Resume"
           value={name}
           onChange={(event) => {
             setName(event.target.value);
@@ -289,7 +298,7 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
     >
       {fields}
       {/* No Cancel: the "−" beside the resume field (or Escape) closes the upload. */}
-      <button type="button" onClick={() => void upload()} className="btn btn-primary self-start">
+      <button type="button" onClick={() => void upload()} className="btn btn-primary w-full">
         {saving ? 'Uploading…' : 'Upload'}
       </button>
     </div>

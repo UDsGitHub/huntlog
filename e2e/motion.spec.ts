@@ -131,14 +131,43 @@ test("an archived row's menu isn't cut off by the accordion", async ({ session }
   expect(top).toContain('Delete');
 });
 
-test('a sheet never scrolls while it slides in, so no scrollbar flashes', async ({ session }) => {
+// Regression: the dialog was overflow: hidden, which focus can still scroll. Focusing the first
+// field as a sheet opened scrolled the dialog to the panel still below the edge, so it jumped up
+// and eased back down instead of sliding in.
+test('a sheet slides in from the bottom without scrolling or jumping', async ({ session }) => {
   const page = await session.context.newPage();
   await page.setViewportSize({ width: 320, height: 700 });
   await page.goto(panelUrl(session.extensionId));
-  await page.getByRole('button', { name: 'Add application', exact: true }).click();
+  const add = page.getByRole('button', { name: 'Add application', exact: true });
+  await expect(add).toBeVisible();
+  const samples = await add.evaluate(
+    (button) =>
+      new Promise<{ top: number; scroll: number }[]>((resolve) => {
+        const out: { top: number; scroll: number }[] = [];
+        (button as HTMLElement).click();
+        const start = performance.now();
+        const tick = () => {
+          const dialog = document.querySelector('dialog[open]');
+          const panel = dialog?.querySelector('.sheet-panel');
+          if (dialog && panel) {
+            out.push({ top: panel.getBoundingClientRect().top, scroll: dialog.scrollTop });
+          }
+          if (performance.now() - start < 300) requestAnimationFrame(tick);
+          else resolve(out);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  expect(samples.length).toBeGreaterThan(3);
+  expect(samples.every((s) => s.scroll === 0)).toBe(true);
+  // Starts low and only ever moves up.
+  expect(samples[0]!.top).toBeGreaterThan(350);
+  for (let i = 1; i < samples.length; i++) {
+    expect(samples[i]!.top).toBeLessThanOrEqual(samples[i - 1]!.top + 1);
+  }
   const dialog = page.getByRole('dialog', { name: 'Add application' });
-  // The panel starts below the edge: a dialog that could scroll would show a scrollbar.
-  expect(await dialog.evaluate((el) => getComputedStyle(el).overflowY)).toBe('hidden');
+  // Clipped, so neither focus nor a scrollbar can scroll it.
+  expect(await dialog.evaluate((el) => getComputedStyle(el).overflowY)).toBe('clip');
   // Scrollbars are hidden everywhere in any case.
   expect(await page.evaluate(() => getComputedStyle(document.body).scrollbarWidth)).toBe('none');
 });

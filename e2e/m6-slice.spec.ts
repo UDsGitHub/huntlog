@@ -33,11 +33,13 @@ test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ sess
   await expect(stats.getByRole('img', { name: '3 of 10 applications this week' })).toBeVisible();
   const goal = stats.getByRole('region', { name: 'Weekly goal' });
   await expect(goal).toHaveAccessibleDescription('7 more to reach your goal.');
-  // The first card: the large Applied number with the ring beside it, on one row.
+  // The first card: the goal ring leads on the left, the range's Applied number beside it.
   const applied = stats.getByRole('definition').first();
   await expect(applied).toHaveText('3');
   const [number, ring] = [await applied.boundingBox(), await goal.boundingBox()];
-  expect(ring!.x).toBeGreaterThan(number!.x + number!.width);
+  expect(number!.x).toBeGreaterThan(ring!.x + ring!.width);
+  // The goal is the larger of the two.
+  expect(ring!.height).toBeGreaterThan(number!.height);
   expect(ring!.y).toBeLessThan(number!.y + number!.height);
   expect(ring!.y + ring!.height).toBeGreaterThan(number!.y);
   await expectNoHorizontalScroll(page);

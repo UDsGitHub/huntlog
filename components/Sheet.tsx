@@ -235,9 +235,12 @@ export function Sheet({
         event.preventDefault();
         requestClose();
       }}
-      // overflow-hidden: the browser gives a modal dialog overflow: auto, so the panel sliding
-      // up from below the edge made the dialog scrollable (a scrollbar flashed) mid-slide.
-      className="sheet m-0 h-full max-h-none w-full max-w-none overflow-hidden border-0 bg-transparent p-0 text-foreground"
+      // overflow-clip: the browser gives a modal dialog overflow: auto, so the panel sliding up
+      // from below the edge made the dialog scrollable (a scrollbar flashed) mid-slide. Not
+      // overflow-hidden, which can still be scrolled by script and by focus: focusing the first
+      // field as the sheet opened scrolled the dialog to the panel still below the edge, which
+      // then jumped up and eased back down instead of sliding in.
+      className="sheet m-0 h-full max-h-none w-full max-w-none overflow-clip border-0 bg-transparent p-0 text-foreground"
     >
       {mounted && (
         <div

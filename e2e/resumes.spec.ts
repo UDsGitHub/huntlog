@@ -217,7 +217,9 @@ test('rename in a sheet, archive into the accordion, search', async ({ session }
 
   // Search covers the file name too.
   await page.getByRole('searchbox', { name: 'Search resumes' }).fill('2026');
-  await expect(page.getByRole('list', { name: 'Resumes' })).toContainText('Backend v3');
+  await expect(page.getByRole('list', { name: 'Resumes', exact: true })).toContainText(
+    'Backend v3',
+  );
   await expect(toggle).toBeHidden();
 });
 
