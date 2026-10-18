@@ -19,6 +19,8 @@ interface Props {
   error?: string;
   /** Where an error moves focus: the Other field when open, otherwise the first chip. */
   inputRef?: (element: HTMLElement | null) => void;
+  /** An element describing the whole field, e.g. an "Auto-filled" hint. */
+  describedBy?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ interface Props {
  * or Other for anything else, which opens a short text field. Tapping the chosen chip again
  * clears it (Source is optional). Toggle buttons, so the arrow keys don't change the choice.
  */
-export function SourceField({ id, value, onChange, error, inputRef }: Props) {
+export function SourceField({ id, value, onChange, error, inputRef, describedBy }: Props) {
   // Which chip is on. Kept as state, so typing "Indeed" into Other doesn't jump to that chip.
   const [mode, setMode] = useState<Mode>(() => modeOf(value));
   // A value set from outside (not by these chips or the Other field) shows its own chip.
@@ -67,7 +69,12 @@ export function SourceField({ id, value, onChange, error, inputRef }: Props) {
 
   const errorId = `${id}-error`;
   return (
-    <div role="group" aria-labelledby={`${id}-label`} className="flex min-w-0 flex-col gap-1.5">
+    <div
+      role="group"
+      aria-labelledby={`${id}-label`}
+      aria-describedby={describedBy}
+      className="flex min-w-0 flex-col gap-1.5"
+    >
       <p id={`${id}-label`} className="field-label">
         Source
       </p>
