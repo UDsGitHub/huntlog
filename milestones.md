@@ -125,6 +125,8 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 - **Tests:** a full round-trip test (spec §10 acceptance), merge conflict resolution, and handling of malformed CSV rows.
 - **Decisions (owner, 2026-10-18; spec §6):** CSV rows get one status entry dated their Date applied; CSV rows already logged are skipped unless "Import them anyway"; Replace all asks with a plain confirmation naming the counts; Merge keeps the current settings and Replace restores them; backups hold live rows only. The backup is named `huntlog-backup-YYYY-MM-DD.json` after the rename.
 
+**Follow-up (v0.7.1):** at the owner's request, destructive buttons use shadcn's red tint with red text (kept although the text is under 4.5:1, so the contrast test no longer checks that pair); exports, imports and file checks show a turning loader; and Settings' Import button lost its ellipsis.
+
 ## M8 — Real page extraction
 **Slice:** Right-click a Greenhouse, Lever, Workday or Ashby posting, or any page with JSON-LD → title, company, location, work mode and salary arrive prefilled.
 

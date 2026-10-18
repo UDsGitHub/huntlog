@@ -624,4 +624,26 @@ describe('Settings', () => {
     expect(await screen.findByText('CSV downloaded: 1 application.')).toBeInTheDocument();
     expect(within(data).queryByRole('alert')).toBeNull();
   });
+
+  it('shows a turning loader on an export while it runs', async () => {
+    let finish!: () => void;
+    vi.spyOn(backup, 'exportBackup').mockReturnValue(
+      new Promise((resolve) => (finish = () => resolve({ applications: 0, resumes: 0 }))),
+    );
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    const button = within(data).getByRole('button', { name: 'Export backup' });
+    await user.click(button);
+    expect(button).toHaveTextContent('Exporting…');
+    expect(button.querySelector('[data-spinner]')).not.toBeNull();
+    await act(async () => finish());
+    expect(button).toHaveTextContent('Export backup');
+    expect(button.querySelector('[data-spinner]')).toBeNull();
+  });
+
+  it('names the import button without an ellipsis', async () => {
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    expect(within(data).getByRole('button', { name: 'Import' })).toBeInTheDocument();
+  });
 });

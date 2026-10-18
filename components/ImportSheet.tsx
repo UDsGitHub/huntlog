@@ -17,6 +17,7 @@ import { listResumes } from '@/lib/resumes';
 import { FileDropZone } from './FileDropZone';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
+import { Spinner } from './Spinner';
 import { SUBMIT_SHORTCUT } from './submitShortcut';
 import { useAction } from './useAction';
 
@@ -223,6 +224,7 @@ export function ImportSheet({
           onClick={() => void start()}
           className="btn btn-primary w-full"
         >
+          {action.busy && <Spinner />}
           {action.busy
             ? 'Importing…'
             : csv
@@ -268,7 +270,8 @@ export function ImportSheet({
         </p>
       </div>
       {picked?.state === 'reading' && (
-        <p role="status" className="text-sm text-muted-foreground">
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
           Checking the file…
         </p>
       )}
@@ -332,6 +335,7 @@ export function ImportSheet({
             onClick={() => void replace()}
             className="btn btn-destructive w-full"
           >
+            {action.busy && <Spinner />}
             {action.busy ? 'Replacing…' : 'Replace all data'}
           </button>
         }

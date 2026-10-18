@@ -32,6 +32,7 @@ import { NumberField } from './NumberField';
 import { SegmentedControl } from './SegmentedControl';
 import { Select } from './Select';
 import { Sheet } from './Sheet';
+import { Spinner } from './Spinner';
 import { useAction } from './useAction';
 import { useLastBackup } from './useLastBackup';
 import { useSettings } from './useSettings';
@@ -420,7 +421,7 @@ function BackupButtons({
           }}
           className="btn btn-outline"
         >
-          <DownloadIcon />
+          {action.busy ? <Spinner /> : <DownloadIcon />}
           {action.busy ? 'Exporting…' : 'Export backup'}
         </button>
         <button
@@ -438,12 +439,12 @@ function BackupButtons({
           }}
           className="btn btn-outline"
         >
-          <DownloadIcon />
+          {csv.busy ? <Spinner /> : <DownloadIcon />}
           {csv.busy ? 'Exporting…' : 'Export CSV'}
         </button>
         <button type="button" onClick={onImport} className="btn btn-outline">
           <UploadIcon />
-          Import…
+          Import
         </button>
       </div>
       {lastBackup.loaded && <p className="field-hint">{lastBackupText(lastBackup.at)}</p>}

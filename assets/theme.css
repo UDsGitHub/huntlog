@@ -36,9 +36,10 @@
   --muted-foreground: #63636b;
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
-  /* Destructive text and edges; a destructive button is filled with --destructive-solid
-     (shadcn's red: bg-destructive in light, bg-destructive/60 in dark) with white text. The text
-     red is a shade darker than the fill, so it stays 4.5:1 on a highlighted menu item (accent). */
+  /* Destructive text and edges. A destructive button is shadcn's tint: --destructive-solid at 20%
+     behind text in --destructive-solid itself (the owner's choice, v0.7.1, knowing that button's
+     text falls short of 4.5:1). The text red is a shade darker than the fill, so it stays 4.5:1
+     on a highlighted menu item (accent). */
   --destructive: #c10007;
   --destructive-solid: #e7000b;
   --destructive-foreground: #ffffff;
@@ -103,7 +104,7 @@
   --accent: #27272a;
   --accent-foreground: #fafafa;
   --destructive: #ff6467;
-  --destructive-solid: #9f4144;
+  --destructive-solid: #ff6467;
   --destructive-foreground: #ffffff;
   --border: #2e2e33;
   --input: #6b6b74;

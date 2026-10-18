@@ -312,93 +312,92 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| This file is too large to import. | `components/ImportSheet.tsx:58` |
-| Couldn't read this file. Check that it opens, then try again. | `components/ImportSheet.tsx:64` |
-| Couldn't check this file. Try again. | `components/ImportSheet.tsx:76` |
-| Imported ${applications(added)}. | `components/ImportSheet.tsx:137` |
-| Couldn't import the file. Nothing was added. Try again. | `components/ImportSheet.tsx:140` |
-| Everything in the backup was already here. | `components/ImportSheet.tsx:163` |
-| Backup merged: ${applications(counts.applications)} and ${resumes(counts.resumes)} added or updated. | `components/ImportSheet.tsx:164` |
-| Couldn't import the backup. Nothing was changed. Try again. | `components/ImportSheet.tsx:168` |
-| Backup restored: ${applications(backup.applications.length)} and ${resumes(backup.resumes.length)}. | `components/ImportSheet.tsx:185` |
-| Your data was replaced, but the settings couldn't be restored. Check them in Settings. | `components/ImportSheet.tsx:191` |
-| Import | `components/ImportSheet.tsx:213` |
-| Restore a Huntlog backup (.json), or add applications from a spreadsheet (.csv). | `components/ImportSheet.tsx:214` |
-| Importing… | `components/ImportSheet.tsx:227` |
-| Import ${applications(csvCount)} | `components/ImportSheet.tsx:229` |
-| Replace all data… | `components/ImportSheet.tsx:231` |
-| File to import | `components/ImportSheet.tsx:240` |
-| A spreadsheet needs the template’s columns. | `components/ImportSheet.tsx:264` |
-| Download the CSV template | `components/ImportSheet.tsx:266` |
-| Checking the file… | `components/ImportSheet.tsx:272` |
-| Backup from ${formatTimestampDate(backup.exportedAt)}: | `components/ImportSheet.tsx:280` |
-| This backup holds | `components/ImportSheet.tsx:281` |
-| and | `components/ImportSheet.tsx:282` |
-| How to import | `components/ImportSheet.tsx:285` |
-| Replace all | `components/ImportSheet.tsx:288` |
-| Adds what’s new and updates what changed since. Nothing here is deleted, and your settings stay. | `components/ImportSheet.tsx:295` |
-| Deletes everything here, then restores the backup, settings included. | `components/ImportSheet.tsx:296` |
-| Replace all data? | `components/ImportSheet.tsx:317` |
-| Replacing… | `components/ImportSheet.tsx:335` |
-| Replace all data | `components/ImportSheet.tsx:335` |
-| …and | `components/ImportSheet.tsx:355` |
-| more. | `components/ImportSheet.tsx:355` |
-| Row ${formatNumber(row)}: ${text} | `components/ImportSheet.tsx:360` |
-| Nothing to import. | `components/ImportSheet.tsx:390` |
-| ${applications(count)} ready to import. | `components/ImportSheet.tsx:390` |
-| already logged (the same job posting URL, or company and title), so | `components/ImportSheet.tsx:395` |
-| left out. | `components/ImportSheet.tsx:396` |
-| Import them anyway | `components/ImportSheet.tsx:406` |
-| Imported with a note | `components/ImportSheet.tsx:412` |
-| skipped | `components/ImportSheet.tsx:421` |
-| Not imported: | `components/ImportSheet.tsx:428` |
-| This backup can’t be imported: | `components/ImportSheet.tsx:444` |
-| Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:84` |
-| Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:155` |
-| Weekly goal | `components/SettingsPanel.tsx:189` |
-| Set a weekly goal | `components/SettingsPanel.tsx:192` |
-| Applications per week | `components/SettingsPanel.tsx:203` |
-| Decrease weekly goal | `components/SettingsPanel.tsx:208` |
-| Increase weekly goal | `components/SettingsPanel.tsx:236` |
-| Stats shows how this week is going against it. | `components/SettingsPanel.tsx:251` |
-| Display | `components/SettingsPanel.tsx:302` |
-| Theme | `components/SettingsPanel.tsx:304` |
-| First day of the week | `components/SettingsPanel.tsx:311` |
-| Locale default (${localeDay}) | `components/SettingsPanel.tsx:321` |
-| Used for This week and the weekly goal. | `components/SettingsPanel.tsx:325` |
-| Your data | `components/SettingsPanel.tsx:346` |
-| Everything is stored only in this browser. Export a backup now and then: one file with your applications, resumes and settings. | `components/SettingsPanel.tsx:348` |
-| Delete all data | `components/SettingsPanel.tsx:361` |
-| Reset settings | `components/SettingsPanel.tsx:365` |
-| All your data was deleted. | `components/SettingsPanel.tsx:372` |
-| Settings reset, and all your data deleted. | `components/SettingsPanel.tsx:380` |
-| Settings reset. | `components/SettingsPanel.tsx:380` |
-| Backup downloaded. | `components/SettingsPanel.tsx:415` |
-| Couldn't export your data. Try again. | `components/SettingsPanel.tsx:418` |
-| Exporting… | `components/SettingsPanel.tsx:424` |
-| Export backup | `components/SettingsPanel.tsx:424` |
-| CSV downloaded: ${applicationCount(await exportCsv())}. | `components/SettingsPanel.tsx:433` |
-| Couldn't export your applications. Try again. | `components/SettingsPanel.tsx:436` |
-| Export CSV | `components/SettingsPanel.tsx:442` |
-| Import… | `components/SettingsPanel.tsx:446` |
-| Type | `components/SettingsPanel.tsx:465` |
-| to confirm | `components/SettingsPanel.tsx:465` |
-| Your data was deleted, but the settings couldn't be reset. Try again. | `components/SettingsPanel.tsx:484` |
-| Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them. | `components/SettingsPanel.tsx:487` |
-| Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:489` |
-| Delete all data? | `components/SettingsPanel.tsx:537` |
-| This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:538` |
-| Deleting… | `components/SettingsPanel.tsx:554` |
-| Reset settings? | `components/SettingsPanel.tsx:595` |
-| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:596` |
-| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:618` |
-| Resetting… | `components/SettingsPanel.tsx:627` |
-| Reset and delete everything | `components/SettingsPanel.tsx:629` |
-| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:646` |
-| About | `components/SettingsPanel.tsx:674` |
-| Privacy policy | `components/SettingsPanel.tsx:678` |
-| Third-party notices | `components/SettingsPanel.tsx:684` |
-| Huntlog | `components/SettingsPanel.tsx:689` |
+| This file is too large to import. | `components/ImportSheet.tsx:59` |
+| Couldn't read this file. Check that it opens, then try again. | `components/ImportSheet.tsx:65` |
+| Couldn't check this file. Try again. | `components/ImportSheet.tsx:77` |
+| Imported ${applications(added)}. | `components/ImportSheet.tsx:138` |
+| Couldn't import the file. Nothing was added. Try again. | `components/ImportSheet.tsx:141` |
+| Everything in the backup was already here. | `components/ImportSheet.tsx:164` |
+| Backup merged: ${applications(counts.applications)} and ${resumes(counts.resumes)} added or updated. | `components/ImportSheet.tsx:165` |
+| Couldn't import the backup. Nothing was changed. Try again. | `components/ImportSheet.tsx:169` |
+| Backup restored: ${applications(backup.applications.length)} and ${resumes(backup.resumes.length)}. | `components/ImportSheet.tsx:186` |
+| Your data was replaced, but the settings couldn't be restored. Check them in Settings. | `components/ImportSheet.tsx:192` |
+| Import | `components/ImportSheet.tsx:214` |
+| Restore a Huntlog backup (.json), or add applications from a spreadsheet (.csv). | `components/ImportSheet.tsx:215` |
+| Importing… | `components/ImportSheet.tsx:229` |
+| Import ${applications(csvCount)} | `components/ImportSheet.tsx:231` |
+| Replace all data… | `components/ImportSheet.tsx:233` |
+| File to import | `components/ImportSheet.tsx:242` |
+| A spreadsheet needs the template’s columns. | `components/ImportSheet.tsx:266` |
+| Download the CSV template | `components/ImportSheet.tsx:268` |
+| Checking the file… | `components/ImportSheet.tsx:275` |
+| Backup from ${formatTimestampDate(backup.exportedAt)}: | `components/ImportSheet.tsx:283` |
+| This backup holds | `components/ImportSheet.tsx:284` |
+| and | `components/ImportSheet.tsx:285` |
+| How to import | `components/ImportSheet.tsx:288` |
+| Replace all | `components/ImportSheet.tsx:291` |
+| Adds what’s new and updates what changed since. Nothing here is deleted, and your settings stay. | `components/ImportSheet.tsx:298` |
+| Deletes everything here, then restores the backup, settings included. | `components/ImportSheet.tsx:299` |
+| Replace all data? | `components/ImportSheet.tsx:320` |
+| Replacing… | `components/ImportSheet.tsx:339` |
+| Replace all data | `components/ImportSheet.tsx:339` |
+| …and | `components/ImportSheet.tsx:359` |
+| more. | `components/ImportSheet.tsx:359` |
+| Row ${formatNumber(row)}: ${text} | `components/ImportSheet.tsx:364` |
+| Nothing to import. | `components/ImportSheet.tsx:394` |
+| ${applications(count)} ready to import. | `components/ImportSheet.tsx:394` |
+| already logged (the same job posting URL, or company and title), so | `components/ImportSheet.tsx:399` |
+| left out. | `components/ImportSheet.tsx:400` |
+| Import them anyway | `components/ImportSheet.tsx:410` |
+| Imported with a note | `components/ImportSheet.tsx:416` |
+| skipped | `components/ImportSheet.tsx:425` |
+| Not imported: | `components/ImportSheet.tsx:432` |
+| This backup can’t be imported: | `components/ImportSheet.tsx:448` |
+| Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:85` |
+| Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:156` |
+| Weekly goal | `components/SettingsPanel.tsx:190` |
+| Set a weekly goal | `components/SettingsPanel.tsx:193` |
+| Applications per week | `components/SettingsPanel.tsx:204` |
+| Decrease weekly goal | `components/SettingsPanel.tsx:209` |
+| Increase weekly goal | `components/SettingsPanel.tsx:237` |
+| Stats shows how this week is going against it. | `components/SettingsPanel.tsx:252` |
+| Display | `components/SettingsPanel.tsx:303` |
+| Theme | `components/SettingsPanel.tsx:305` |
+| First day of the week | `components/SettingsPanel.tsx:312` |
+| Locale default (${localeDay}) | `components/SettingsPanel.tsx:322` |
+| Used for This week and the weekly goal. | `components/SettingsPanel.tsx:326` |
+| Your data | `components/SettingsPanel.tsx:347` |
+| Everything is stored only in this browser. Export a backup now and then: one file with your applications, resumes and settings. | `components/SettingsPanel.tsx:349` |
+| Delete all data | `components/SettingsPanel.tsx:362` |
+| Reset settings | `components/SettingsPanel.tsx:366` |
+| All your data was deleted. | `components/SettingsPanel.tsx:373` |
+| Settings reset, and all your data deleted. | `components/SettingsPanel.tsx:381` |
+| Settings reset. | `components/SettingsPanel.tsx:381` |
+| Backup downloaded. | `components/SettingsPanel.tsx:416` |
+| Couldn't export your data. Try again. | `components/SettingsPanel.tsx:419` |
+| Exporting… | `components/SettingsPanel.tsx:425` |
+| Export backup | `components/SettingsPanel.tsx:425` |
+| CSV downloaded: ${applicationCount(await exportCsv())}. | `components/SettingsPanel.tsx:434` |
+| Couldn't export your applications. Try again. | `components/SettingsPanel.tsx:437` |
+| Export CSV | `components/SettingsPanel.tsx:443` |
+| Type | `components/SettingsPanel.tsx:466` |
+| to confirm | `components/SettingsPanel.tsx:466` |
+| Your data was deleted, but the settings couldn't be reset. Try again. | `components/SettingsPanel.tsx:485` |
+| Your data was deleted, but a few leftovers (saved form choices, a pending capture) remain. Try again to clear them. | `components/SettingsPanel.tsx:488` |
+| Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:490` |
+| Delete all data? | `components/SettingsPanel.tsx:538` |
+| This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:539` |
+| Deleting… | `components/SettingsPanel.tsx:555` |
+| Reset settings? | `components/SettingsPanel.tsx:596` |
+| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:597` |
+| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:619` |
+| Resetting… | `components/SettingsPanel.tsx:628` |
+| Reset and delete everything | `components/SettingsPanel.tsx:630` |
+| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:647` |
+| About | `components/SettingsPanel.tsx:675` |
+| Privacy policy | `components/SettingsPanel.tsx:679` |
+| Third-party notices | `components/SettingsPanel.tsx:685` |
+| Huntlog | `components/SettingsPanel.tsx:690` |
 | Job title | `lib/applicationsCsv.ts:16` |
 | Date applied | `lib/applicationsCsv.ts:19` |
 | Work mode | `lib/applicationsCsv.ts:21` |
@@ -465,6 +464,7 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | What you've changed here won't be saved. | `components/Sheet.tsx:338` |
 | Keep editing | `components/Sheet.tsx:348` |
 | Discard | `components/Sheet.tsx:358` |
+| ${className} motion-safe:animate-spin | `components/Spinner.tsx:10` |
 | ${index * 100}% 0 | `components/TabBar.tsx:95` |
 | Dismiss | `components/Toast.tsx:191` |
 | Meta+Enter Control+Enter | `components/submitShortcut.tsx:17` |

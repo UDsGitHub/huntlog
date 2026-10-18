@@ -137,9 +137,9 @@
 @utility btn-link {
   @apply text-primary underline-offset-4 hover:underline;
 }
-/* shadcn's destructive button: a solid red with white text. */
+/* shadcn's destructive button: a red tint with red text (the owner's choice over contrast). */
 @utility btn-destructive {
-  @apply bg-destructive-solid text-destructive-foreground hover:bg-destructive-solid/90;
+  @apply bg-destructive-solid/20 text-destructive-solid hover:bg-destructive-solid/30;
 }
 
 /* Text inputs, selects and textareas. */
