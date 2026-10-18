@@ -75,7 +75,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 1. On a job posting, the user right-clicks and chooses **"Add job to Huntlog"**, or presses the shortcut.
 2. That gesture grants `activeTab`. The background service worker first calls `chrome.sidePanel.open` for the tab's window, synchronously inside the gesture handler (before any `await`), then runs a one-off extractor in the tab with `chrome.scripting.executeScript`.
 3. The extraction result is saved as a draft in `chrome.storage.session` under a per-window key (`captureDraft:<windowId>`), because each window has its own side panel. The panel may open before the draft is written, so it reads its window's draft on load and also listens for changes. It consumes (deletes) the draft, and ignores drafts older than 5 minutes so a capture whose panel never opened can't prefill a later session. If the page can't be read (restricted page, tab gone), the draft holds only the tab URL when it is `http(s)`, and the form otherwise opens blank. A new capture replaces whatever is in the Add form without asking, since the capture itself is the user's explicit request. While an existing application is being edited, the capture waits instead (a toast says so) and opens once the edit closes: saved, or left with Back or Escape (after confirming any discard). If the user cancels the discard prompt, Edit stays open and the capture keeps waiting, so unsaved edits are never discarded.
-4. The side panel shows the Add form prefilled with the draft. Prefilled fields get a subtle "auto-filled, please check" hint.
+4. The side panel shows the Add form prefilled with the draft (§7: URL, title, company, location, work mode, salary). Prefilled fields get a subtle "auto-filled, please check" hint, which goes once the field is changed. When the page filled a field inside More details (location, work mode, salary), the section opens, so those hints are seen. The page's work mode, or none, replaces the remembered one.
    - **Source from the address:** when the job's address is on a well-known job board's own domain (any country: `linkedin.com`, `uk.indeed.com`, `indeed.co.uk`, `glassdoor.ca`), Source is set to that board: LinkedIn or Indeed (chips), or Glassdoor, ZipRecruiter, Wellfound, Dice or Monster (in Other). Company sites, ATSs and unknown sites leave it empty; a capture never uses the remembered source. It's a guess, so it carries the auto-filled hint, and More details stays shut (its row shows the source).
    - **Resume:** the form starts with the last-used resume, like a manual Add (§4.2), the one most likely sent again. The form waits briefly for the remembered defaults (at most 300 ms after the capture arrives), so a capture never hangs on them. Changes to the defaults while a form is open never touch it.
 5. The user reviews the fields, changes the resume if needed, and saves. If a duplicate is detected, a warning appears (§4.5).
@@ -288,13 +288,17 @@ Since the data is local only, the UI should nudge users to export a backup now a
 
 The extractor runs only on user gesture, via `activeTab` and `scripting`. It is one self-contained function injected into the page that returns `{ url, title?, company?, location?, workMode?, salary? }`. It tries sources in priority order:
 
-1. **JSON-LD** `JobPosting`**:** `title`, `hiringOrganization.name`, `jobLocation` / `jobLocationType` (`TELECOMMUTE` means remote), and `baseSalary`.
+1. **JSON-LD** `JobPosting` (also inside `@graph`, a list or `mainEntity`; a script that isn't valid JSON is skipped, and comment wrappers or raw line breaks are tolerated)**:** `title` (or `name`), `hiringOrganization.name`, `jobLocation` (the first place, as "Town, Region" or "Town, Country"; for a remote job without one, `applicantLocationRequirements`), `jobLocationType` (`TELECOMMUTE` means remote), and `baseSalary` (or `estimatedSalary`). Entities are decoded and tags dropped; a value too long to be the field (a description in the title) is ignored.
 2. **Microdata** `itemtype=…/JobPosting`**.**
 3. **Open Graph / meta:** `og:title`, `og:site_name`.
 4. **Heuristics:** the first `<h1>` for the title. The company comes from patterns in `document.title` ("Title at Company", "Title - Company | Site"), or else from the hostname for ATS subdomains such as `boards.greenhouse.io/{company}`, `jobs.lever.co/{company}`, `{company}.myworkdayjobs.com`, and `jobs.ashbyhq.com/{company}`. This handles common URL shapes generically, not with per-site scrapers.
-5. **Selection:** if the user has text selected, it is offered as a suggested title.
+5. **Selection:** text the user has selected becomes the title, since selecting it was a deliberate choice. The context menu's own `selectionText` is used when there is one, so a selection inside a frame counts too.
 
-`url` is always the tab URL, or the canonical `<link rel=canonical>` when it exists on the same site. Extraction must never throw. Missing fields just stay blank, and the user always reviews the form before saving.
+Each source fills only what the ones before it left empty; the document title is the last resort for the title.
+
+**Salary:** only what the posting states. A single figure fills both Minimum and Maximum (shown as one amount). Currency and Per are set only when the page gives them (a known ISO 4217 code; year, month or hour), else the form keeps its defaults, unmarked. A weekly or daily salary is left out, since Per has no such choice, and so is anything that isn't one positive amount ("85000-95000" as one string, a negative, an inverted range).
+
+`url` is always the tab URL, or the canonical `<link rel=canonical>` when it exists on the same site (`www.` aside), is `http(s)`, and isn't just the home page (some sites point every page's canonical there). Extraction must never throw. Missing fields just stay blank, and the user always reviews the form before saving.
 
 ## 8. Permissions & Chrome Web Store
 

@@ -84,6 +84,19 @@ const DETAIL_FIELDS: InputField[] = [
 /** Screen order; the first invalid field gets focus. */
 const FIELD_ORDER: InputField[] = [...MAIN_FIELDS, ...DETAIL_FIELDS];
 /** Detail fields whose value means something was entered: currency and period always have one. */
+/** Fields a capture can fill besides URL and title (spec §7), each with its "Auto-filled" hint. */
+const CAPTURED_FIELDS = [
+  'company',
+  'location',
+  'workMode',
+  'salaryMin',
+  'salaryMax',
+  'salaryCurrency',
+  'salaryPeriod',
+] as const;
+/** Those inside More details: a capture that filled one opens the section. */
+const CAPTURED_DETAIL_FIELDS = CAPTURED_FIELDS.filter((field) => field !== 'company');
+
 const DETAIL_VALUE_FIELDS = DETAIL_FIELDS.filter(
   (field): field is Exclude<InputField, 'salaryCurrency' | 'salaryPeriod'> =>
     field !== 'salaryCurrency' && field !== 'salaryPeriod',
@@ -135,20 +148,21 @@ export function ApplicationForm({
       ? formValuesFrom(application)
       : {
           url: draft?.url ?? '',
-          company: '',
+          // A capture fills what the page said about the job (spec §7).
+          company: draft?.company ?? '',
           title: draft?.title ?? '',
-          location: '',
+          location: draft?.location ?? '',
           // Remembered defaults (this form owns these rules): a manual Add starts with the last
           // work mode and source; a capture fills just what it captured, its source told by the
           // address. Both start with the last resume, the one most likely sent again.
-          workMode: (!draft && defaults?.workMode) || '',
+          workMode: (draft ? draft.workMode : defaults?.workMode) || '',
           status: 'applied',
           resumeId: defaults?.resumeId || '',
           appliedAt: todayLocal(),
-          salaryMin: '',
-          salaryMax: '',
-          salaryCurrency: defaultCurrency(),
-          salaryPeriod: 'year',
+          salaryMin: draft?.salaryMin === undefined ? '' : formatNumber(draft.salaryMin),
+          salaryMax: draft?.salaryMax === undefined ? '' : formatNumber(draft.salaryMax),
+          salaryCurrency: draft?.salaryCurrency ?? defaultCurrency(),
+          salaryPeriod: draft?.salaryPeriod ?? 'year',
           source: (draft ? capturedSource : defaults?.source) || '',
           notes: '',
         },
@@ -162,9 +176,9 @@ export function ApplicationForm({
   // it too (save()).
   const [detailsOpen, setDetailsOpen] = useState(() => {
     if (application) return DETAIL_VALUE_FIELDS.some((field) => application[field] !== undefined);
-    // Captures fill only URL and title, both above More details. M8's extractor adds location,
-    // work mode and salary: then open it for those, so their "Auto-filled" hints are seen.
-    return false;
+    // A capture that filled a field inside opens it, so its "Auto-filled" hint is seen. A source
+    // told by the address doesn't: the row's hint already shows it (spec §4.1).
+    return CAPTURED_DETAIL_FIELDS.some((field) => draft?.[field] !== undefined);
   });
   // Collapsing slides shut before the section is hidden (not under reduced motion).
   const detailsClosing = useCollapsing(detailsOpen);
@@ -207,10 +221,16 @@ export function ApplicationForm({
   );
 
   // A hint stays while the field still holds exactly what was captured.
+  const capturedHint = (field: (typeof CAPTURED_FIELDS)[number]) =>
+    draft?.[field] !== undefined && values[field] === initial[field];
   const hints = {
     url: Boolean(draft?.url) && values.url === draft?.url,
     title: Boolean(draft?.title) && values.title === draft?.title,
     source: Boolean(capturedSource) && values.source === capturedSource,
+    ...(Object.fromEntries(CAPTURED_FIELDS.map((field) => [field, capturedHint(field)])) as Record<
+      (typeof CAPTURED_FIELDS)[number],
+      boolean
+    >),
   };
 
   const set = (field: keyof FormValues) => (value: string) => {
@@ -286,8 +306,8 @@ export function ApplicationForm({
   });
 
   /** The same wiring for a `Select`, whose focusable element is its button. */
-  const selectControl = (field: InputField) => {
-    const { id: fieldId, name, ref, ...aria } = control(field);
+  const selectControl = (field: InputField, hint = false) => {
+    const { id: fieldId, name, ref, ...aria } = control(field, hint);
     return {
       id: fieldId,
       name,
@@ -372,14 +392,14 @@ export function ApplicationForm({
 
           <Field label="Company" required htmlFor={`${id}-company`}>
             <input
-              {...control('company')}
+              {...control('company', hints.company)}
               type="text"
               autoComplete="off"
               aria-required="true"
               value={values.company}
               onChange={(e) => set('company')(e.target.value)}
             />
-            {message('company')}
+            {message('company', hints.company)}
           </Field>
 
           <Field label="Job title" htmlFor={`${id}-title`}>
@@ -498,18 +518,18 @@ export function ApplicationForm({
               <div className="flex min-w-0 flex-col gap-3 px-1 pt-1 pb-1">
                 <Field label="Location" htmlFor={`${id}-location`}>
                   <input
-                    {...control('location')}
+                    {...control('location', hints.location)}
                     type="text"
                     autoComplete="off"
                     value={values.location}
                     onChange={(e) => set('location')(e.target.value)}
                   />
-                  {message('location')}
+                  {message('location', hints.location)}
                 </Field>
 
                 <Field label="Work mode" htmlFor={`${id}-workMode`}>
                   <Select
-                    {...selectControl('workMode')}
+                    {...selectControl('workMode', hints.workMode)}
                     listLabel="Work modes"
                     value={values.workMode}
                     onChange={set('workMode')}
@@ -521,7 +541,7 @@ export function ApplicationForm({
                       })),
                     ]}
                   />
-                  {message('workMode')}
+                  {message('workMode', hints.workMode)}
                 </Field>
 
                 <fieldset className="flex min-w-0 flex-col gap-2">
@@ -530,24 +550,24 @@ export function ApplicationForm({
                   <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
                     <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
                       <NumberField
-                        {...control('salaryMin')}
+                        {...control('salaryMin', hints.salaryMin)}
                         kind="amount"
                         value={values.salaryMin}
                         onChange={set('salaryMin')}
                       />
-                      {message('salaryMin')}
+                      {message('salaryMin', hints.salaryMin)}
                     </Field>
                     <span aria-hidden="true" className="pt-7 text-muted-foreground">
                       –
                     </span>
                     <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
                       <NumberField
-                        {...control('salaryMax')}
+                        {...control('salaryMax', hints.salaryMax)}
                         kind="amount"
                         value={values.salaryMax}
                         onChange={set('salaryMax')}
                       />
-                      {message('salaryMax')}
+                      {message('salaryMax', hints.salaryMax)}
                     </Field>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -561,14 +581,19 @@ export function ApplicationForm({
                         inputRef={register('salaryCurrency')}
                         invalid={Boolean(errors.salaryCurrency)}
                         describedBy={
-                          errors.salaryCurrency ? `${id}-salaryCurrency-error` : undefined
+                          [
+                            hints.salaryCurrency && `${id}-salaryCurrency-hint`,
+                            errors.salaryCurrency && `${id}-salaryCurrency-error`,
+                          ]
+                            .filter(Boolean)
+                            .join(' ') || undefined
                         }
                       />
-                      {message('salaryCurrency')}
+                      {message('salaryCurrency', hints.salaryCurrency)}
                     </Field>
                     <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
                       <Select
-                        {...selectControl('salaryPeriod')}
+                        {...selectControl('salaryPeriod', hints.salaryPeriod)}
                         listLabel="Periods"
                         value={values.salaryPeriod}
                         onChange={set('salaryPeriod')}
@@ -577,7 +602,7 @@ export function ApplicationForm({
                           label,
                         }))}
                       />
-                      {message('salaryPeriod')}
+                      {message('salaryPeriod', hints.salaryPeriod)}
                     </Field>
                   </div>
                 </fieldset>
