@@ -1,8 +1,8 @@
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication, softDeleteApplication } from './applications';
 import {
+  backupBlob,
   backupFileName,
-  backupParts,
   BACKUP_FORMAT,
   collectBackup,
   exportBackup,
@@ -69,9 +69,7 @@ describe('collectBackup', () => {
     expect(backup.applications).toEqual([withoutDerivedFields(app)]);
     expect(backup.applications[0]).not.toHaveProperty('urlNormalized');
     expect(backup.applications[0]).not.toHaveProperty('companyTitleKey');
-    expect(backup.resumes).toEqual([
-      { ...resume, file: toBase64(new Uint8Array(PDF_BYTES).buffer) },
-    ]);
+    expect(backup.resumes).toEqual([{ resume, file: new Uint8Array(PDF_BYTES).buffer }]);
   });
 
   it('leaves soft-deleted rows out, and keeps archived resumes', async () => {
@@ -85,9 +83,26 @@ describe('collectBackup', () => {
     await deleteResume(used.id, db);
     const backup = await collectBackup(db);
     expect(backup.applications.map((app) => app.company)).toEqual(['Acme']);
-    expect(backup.resumes.map((resume) => [resume.name, resume.archived])).toEqual([
+    expect(backup.resumes.map(({ resume }) => [resume.name, resume.archived])).toEqual([
       ['Used', true],
     ]);
+  });
+
+  it('keeps a deleted resume that a live application still links to, with its file', async () => {
+    const resume = await addResume(pdf(), {}, db);
+    // Linked after the delete: the link a just-undone application delete can bring back.
+    await db.resumes.update(resume.id, { deletedAt: new Date().toISOString() });
+    await db.applications.add({
+      ...(await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db)),
+      id: crypto.randomUUID(),
+      resumeId: resume.id,
+    });
+    const backup = await collectBackup(db);
+    const linked = backup.applications.find((app) => app.resumeId === resume.id);
+    expect(linked).toBeDefined();
+    expect(backup.resumes).toHaveLength(1);
+    expect(backup.resumes[0]!.resume.deletedAt).toBeDefined();
+    expect(backup.resumes[0]!.file).not.toBeNull();
   });
 
   it('marks a resume whose file is gone with a null file', async () => {
@@ -97,9 +112,12 @@ describe('collectBackup', () => {
   });
 
   it('keeps only the settings that are set', async () => {
-    expect((await collectBackup(db)).settings).toEqual({ theme: 'system' });
+    expect((await collectBackup(db)).settings).toEqual({});
     await updateSettings({ weekStartsOn: 0 });
-    expect((await collectBackup(db)).settings).toEqual({ theme: 'system', weekStartsOn: 0 });
+    expect((await collectBackup(db)).settings).toEqual({ weekStartsOn: 0 });
+    // Chosen explicitly, System is kept too.
+    await updateSettings({ theme: 'system' });
+    expect((await collectBackup(db)).settings).toEqual({ weekStartsOn: 0, theme: 'system' });
   });
 
   it('rejects when the settings can’t be read', async () => {
@@ -108,20 +126,29 @@ describe('collectBackup', () => {
   });
 });
 
-describe('backupParts', () => {
-  it('joins into the backup as JSON', async () => {
-    await addResume(pdf('One.pdf'), {}, db);
-    await addResume(pdf('Two.pdf'), {}, db);
+describe('backupBlob', () => {
+  it('is the backup as JSON, with each file in base64', async () => {
+    const one = await addResume(pdf('One.pdf'), {}, db);
+    const two = await addResume(pdf('Two.pdf'), {}, db);
+    await db.resumeFiles.delete(two.id);
     await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
-    const backup = await collectBackup(db);
-    const parts = backupParts(backup);
-    expect(parts.length).toBe(4);
-    expect(JSON.parse(parts.join(''))).toEqual(backup);
+    const contents = await collectBackup(db);
+    const blob = backupBlob(contents);
+    expect(blob.type).toBe('application/json');
+    const base64 = toBase64(new Uint8Array(PDF_BYTES).buffer);
+    const files = new Map([
+      [one.id, base64],
+      [two.id, null],
+    ]);
+    expect(JSON.parse(await blob.text())).toEqual({
+      ...contents,
+      resumes: contents.resumes.map(({ resume }) => ({ ...resume, file: files.get(resume.id) })),
+    });
   });
 
   it('works with no resumes', async () => {
-    const backup = await collectBackup(db);
-    expect(JSON.parse(backupParts(backup).join(''))).toEqual(backup);
+    const contents = await collectBackup(db);
+    expect(JSON.parse(await backupBlob(contents).text())).toEqual(contents);
   });
 });
 
@@ -186,9 +213,25 @@ describe('last backup', () => {
     [new Date(2026, 9, 17, 23, 55), 'Last backup: yesterday'],
     [new Date(2026, 9, 11, 12, 0), 'Last backup: 7 days ago'],
     [new Date(2025, 9, 18, 12, 0), 'Last backup: 365 days ago'],
+    [new Date(2024, 9, 18, 12, 0), 'Last backup: 730 days ago'],
     // A clock moved back: never "-1 days ago".
     [new Date(2026, 9, 19, 12, 0), 'Last backup: today'],
   ])('describes %s', (at, text) => {
     expect(lastBackupText(at?.toISOString(), new Date(2026, 9, 18, 8, 0))).toBe(text);
+  });
+
+  it.each(['soon', '+010000-01-01T00:00:00.000Z', '2026-13-01T00:00:00Z'])(
+    'treats an unreadable %j as never, without throwing',
+    (at) => {
+      expect(lastBackupText(at)).toBe('Last backup: never');
+    },
+  );
+
+  it('shows the count in Latin digits whatever the locale', () => {
+    const toLocale = vi.spyOn(Number.prototype, 'toLocaleString');
+    expect(lastBackupText(new Date(2026, 9, 6).toISOString(), new Date(2026, 9, 18))).toBe(
+      'Last backup: 12 days ago',
+    );
+    expect(toLocale).not.toHaveBeenCalled();
   });
 });

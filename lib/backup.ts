@@ -1,7 +1,9 @@
-import { parseLocalDate, todayLocal } from './dates';
+import { isValidLocalDate, todayLocal } from './dates';
 import { db as defaultDb, type JobLogDB } from './db';
 import { downloadBlob } from './download';
-import { readStoredSettings, type Settings } from './settings';
+import { formatNumber } from './numberInput';
+import { readStoredSettings, SETTINGS_KEYS, type Settings } from './settings';
+import { daysBetween } from './stats';
 import type { Application, Resume } from './types';
 
 /** What marks a file as a Huntlog backup, whatever it's called (spec §6). */
@@ -69,19 +71,36 @@ function appVersion(): string | undefined {
   }
 }
 
+/** What a backup holds before it's written: the resume files still as bytes. */
+export interface BackupContents extends Omit<Backup, 'resumes'> {
+  resumes: { resume: Resume; file: ArrayBuffer | null }[];
+}
+
+/**
+ * The settings the user has set, leaving out any at its default, so restoring a backup never
+ * turns a default into a choice. Rejects if they can't be read, rather than backing up defaults
+ * nobody chose.
+ */
+async function storedSettings(): Promise<BackupSettings> {
+  const settings = await readStoredSettings();
+  const raw = await browser.storage.local.get(Object.values(SETTINGS_KEYS));
+  const chosen: BackupSettings = {};
+  if (raw[SETTINGS_KEYS.theme] !== undefined) chosen.theme = settings.theme;
+  if (settings.weeklyGoal !== undefined) chosen.weeklyGoal = settings.weeklyGoal;
+  if (settings.weekStartsOn !== undefined) chosen.weekStartsOn = settings.weekStartsOn;
+  return chosen;
+}
+
 /**
  * Reads everything a backup holds, the tables in one read transaction so they agree with each
- * other. Rejects if the settings can't be read, rather than backing up defaults nobody chose.
+ * other: the live applications and resumes, plus any deleted resume a live application still
+ * links to (deleted within its Undo window), so no link in the backup points at nothing.
  */
 export async function collectBackup(
   database: JobLogDB = defaultDb,
   now: Date = new Date(),
-): Promise<Backup> {
-  const stored = await readStoredSettings();
-  const settings: BackupSettings = { theme: stored.theme };
-  if (stored.weeklyGoal !== undefined) settings.weeklyGoal = stored.weeklyGoal;
-  if (stored.weekStartsOn !== undefined) settings.weekStartsOn = stored.weekStartsOn;
-
+): Promise<BackupContents> {
+  const settings = await storedSettings();
   const { applications, resumes } = await database.transaction(
     'r',
     database.applications,
@@ -89,14 +108,14 @@ export async function collectBackup(
     database.resumeFiles,
     async () => {
       const apps = await database.applications.filter((app) => !app.deletedAt).toArray();
-      const live = await database.resumes.filter((resume) => !resume.deletedAt).toArray();
-      const files = await database.resumeFiles.bulkGet(live.map((resume) => resume.id));
+      const linked = new Set(apps.flatMap((app) => (app.resumeId ? [app.resumeId] : [])));
+      const kept = await database.resumes
+        .filter((resume) => !resume.deletedAt || linked.has(resume.id))
+        .toArray();
+      const files = await database.resumeFiles.bulkGet(kept.map((resume) => resume.id));
       return {
         applications: apps.map(withoutDerivedFields),
-        resumes: live.map((resume, i): BackupResume => ({
-          ...resume,
-          file: files[i] ? toBase64(files[i].data) : null,
-        })),
+        resumes: kept.map((resume, i) => ({ resume, file: files[i]?.data ?? null })),
       };
     },
   );
@@ -113,16 +132,19 @@ export async function collectBackup(
 }
 
 /**
- * The backup as JSON text in parts, one per resume, so a library of large files is never joined
- * into one huge string (a Blob joins the parts).
+ * The backup as a JSON file. Each resume is encoded on its own and turned into a Blob at once,
+ * so a library of large files is never one huge string, nor held as text all together.
  */
-export function backupParts(backup: Backup): string[] {
-  const { resumes, ...rest } = backup;
+export function backupBlob(contents: BackupContents): Blob {
+  const { resumes, ...rest } = contents;
   const head = JSON.stringify(rest);
-  const parts = [`${head.slice(0, -1)},"resumes":[`];
-  resumes.forEach((resume, i) => parts.push((i ? ',' : '') + JSON.stringify(resume)));
+  const parts: BlobPart[] = [`${head.slice(0, -1)},"resumes":[`];
+  resumes.forEach(({ resume, file }, i) => {
+    const entry: BackupResume = { ...resume, file: file ? toBase64(file) : null };
+    parts.push(new Blob([(i ? ',' : '') + JSON.stringify(entry)]));
+  });
   parts.push(']}');
-  return parts;
+  return new Blob(parts, { type: 'application/json' });
 }
 
 /** `huntlog-backup-2026-10-18.json`, by the local date. */
@@ -143,7 +165,7 @@ export async function exportBackup(
   now: Date = new Date(),
 ): Promise<{ applications: number; resumes: number }> {
   const backup = await collectBackup(database, now);
-  downloadBlob(new Blob(backupParts(backup), { type: 'application/json' }), backupFileName(now));
+  downloadBlob(backupBlob(backup), backupFileName(now));
   try {
     await browser.storage.local.set({ [LAST_BACKUP_KEY]: now.toISOString() });
   } catch (error) {
@@ -153,8 +175,11 @@ export async function exportBackup(
   return { applications: backup.applications.length, resumes: backup.resumes.length };
 }
 
-const isTimestamp = (value: unknown): value is string =>
-  typeof value === 'string' && !Number.isNaN(Date.parse(value));
+/** An ISO timestamp as Huntlog writes them (`toISOString`), and a real one. */
+export const isTimestamp = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(value) &&
+  !Number.isNaN(Date.parse(value));
 
 /** When the last backup was made, or undefined (never, or unreadable). Never throws. */
 export async function readLastBackup(): Promise<string | undefined> {
@@ -183,12 +208,11 @@ export function onLastBackupChanged(listener: (at: string | undefined) => void):
  * one made late last night is "yesterday" this morning.
  */
 export function lastBackupText(at: string | undefined, now: Date = new Date()): string {
-  if (!at) return 'Last backup: never';
-  const then = parseLocalDate(todayLocal(new Date(at)))!;
-  const today = parseLocalDate(todayLocal(now))!;
-  // Rounded: a day with a DST change is 23 or 25 hours long.
-  const days = Math.round((today.getTime() - then.getTime()) / 86_400_000);
+  const then = at && isTimestamp(at) ? todayLocal(new Date(at)) : undefined;
+  // Anything unreadable (a hand edit, a year past 9999) counts as never.
+  if (!then || !isValidLocalDate(then)) return 'Last backup: never';
+  const days = daysBetween(then, todayLocal(now)) - 1;
   if (days <= 0) return 'Last backup: today';
   if (days === 1) return 'Last backup: yesterday';
-  return `Last backup: ${days.toLocaleString()} days ago`;
+  return `Last backup: ${formatNumber(days)} days ago`;
 }
