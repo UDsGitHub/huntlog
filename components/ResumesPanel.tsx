@@ -32,6 +32,7 @@ import {
 } from './icons';
 import { inert } from './inert';
 import { useCollapsing } from './useCollapsing';
+import { useDebouncedSearch } from './useDebouncedSearch';
 import { useFieldErrors } from './useFieldErrors';
 import { useFocusRescue } from './useFocusRescue';
 
@@ -58,6 +59,8 @@ export function ResumesPanel({
 }: Props) {
   const resumes = useLiveQuery(() => listResumes(), []);
   const [search, setSearch] = useState('');
+  // Filters once typing pauses.
+  const settledSearch = useDebouncedSearch(search);
   const [showArchived, setShowArchived] = useState(false);
   const archivedClosing = useCollapsing(showArchived);
   // The resume being renamed: kept while its sheet slides out.
@@ -72,7 +75,7 @@ export function ResumesPanel({
   // reopen it. (App forgets the upload sheet the same way.)
   if (!active && renameOpen) setRenameOpen(false);
   if (!resumes) return null;
-  const found = searchResumes(resumes, search);
+  const found = searchResumes(resumes, settledSearch);
   const activeFound = found.filter((resume) => !resume.archived);
   const archived = found.filter((resume) => resume.archived);
 
@@ -204,7 +207,7 @@ export function ResumesPanel({
             <p className="py-4 text-center text-sm text-muted-foreground">No resumes match.</p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {search.trim() === ''
+              {settledSearch.trim() === ''
                 ? 'All your resumes are archived.'
                 : 'Only archived resumes match. Open Archived to see them.'}
             </p>

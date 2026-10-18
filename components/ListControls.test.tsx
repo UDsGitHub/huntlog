@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { createDraft, draftKey } from '@/lib/captureDraft';
 import App from '@/entrypoints/sidepanel/App';
+import { SEARCH_DEBOUNCE_MS } from './useDebouncedSearch';
 
 beforeEach(async () => {
   await db.delete();
@@ -298,13 +299,17 @@ describe('List controls', () => {
     await renderList();
     const search = screen.getByLabelText('Search');
     await user.type(search, 'societe');
-    expect(rows()).toEqual(['Société Générale']);
+    // The list filters once typing pauses, not per keystroke.
+    expect(rows()).toHaveLength(4);
+    await waitFor(() => expect(rows()).toEqual(['Société Générale']));
+    // Clearing shows everything at once.
     await user.clear(search);
+    expect(rows()).toHaveLength(4);
     await user.type(search, 'c++ berlin');
-    expect(rows()).toEqual(['Acme']);
+    await waitFor(() => expect(rows()).toEqual(['Acme']));
     await user.clear(search);
     await user.type(search, 'dana');
-    expect(rows()).toEqual(['beta']);
+    await waitFor(() => expect(rows()).toEqual(['beta']));
   });
 
   it('says when nothing matches, separately from an empty list, and clears', async () => {
@@ -324,11 +329,14 @@ describe('List controls', () => {
     const user = userEvent.setup();
     await renderList();
     await filterBy(user, 'Company', 'Closed');
+    // Cleared before the search has even applied: the box empties and nothing applies later.
     await user.type(screen.getByLabelText('Search'), 'gam');
     await user.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByLabelText('Search')).toHaveValue('');
     expect(rows()).toEqual(['Acme', 'beta', 'Gamma', 'Société Générale']);
     expect(screen.queryByText(/^Showing/)).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, SEARCH_DEBOUNCE_MS + 50));
+    expect(rows()).toEqual(['Acme', 'beta', 'Gamma', 'Société Générale']);
   });
 
   it('keeps search and filters after opening a job and coming back', async () => {
@@ -336,6 +344,7 @@ describe('List controls', () => {
     const user = userEvent.setup();
     await renderList();
     await user.type(screen.getByLabelText('Search'), 'acme');
+    await waitFor(() => expect(rows()).toEqual(['Acme']));
     await user.click(screen.getByRole('button', { name: /^Acme/ }));
     await user.click(await screen.findByRole('button', { name: 'Back to applications' }));
     await screen.findByRole('list', { name: 'Applications' });
@@ -396,7 +405,7 @@ describe('List controls', () => {
     const user = userEvent.setup();
     await renderList();
     await user.type(screen.getByLabelText('Search'), 'nothing matches this');
-    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+    await user.click(await screen.findByRole('button', { name: 'Clear search and filters' }));
     expect(screen.getByLabelText('Search')).toHaveFocus();
   });
 
@@ -408,6 +417,7 @@ describe('List controls', () => {
     await user.click(await screen.findByRole('button', { name: /^More actions for/ }));
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
     await user.type(await screen.findByLabelText('Search'), 'acme');
+    await waitFor(() => expect(rows()).toEqual(['Acme']));
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Add application' })).toHaveFocus(),

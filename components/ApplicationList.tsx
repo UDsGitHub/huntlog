@@ -15,6 +15,7 @@ import type { Application } from '@/lib/types';
 import { ExternalLinkIcon, PlusIcon } from './icons';
 import { ListControls } from './ListControls';
 import { StatusChip, type StatusPick } from './StatusChip';
+import { useDebouncedSearch } from './useDebouncedSearch';
 import { useSettings } from './useSettings';
 import { useToday } from './useToday';
 
@@ -67,6 +68,13 @@ export function ApplicationList({
     () => ({ now: new Date(`${today}T12:00:00`), weekStartsOn }),
     [today, weekStartsOn],
   );
+  // The search filters once typing pauses (the box itself shows every keystroke), so the list
+  // isn't re-filtered and re-frozen per character.
+  const settledSearch = useDebouncedSearch(query.search);
+  const filter = useMemo(
+    () => (settledSearch === query.search ? query : { ...query, search: settledSearch }),
+    [query, settledSearch],
+  );
   // While the list is on screen, a status change (which bumps `updatedAt`, and may stop the row
   // matching a status filter) mustn't move or hide the row under the pointer. Order and
   // membership are frozen per query (and per day, for the date presets); they refresh when the
@@ -75,7 +83,7 @@ export function ApplicationList({
   // refresh the frozen list (spec §4.4: otherwise only a query change or showing it again does).
   // Shown again (`shown`) refreshes it too, like a remount would.
   const queryKey = JSON.stringify(
-    query.dates.kind === 'any' ? [query, shown] : [query, shown, today, weekStartsOn],
+    filter.dates.kind === 'any' ? [filter, shown] : [filter, shown, today, weekStartsOn],
   );
   const [frozen, setFrozen] = useState<{
     queryKey: string;
@@ -87,7 +95,7 @@ export function ApplicationList({
   const awaitedArrived =
     !!frozen?.awaiting && !!applications?.some((app) => app.id === frozen.awaiting);
   if (applications && (frozen?.queryKey !== queryKey || awaitedArrived)) {
-    const fresh = queryApplications(applications, query, context);
+    const fresh = queryApplications(applications, filter, context);
     const missing = expectRow && !applications.some((app) => app.id === expectRow);
     setFrozen({
       queryKey,
@@ -100,8 +108,8 @@ export function ApplicationList({
   const visible = useMemo(
     () =>
       applications &&
-      queryApplications(applications, query, context, current?.ranks, current?.shown),
-    [applications, query, context, current],
+      queryApplications(applications, filter, context, current?.ranks, current?.shown),
+    [applications, filter, context, current],
   );
   const search = useRef<HTMLInputElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -137,7 +145,7 @@ export function ApplicationList({
     );
   }
 
-  const narrowed = query.search.trim() !== '' || activeFilterCount(query, context) > 0;
+  const narrowed = filter.search.trim() !== '' || activeFilterCount(filter, context) > 0;
   function clear() {
     onQueryChange({ ...withoutFilters(query), search: '' });
     // The button may disappear with the line; keep focus in the controls.
@@ -234,7 +242,7 @@ function Row({
       </div>
       {/* The text column stops well short of the link icon, so long text doesn't crowd it. */}
       <div className="flex min-w-0 items-center justify-between gap-4">
-        <div className="flex max-w-[85%] min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex max-w-[65%] min-w-0 flex-1 flex-col gap-0.5">
           {where && <span className="truncate text-xs text-muted-foreground">{where}</span>}
           {app.title && <span className="text-sm break-words">{app.title}</span>}
           <span className="text-xs text-muted-foreground">

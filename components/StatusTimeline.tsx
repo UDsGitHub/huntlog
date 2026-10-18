@@ -172,7 +172,7 @@ function TimelineEntry({
           <label htmlFor={`${id}-date`} className="sr-only">
             {label} date
           </label>
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="flex min-w-0 items-center gap-3">
             <input
               ref={input}
               id={`${id}-date`}
@@ -197,22 +197,25 @@ function TimelineEntry({
               }}
               className="field min-w-0 flex-1"
             />
-            <button
-              type="button"
-              onClick={() => void save()}
-              aria-label={`Save the date for ${label}`}
-              className="btn btn-primary btn-icon size-9 shrink-0"
-            >
-              <CheckIcon />
-            </button>
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Cancel"
-              className="btn btn-ghost btn-icon size-9 shrink-0"
-            >
-              <XIcon />
-            </button>
+            {/* Save and Cancel sit together, apart from the field. */}
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => void save()}
+                aria-label={`Save the date for ${label}`}
+                className="btn btn-ghost btn-icon size-8"
+              >
+                <CheckIcon />
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Cancel"
+                className="btn btn-ghost btn-icon size-8"
+              >
+                <XIcon />
+              </button>
+            </div>
           </div>
           {error && (
             <p id={`${id}-error`} className="field-error">

@@ -18,6 +18,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-solid: var(--destructive-solid);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -131,8 +132,13 @@
 @utility btn-ghost {
   @apply hover:bg-accent hover:text-accent-foreground;
 }
+/* shadcn's link button: text that underlines on hover. */
+@utility btn-link {
+  @apply text-primary underline-offset-4 hover:underline;
+}
+/* shadcn's destructive button: a solid red with white text. */
 @utility btn-destructive {
-  @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  @apply bg-destructive-solid text-destructive-foreground hover:bg-destructive-solid/90;
 }
 
 /* Text inputs, selects and textareas. */
@@ -339,11 +345,13 @@
 .details-panel > * {
   min-height: 0;
 }
+/* The same duration and easing both ways (COLLAPSE_MS): a fast-out curve made a tall panel look
+   as if it opened at once. */
 .details-panel[data-state='open']:not([data-instant]) {
-  animation: details-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  animation: details-in 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .details-panel[data-state='closing']:not([data-instant]) {
-  animation: details-out 200ms ease-in forwards;
+  animation: details-out 250ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes details-in {
   from {

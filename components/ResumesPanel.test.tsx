@@ -201,19 +201,26 @@ describe('Resumes tab', () => {
     const panel = await openResumesTab(user);
     const search = await within(panel).findByRole('searchbox', { name: 'Search resumes' });
     await user.type(search, 'ingenieur');
+    await waitFor(() =>
+      expect(within(panel).getByRole('list', { name: 'Resumes' })).not.toHaveTextContent('Backend'),
+    );
     expect(within(panel).getByRole('list', { name: 'Resumes' })).toHaveTextContent('Ingénieur');
-    expect(within(panel).getByRole('list', { name: 'Resumes' })).not.toHaveTextContent('Backend');
     expect(within(panel).queryByRole('button', { name: /Archived/ })).toBeNull();
     await user.clear(search);
     await user.type(search, '2026');
+    await waitFor(() =>
+      expect(within(panel).getByRole('list', { name: 'Resumes' })).not.toHaveTextContent(
+        'Ingénieur',
+      ),
+    );
     expect(within(panel).getByRole('list', { name: 'Resumes' })).toHaveTextContent('Backend v3');
     await user.clear(search);
     await user.type(search, 'old.pdf');
-    expect(within(panel).queryByRole('list', { name: 'Resumes' })).toBeNull();
+    await waitFor(() => expect(within(panel).queryByRole('list', { name: 'Resumes' })).toBeNull());
     expect(within(panel).getByRole('button', { name: /Archived/ })).toHaveTextContent('(1)');
     await user.clear(search);
     await user.type(search, 'nothing');
-    expect(within(panel).getByText('No resumes match.')).toBeInTheDocument();
+    expect(await within(panel).findByText('No resumes match.')).toBeInTheDocument();
   });
 
   it('renames and edits the note in a sheet, opened with current values', async () => {
@@ -524,6 +531,9 @@ describe('Resumes tab', () => {
     const user = userEvent.setup();
     const panel = await openResumesTab(user);
     await user.type(await within(panel).findByRole('searchbox'), 'backend v3');
+    await waitFor(() =>
+      expect(within(panel).getByRole('list', { name: 'Resumes' })).not.toHaveTextContent('v2'),
+    );
     await menuAction(user, 'Backend v3', 'Rename');
     const sheet = within(screen.getByRole('dialog', { name: 'Rename resume' }));
     await user.clear(sheet.getByLabelText('Name'));
@@ -542,7 +552,7 @@ describe('Resumes tab', () => {
     const panel = await openResumesTab(user);
     await user.type(await within(panel).findByRole('searchbox'), 'old');
     expect(
-      within(panel).getByText('Only archived resumes match. Open Archived to see them.'),
+      await within(panel).findByText('Only archived resumes match. Open Archived to see them.'),
     ).toBeInTheDocument();
   });
 });

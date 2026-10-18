@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { prefersReducedMotion } from './motion';
 
 /** How long an accordion section takes to slide open or shut (`.details-panel`). */
-export const COLLAPSE_MS = 200;
+export const COLLAPSE_MS = 250;
 
 /**
  * Whether a section that was just collapsed is still sliding shut: keep it shown (and inert)

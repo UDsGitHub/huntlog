@@ -144,7 +144,7 @@ export function ApplicationForm({
           salaryMax: '',
           salaryCurrency: defaultCurrency(),
           salaryPeriod: 'year',
-          source: (!draft && defaults?.source) || '',
+          source: '',
           notes: '',
         },
   );
@@ -444,142 +444,152 @@ export function ApplicationForm({
             inputRef={register('resumeId')}
           />
 
-          {/* An accordion row (spec §4.2): the hint says what's inside, or what's filled in. */}
-          <div className="-mx-1 flex min-w-0 flex-col border-y">
+          {/* An accordion (spec §4.2): the row names the section and says what's inside, or
+              what's filled in; the fields grow open under it, in the same section. They're
+              hidden, not unmounted, so values and field refs survive collapsing. The panel
+              grows and shrinks in height (instantly under reduced motion). */}
+          <div className="-mx-1 flex min-w-0 flex-col border-t">
             <button
               type="button"
               aria-expanded={detailsOpen}
               aria-controls={`${id}-details`}
+              aria-labelledby={`${id}-details-label`}
               aria-describedby={`${id}-details-hint`}
               onClick={() => {
                 setDetailsAnimate(true);
                 setDetailsOpen((open) => !open);
               }}
-              className="focus-ring flex w-full items-center justify-between gap-2 rounded-sm px-1 pt-3 pb-1 text-left text-sm font-medium"
+              className="focus-ring flex w-full items-start justify-between gap-2 rounded-sm px-1 py-3 text-left"
             >
-              More details
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span id={`${id}-details-label`} className="text-sm font-medium">
+                  More details
+                </span>
+                <span
+                  id={`${id}-details-hint`}
+                  className="text-xs break-words text-muted-foreground"
+                >
+                  {detailsSummary || 'Location, work mode, salary, source, notes'}
+                </span>
+              </span>
               <ChevronDownIcon
-                className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-180' : ''}`}
+                className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-180' : ''}`}
               />
             </button>
-            <p
-              id={`${id}-details-hint`}
-              className="px-1 pb-3 text-xs break-words text-muted-foreground"
+            <div
+              id={`${id}-details`}
+              hidden={!detailsOpen && !detailsClosing}
+              // Sliding shut: out of reach already, so focus can't land in it just before it hides.
+              {...inert(detailsClosing)}
+              data-state={detailsOpen ? 'open' : 'closing'}
+              data-instant={!detailsAnimate || undefined}
+              className="details-panel min-w-0"
             >
-              {detailsOpen ? '' : detailsSummary || 'Location, work mode, salary, source, notes'}
-            </p>
-          </div>
+              {/* The panel animates its height; this is the content it clips. */}
+              <div className="flex min-w-0 flex-col gap-3 px-1 pt-1 pb-1">
+                <Field label="Location" htmlFor={`${id}-location`}>
+                  <input
+                    {...control('location')}
+                    type="text"
+                    autoComplete="off"
+                    value={values.location}
+                    onChange={(e) => set('location')(e.target.value)}
+                  />
+                  {message('location')}
+                </Field>
 
-          {/* Hidden, not unmounted: values and field refs survive collapsing. It slides open and
-              shut, its height growing and shrinking (instantly under reduced motion). */}
-          <div
-            id={`${id}-details`}
-            hidden={!detailsOpen && !detailsClosing}
-            // Sliding shut: out of reach already, so focus can't land in it just before it hides.
-            {...inert(detailsClosing)}
-            data-state={detailsOpen ? 'open' : 'closing'}
-            data-instant={!detailsAnimate || undefined}
-            className="details-panel min-w-0"
-          >
-            {/* The panel animates its height; this is the content it clips. */}
-            <div className="flex min-w-0 flex-col gap-3">
-              <Field label="Location" htmlFor={`${id}-location`}>
-                <input
-                  {...control('location')}
-                  type="text"
-                  autoComplete="off"
-                  value={values.location}
-                  onChange={(e) => set('location')(e.target.value)}
-                />
-                {message('location')}
-              </Field>
-
-              <Field label="Work mode" htmlFor={`${id}-workMode`}>
-                <Select
-                  {...selectControl('workMode')}
-                  listLabel="Work modes"
-                  value={values.workMode}
-                  onChange={set('workMode')}
-                  options={[
-                    { value: '', label: 'Not set' },
-                    ...Object.entries(WORK_MODE_LABELS).map(([value, label]) => ({ value, label })),
-                  ]}
-                />
-                {message('workMode')}
-              </Field>
-
-              <fieldset className="flex min-w-0 flex-col gap-2">
-                <legend className="field-label">Salary</legend>
-                {/* Minimum – Maximum on one row, currency and period below. */}
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
-                  <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
-                    <NumberField
-                      {...control('salaryMin')}
-                      kind="amount"
-                      value={values.salaryMin}
-                      onChange={set('salaryMin')}
-                    />
-                    {message('salaryMin')}
-                  </Field>
-                  <span aria-hidden="true" className="pt-7 text-muted-foreground">
-                    –
-                  </span>
-                  <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
-                    <NumberField
-                      {...control('salaryMax')}
-                      kind="amount"
-                      value={values.salaryMax}
-                      onChange={set('salaryMax')}
-                    />
-                    {message('salaryMax')}
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
-                    <Combobox
-                      id={`${id}-salaryCurrency`}
-                      listLabel="Currencies"
-                      value={values.salaryCurrency}
-                      onChange={set('salaryCurrency')}
-                      options={currencyOptions}
-                      inputRef={register('salaryCurrency')}
-                      invalid={Boolean(errors.salaryCurrency)}
-                      describedBy={errors.salaryCurrency ? `${id}-salaryCurrency-error` : undefined}
-                    />
-                    {message('salaryCurrency')}
-                  </Field>
-                  <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
-                    <Select
-                      {...selectControl('salaryPeriod')}
-                      listLabel="Periods"
-                      value={values.salaryPeriod}
-                      onChange={set('salaryPeriod')}
-                      options={Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => ({
+                <Field label="Work mode" htmlFor={`${id}-workMode`}>
+                  <Select
+                    {...selectControl('workMode')}
+                    listLabel="Work modes"
+                    value={values.workMode}
+                    onChange={set('workMode')}
+                    options={[
+                      { value: '', label: 'Not set' },
+                      ...Object.entries(WORK_MODE_LABELS).map(([value, label]) => ({
                         value,
                         label,
-                      }))}
-                    />
-                    {message('salaryPeriod')}
-                  </Field>
-                </div>
-              </fieldset>
+                      })),
+                    ]}
+                  />
+                  {message('workMode')}
+                </Field>
 
-              <SourceField
-                id={`${id}-source`}
-                value={values.source}
-                onChange={set('source')}
-                error={errors.source}
-                inputRef={register('source')}
-              />
+                <fieldset className="flex min-w-0 flex-col gap-2">
+                  <legend className="field-label">Salary</legend>
+                  {/* Minimum – Maximum on one row, currency and period below. */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-x-2">
+                    <Field label="Minimum" htmlFor={`${id}-salaryMin`} small>
+                      <NumberField
+                        {...control('salaryMin')}
+                        kind="amount"
+                        value={values.salaryMin}
+                        onChange={set('salaryMin')}
+                      />
+                      {message('salaryMin')}
+                    </Field>
+                    <span aria-hidden="true" className="pt-7 text-muted-foreground">
+                      –
+                    </span>
+                    <Field label="Maximum" htmlFor={`${id}-salaryMax`} small>
+                      <NumberField
+                        {...control('salaryMax')}
+                        kind="amount"
+                        value={values.salaryMax}
+                        onChange={set('salaryMax')}
+                      />
+                      {message('salaryMax')}
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Currency" htmlFor={`${id}-salaryCurrency`} small>
+                      <Combobox
+                        id={`${id}-salaryCurrency`}
+                        listLabel="Currencies"
+                        value={values.salaryCurrency}
+                        onChange={set('salaryCurrency')}
+                        options={currencyOptions}
+                        inputRef={register('salaryCurrency')}
+                        invalid={Boolean(errors.salaryCurrency)}
+                        describedBy={
+                          errors.salaryCurrency ? `${id}-salaryCurrency-error` : undefined
+                        }
+                      />
+                      {message('salaryCurrency')}
+                    </Field>
+                    <Field label="Per" htmlFor={`${id}-salaryPeriod`} small>
+                      <Select
+                        {...selectControl('salaryPeriod')}
+                        listLabel="Periods"
+                        value={values.salaryPeriod}
+                        onChange={set('salaryPeriod')}
+                        options={Object.entries(SALARY_PERIOD_LABELS).map(([value, label]) => ({
+                          value,
+                          label,
+                        }))}
+                      />
+                      {message('salaryPeriod')}
+                    </Field>
+                  </div>
+                </fieldset>
 
-              <Field label="Notes" htmlFor={`${id}-notes`}>
-                <AutoGrowTextarea
-                  {...control('notes')}
-                  value={values.notes}
-                  onChange={(e) => set('notes')(e.target.value)}
+                <SourceField
+                  id={`${id}-source`}
+                  value={values.source}
+                  onChange={set('source')}
+                  error={errors.source}
+                  inputRef={register('source')}
                 />
-                {message('notes')}
-              </Field>
+
+                <Field label="Notes" htmlFor={`${id}-notes`}>
+                  <AutoGrowTextarea
+                    {...control('notes')}
+                    value={values.notes}
+                    onChange={(e) => set('notes')(e.target.value)}
+                  />
+                  {message('notes')}
+                </Field>
+              </div>
             </div>
           </div>
         </fieldset>

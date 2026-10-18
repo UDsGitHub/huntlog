@@ -4,7 +4,10 @@ import { expect, panelUrl, sheetsClosed, test, uploadResume } from '../e2e/fixtu
 
 // Every screen at 320px, in light and dark, for the owner's design review (milestones.md, after
 // M6). Saved to docs/design-review/screenshots/<screen>-<theme>.png.
-const OUT = path.resolve(import.meta.dirname, '../docs/design-review/screenshots');
+// SCREENSHOT_DIR saves them elsewhere, e.g. to compare without replacing the reviewed set.
+const OUT =
+  process.env.SCREENSHOT_DIR ??
+  path.resolve(import.meta.dirname, '../docs/design-review/screenshots');
 const PDF = Buffer.from('%PDF-1.7\n' + ' '.repeat(200));
 
 const JOBS = [

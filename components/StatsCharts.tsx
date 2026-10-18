@@ -190,13 +190,13 @@ export function GoalRing({
     <section
       aria-labelledby={`${id}-heading`}
       aria-describedby={describedBy}
-      className="flex shrink-0 items-center gap-2.5"
+      className="flex min-w-0 items-center gap-3"
     >
       <svg
         role="img"
         aria-label={label}
         viewBox="0 0 100 100"
-        className="size-14 shrink-0 -rotate-90"
+        className="size-20 shrink-0 -rotate-90"
       >
         <circle
           cx="50"
@@ -226,7 +226,7 @@ export function GoalRing({
           Weekly goal
         </h3>
         {/* The ring's own label says this to screen readers; once is enough. */}
-        <p aria-hidden="true" className="text-sm font-semibold tabular-nums">
+        <p aria-hidden="true" className="text-2xl leading-tight font-semibold tabular-nums">
           {count} of {goal}{' '}
           <span className="block text-xs font-normal text-muted-foreground">this week</span>
         </p>

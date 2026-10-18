@@ -25,7 +25,8 @@ test('the Add form fits a 320px panel with Save always in reach', async ({ sessi
     await expect(page.getByLabel(label)).toBeHidden();
   }
   const save = page.getByRole('button', { name: 'Save', exact: true });
-  expect(await inViewport(page, save)).toBe(true);
+  // Once the sheet has slid in.
+  await expect.poll(() => inViewport(page, save)).toBe(true);
 
   await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
   await page.getByLabel('Company').fill('Acme');
@@ -92,7 +93,9 @@ test('a focused field is never hidden behind the Save footer', async ({ session 
   }
 });
 
-test('remembered source and work mode survive a panel reload', async ({ session }) => {
+test('the remembered work mode survives a panel reload; the source is never remembered', async ({
+  session,
+}) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: 'Add application' }).click();
@@ -113,15 +116,17 @@ test('remembered source and work mode survive a panel reload', async ({ session 
         async () => (await chrome.storage.local.get('formDefaults')).formDefaults,
       ),
     )
-    .toEqual({ source: 'Referral', workMode: 'remote' });
+    .toEqual({ workMode: 'remote' });
 
   await page.reload();
   await page.getByRole('button', { name: 'Add application' }).click();
-  await expect(page.getByText('Remote · Referral')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'More details' })).toHaveAccessibleDescription(
+    'Remote',
+  );
   await page.getByRole('button', { name: 'More details' }).click();
   await expect(
     page.getByRole('group', { name: /^Source/ }).getByRole('button', { name: 'Referral' }),
-  ).toHaveAttribute('aria-pressed', 'true');
+  ).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('a job logged as Saved has no date applied', async ({ session }) => {

@@ -36,7 +36,10 @@
   --muted-foreground: #63636b;
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
-  --destructive: #b91c1c;
+  /* Destructive text and edges; a destructive button is filled with --destructive-solid
+     (shadcn: bg-destructive in light, bg-destructive/60 in dark) and its text is white. */
+  --destructive: #e7000b;
+  --destructive-solid: #e7000b;
   --destructive-foreground: #ffffff;
   /* Decorative lines (cards, dividers). */
   --border: #e4e4e7;
@@ -96,8 +99,9 @@
   --muted-foreground: #a1a1aa;
   --accent: #27272a;
   --accent-foreground: #fafafa;
-  --destructive: #f87171;
-  --destructive-foreground: #09090b;
+  --destructive: #ff6467;
+  --destructive-solid: #9f4144;
+  --destructive-foreground: #ffffff;
   --border: #2e2e33;
   --input: #6b6b74;
   --ring: #a1a1aa;

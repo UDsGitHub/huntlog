@@ -337,28 +337,42 @@ function CustomRangeForm({
  */
 function AppliedCard({ applied, progress }: { applied?: number; progress?: GoalProgress }) {
   const id = useId();
-  return (
-    <div className="card flex min-w-0 flex-col gap-3 p-4">
-      <div className="flex min-w-0 items-center justify-between gap-3">
+  // With a goal, the ring leads (larger, on the left) and Applied supports it on the right;
+  // without one, Applied stands alone, centered.
+  if (!progress) {
+    return (
+      <div className="card flex min-w-0 justify-center p-4">
         {applied !== undefined && (
           <dl className="min-w-0">
             <Count label="Applied" value={applied} size="lg" />
           </dl>
         )}
-        {progress && <GoalRing progress={progress} describedBy={`${id}-goal`} />}
       </div>
-      {progress && (
-        <p id={`${id}-goal`} className="text-xs text-muted-foreground">
-          {goalMessage(progress)}
-        </p>
-      )}
+    );
+  }
+  return (
+    <div className="card flex min-w-0 flex-col gap-3 p-4">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <GoalRing progress={progress} describedBy={`${id}-goal`} />
+        {applied !== undefined && (
+          <dl className="shrink-0">
+            <Count label="Applied" value={applied} size="side" />
+          </dl>
+        )}
+      </div>
+      <p id={`${id}-goal`} className="text-xs text-muted-foreground">
+        {goalMessage(progress)}
+      </p>
     </div>
   );
 }
 
 const card = 'card flex min-w-0 flex-col-reverse gap-0.5 p-2';
 
-/** A label and its number. `lg`: the Applied number, inside a card of its own. */
+/**
+ * A label and its number. `lg`: the Applied number alone in its card, centered; `side`: Applied
+ * beside the weekly goal, smaller and right-aligned.
+ */
 function Count({
   label,
   value,
@@ -366,14 +380,25 @@ function Count({
 }: {
   label: string;
   value: number;
-  size?: 'md' | 'lg';
+  size?: 'md' | 'lg' | 'side';
 }) {
-  return size === 'lg' ? (
-    <div className="flex flex-col-reverse gap-1.5">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-4xl leading-none font-semibold tabular-nums">{value}</dd>
-    </div>
-  ) : (
+  if (size === 'lg') {
+    return (
+      <div className="flex flex-col-reverse items-center gap-1.5 text-center">
+        <dt className="text-sm text-muted-foreground">{label}</dt>
+        <dd className="text-4xl leading-none font-semibold tabular-nums">{value}</dd>
+      </div>
+    );
+  }
+  if (size === 'side') {
+    return (
+      <div className="flex flex-col-reverse items-end gap-1 text-right">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="text-xl leading-none font-semibold tabular-nums">{value}</dd>
+      </div>
+    );
+  }
+  return (
     <div className={card}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xl font-semibold tabular-nums">{value}</dd>

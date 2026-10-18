@@ -49,7 +49,7 @@ const TEXT: [string, string][] = [
   ['destructive', 'background'],
   ['destructive', 'card'],
   ['destructive', 'popover'],
-  ['destructive-foreground', 'destructive'],
+  ['destructive-foreground', 'destructive-solid'],
   ['warning-foreground', 'warning'],
   ['status-neutral-foreground', 'status-neutral'],
   ['status-progress-foreground', 'status-progress'],
