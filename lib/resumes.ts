@@ -72,6 +72,11 @@ export function formatLabel(fileName: string): string {
   return FORMATS[extension]?.label ?? (extension.toUpperCase() || 'File');
 }
 
+/** The type stored for a file of this name's format, or undefined for a format not accepted. */
+export function formatMimeType(fileName: string): string | undefined {
+  return FORMATS[splitExtension(fileName).extension.toLowerCase()]?.mimeType;
+}
+
 const TOO_BIG = 'Choose a file of 10 MB or less.';
 
 /**

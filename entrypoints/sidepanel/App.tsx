@@ -262,6 +262,14 @@ export default function App() {
     navigate({ name: 'list' });
   }
 
+  /** An import changed the data: back to the list, refreshed to show it in order. */
+  function handleDataImported() {
+    deferredCapture.current = false;
+    setFocusTarget(null);
+    navigate({ name: 'list' });
+    setListShown((n) => n + 1);
+  }
+
   function toList(focus: FocusTarget) {
     navigate({ name: 'list' });
     setFocusTarget(focus);
@@ -508,6 +516,7 @@ export default function App() {
         >
           <SettingsPanel
             onDataDeleted={handleDataDeleted}
+            onDataImported={handleDataImported}
             notify={(message) => showToast({ message })}
             active={settingsOpen}
           />
