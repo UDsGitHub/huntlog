@@ -1,6 +1,6 @@
 # Design review after M6
 
-**Outcome:** every decision below landed in v0.6.1 (PRs #47–#55), including the rename to Huntlog; the screenshots show v0.6.0 as reviewed, while the copy deck is kept current (regenerated in v0.6.3).
+**Outcome:** every decision below landed in v0.6.1 (PRs #47–#55), including the rename to Huntlog; the screenshots and copy deck are kept current (both regenerated for v0.7.0, which added Export and Import; the v0.6.0 set the owner reviewed is in git history).
 
 Prepared for the owner's review before M7 (milestones.md, "After M6: owner design review"). M6 itself is done and tagged v0.6.0; the decisions go into spec.md and are applied in follow-up PRs (v0.6.x) before M7 starts.
 
@@ -27,6 +27,7 @@ Prepared for the owner's review before M7 (milestones.md, "After M6: owner desig
 | Upload sheet | [light](screenshots/sheet-upload-light.png) | [dark](screenshots/sheet-upload-dark.png) |
 | Settings | [light](screenshots/settings-light.png) | [dark](screenshots/settings-dark.png) |
 | Delete all data sheet | [light](screenshots/sheet-delete-all-light.png) | [dark](screenshots/sheet-delete-all-dark.png) |
+| Import sheet, CSV preview (v0.7.0) | [light](screenshots/sheet-import-light.png) | [dark](screenshots/sheet-import-dark.png) |
 
 ## Open UI questions
 
@@ -54,7 +55,7 @@ Prepared for the owner's review before M7 (milestones.md, "After M6: owner desig
 
 The tone rule holds: rejections show only as "Closed – not selected", errors say what to do next. Suggestions (source lines are in the copy deck):
 
-- **Settings → Your data:** "Export and import arrive in a later version." promises a feature; M7 ships it, so the line goes then. Fine until M7.
+- **Settings → Your data:** "Export and import arrive in a later version." promised a feature; M7 shipped it (v0.7.0) and the line is gone.
 - **Stats, empty:** "Your stats show up here once you log applications. Every one you send counts." Good; keep it.
 - **Resume details:** "209 bytes": sizes under 1 KB are shown in bytes, which is correct but rare for real resumes. Fine.
 - **"Working…"** (the Reset settings button while it runs, with or without delete ticked) is vaguer than the other busy labels ("Deleting…", "Saving…"). Suggest "Resetting…".
