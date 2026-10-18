@@ -53,6 +53,8 @@
   --warning-border: #f59e0b;
 
   --chart-1: #2563eb;
+  /* Reached the weekly goal: restrained green text, check and bar (on a card or its tint). */
+  --success: #047857;
 
   /* Status chips, by group. Closed outcomes are neutral, never red (spec §4.7). */
   --status-neutral: #f4f4f5;
@@ -112,6 +114,7 @@
   --warning-border: #92400e;
 
   --chart-1: #60a5fa;
+  --success: #34d399;
 
   --status-neutral: #27272a;
   --status-neutral-foreground: #e4e4e7;

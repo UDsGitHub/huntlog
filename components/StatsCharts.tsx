@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import { formatLocalDate, formatShortLocalDate } from '@/lib/dates';
 import type { Activity, ActivityUnit, GoalProgress, Stats } from '@/lib/stats';
 import { STATUS_LABELS } from '@/lib/status';
+import { CheckIcon } from './icons';
 import { STATUS_SWATCH } from './statusColors';
 import type { Status } from '@/lib/types';
 
@@ -161,79 +162,94 @@ export function ActivityChart({ activity, total }: { activity: Activity; total: 
   );
 }
 
-const RING_RADIUS = 40;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+/** The goal bar's segments (spec §4.7). */
+export const GOAL_SEGMENTS = 5;
 
-/** What the weekly goal card says under the numbers: how far to go, or that it's reached. */
-export function goalMessage({ count, goal, remaining }: GoalProgress): string {
-  if (remaining > 0) return `${remaining} more to reach your goal.`;
-  return count > goal ? `Goal reached, and ${count - goal} beyond it.` : 'Goal reached. Nice work.';
+/** How full segment `index` of `segments` is (0 to 1), for overall progress `fraction` (0 to 1). */
+export function segmentFill(fraction: number, index: number, segments = GOAL_SEGMENTS): number {
+  const clamped = Math.min(1, Math.max(0, Number.isFinite(fraction) ? fraction : 0));
+  return Math.min(1, Math.max(0, clamped * segments - index));
+}
+
+const applications = (n: number) => `${n} ${n === 1 ? 'application' : 'applications'}`;
+
+/**
+ * The goal card's bottom line: the goal, then how far there is to go, that it's complete, or how
+ * far past it the week is.
+ */
+export function goalSummary({ count, goal }: Pick<GoalProgress, 'count' | 'goal'>): string {
+  const target = `Goal: ${applications(goal)}`;
+  const left = goal - count;
+  if (left > 0) {
+    return `${target} · ${left} more ${left === 1 ? 'application' : 'applications'} to reach your goal`;
+  }
+  if (left === 0) return `${target} · Weekly goal complete`;
+  return `${target} · ${count - goal} above your goal`;
 }
 
 /**
- * The weekly goal ring (spec §4.7), beside the Applied number: this week's applications against
- * the goal, whatever range the tab shows. Full once the goal is reached; the count keeps going
- * past it ("12 of 10"). `describedBy` names the line that says how far there is to go.
+ * The weekly goal card (spec §4.7): this week's applications, large, against the goal, whatever
+ * range the tab shows. A five-segment bar fills toward the goal (blue), then stays full (green)
+ * once it's reached, with a check and "You've reached your goal!"; the count keeps going past it.
+ * Nothing shows for a goal that isn't a positive number.
  */
-export function GoalRing({
-  progress,
-  describedBy,
-}: {
-  progress: GoalProgress;
-  /** The element saying how far there is to go (`goalMessage`), which the caller lays out. */
-  describedBy: string;
-}) {
+export function WeeklyGoalCard({ progress }: { progress: GoalProgress }) {
   const id = useId();
-  const { count, goal, fraction } = progress;
-  const label = `${count} of ${goal} ${goal === 1 ? 'application' : 'applications'} this week`;
+  const { count, goal } = progress;
+  if (!Number.isFinite(goal) || goal <= 0) return null;
+  const reached = count >= goal;
+  const fraction = count / goal;
   return (
     <section
       aria-labelledby={`${id}-heading`}
-      aria-describedby={describedBy}
-      className="flex min-w-0 items-center gap-3"
+      aria-describedby={`${id}-summary`}
+      className="card flex min-w-0 flex-col gap-4 p-4"
     >
-      <svg
-        role="img"
-        aria-label={label}
-        viewBox="0 0 100 100"
-        className="size-18 shrink-0 -rotate-90"
-      >
-        <circle
-          cx="50"
-          cy="50"
-          r={RING_RADIUS}
-          fill="none"
-          strokeWidth="12"
-          className="stroke-border"
-        />
-        {count > 0 && (
-          <circle
-            cx="50"
-            cy="50"
-            r={RING_RADIUS}
-            fill="none"
-            strokeWidth="12"
-            // Square ends: round caps would add length, so 1 of 200 would look 4% full and 199
-            // of 200 would look complete.
-            strokeDasharray={RING_LENGTH}
-            strokeDashoffset={RING_LENGTH * (1 - fraction)}
-            className="stroke-chart-1 transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
-          />
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <h3 id={`${id}-heading`} className="text-sm text-muted-foreground">
+            Weekly application goal
+          </h3>
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-4xl leading-none font-semibold tabular-nums">{count}</span>{' '}
+            <span className="text-sm text-muted-foreground">
+              {count === 1 ? 'application' : 'applications'} submitted
+            </span>
+          </p>
+          {reached && (
+            <p className="text-sm font-medium text-success">You&apos;ve reached your goal!</p>
+          )}
+        </div>
+        {reached && (
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-status-success text-success"
+          >
+            <CheckIcon className="size-4" />
+          </span>
         )}
-      </svg>
-      <div className="flex min-w-0 flex-col">
-        <h3 id={`${id}-heading`} className="text-xs text-muted-foreground">
-          Weekly goal
-        </h3>
-        {/* The ring's own label says this to screen readers; once is enough. */}
-        <p
-          aria-hidden="true"
-          className="text-xl leading-tight font-semibold whitespace-nowrap tabular-nums"
-        >
-          {count} of {goal}{' '}
-          <span className="block text-xs font-normal text-muted-foreground">this week</span>
-        </p>
       </div>
+      <div
+        role="progressbar"
+        aria-labelledby={`${id}-heading`}
+        aria-valuemin={0}
+        aria-valuemax={goal}
+        aria-valuenow={Math.min(count, goal)}
+        aria-valuetext={`${count} of ${applications(goal)} this week`}
+        className="grid grid-cols-5 gap-1.5"
+      >
+        {Array.from({ length: GOAL_SEGMENTS }, (_, index) => (
+          <div key={index} data-segment="" className="h-2 overflow-hidden rounded-full bg-border">
+            <div
+              className={`h-full ${reached ? 'bg-success' : 'bg-chart-1'}`}
+              style={{ width: `${segmentFill(fraction, index) * 100}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <p id={`${id}-summary`} className="text-xs text-muted-foreground">
+        {goalSummary(progress)}
+      </p>
     </section>
   );
 }

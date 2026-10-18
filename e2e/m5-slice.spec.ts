@@ -38,7 +38,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   const card = (label: RegExp) =>
     stats.locator('div', { has: page.getByRole('term').filter({ hasText: label }) }).last();
   const value = (label: RegExp) => card(label).getByRole('definition');
-  await expect(value(/^Applied$/)).toHaveText('2');
+  await expect(value(/^Applied$/)).toHaveText('2 applications submitted');
   await expect(value(/^Interviews$/)).toHaveText('1');
   await expect(value(/^Offers$/)).toHaveText('0');
   await expect(value(/^Response rate/)).toHaveText('50%');
@@ -48,7 +48,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
 
   await range.getByRole('radio', { name: 'This month' }).click();
   await expect(stats).toContainText('Oct 1, 2026 – Oct 31, 2026');
-  await expect(value(/^Applied$/)).toHaveText('3');
+  await expect(value(/^Applied$/)).toHaveText('3 applications submitted');
   await expect(card(/^Response rate/)).toContainText('1 of 3 heard back');
   await expect(value(/^Response rate/)).toHaveText('33%');
   const outcomes = stats.getByRole('region', { name: 'Where they stand now' });
@@ -91,7 +91,7 @@ test("Stats shows this week's numbers, then This month", async ({ session }) => 
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect(range.getByRole('radio', { checked: true })).toHaveText('Custom…');
   await expect(stats).toContainText('Oct 10, 2026 – Oct 16, 2026');
-  await expect(value(/^Applied$/)).toHaveText('2');
+  await expect(value(/^Applied$/)).toHaveText('2 applications submitted');
 
   // Scrolled away from the chosen chip, the row brings it back when the tab is shown again.
   await range.evaluate((el) => (el.scrollLeft = 0));

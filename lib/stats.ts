@@ -381,11 +381,13 @@ export function weeklyGoalProgress(
   // The same week as the This week range, by definition.
   const week = resolveRange('this-week', { now, weekStartsOn })!;
   const count = apps.filter((app) => appliedIn(app, week)).length;
+  // Settings only store 1–200, but a zero or broken goal must never divide by zero.
+  const valid = Number.isFinite(goal) && goal > 0;
   return {
     goal,
     count,
-    fraction: Math.min(1, count / goal),
-    remaining: Math.max(0, goal - count),
+    fraction: valid ? Math.min(1, count / goal) : 0,
+    remaining: valid ? Math.max(0, goal - count) : 0,
     week,
   };
 }

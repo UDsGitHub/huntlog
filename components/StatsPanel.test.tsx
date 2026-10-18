@@ -357,34 +357,46 @@ describe('Stats tab', () => {
     ).toEqual(['Applied', 'Interviews', 'Offers']);
     expect(card(panel, 'Applied')).not.toHaveClass('card');
     expect(card(panel, 'Interviews')).toHaveClass('card');
-    expect(within(panel).queryByRole('region', { name: 'Weekly goal' })).toBeNull();
+    expect(within(panel).queryByRole('region', { name: 'Weekly application goal' })).toBeNull();
+    // Laid out like the goal card, pointing to the goal setting.
+    expect(card(panel, 'Applied')).toHaveTextContent('1 application submitted');
+    expect(panel).toHaveTextContent(
+      'Set a weekly goal in Settings to track how each week is going.',
+    );
   });
 
-  describe('weekly goal ring', () => {
-    const ring = (panel: HTMLElement) =>
-      within(panel).queryByRole('region', { name: 'Weekly goal' });
+  describe('weekly goal card', () => {
+    const goalCard = (panel: HTMLElement) =>
+      within(panel).queryByRole('region', { name: 'Weekly application goal' });
+    const bar = (panel: HTMLElement) =>
+      within(panel).getByRole('progressbar', { name: 'Weekly application goal' });
 
-    it('shows only when a goal is set', async () => {
+    it('shows only when a goal is set, moving Applied in with Interviews and Offers', async () => {
       await applied('2026-10-13');
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(ring(panel)).toBeNull();
+      expect(goalCard(panel)).toBeNull();
       await act(() => updateSettings({ weeklyGoal: 10 }));
-      expect(
-        await within(panel).findByRole('img', { name: '1 of 10 applications this week' }),
-      ).toBeInTheDocument();
+      expect(await within(panel).findByRole('progressbar')).toHaveAttribute(
+        'aria-valuetext',
+        '1 of 10 applications this week',
+      );
+      expect(card(panel, 'Applied')).toHaveClass('card');
+      expect(card(panel, 'Interviews')).toHaveClass('card');
       await act(() => updateSettings({ weeklyGoal: undefined }));
-      await waitFor(() => expect(ring(panel)).toBeNull());
+      await waitFor(() => expect(goalCard(panel)).toBeNull());
+      expect(card(panel, 'Applied')).not.toHaveClass('card');
     });
 
     it('shows before anything is logged, with the empty state', async () => {
       await updateSettings({ weeklyGoal: 10 });
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(
-        await within(panel).findByRole('img', { name: '0 of 10 applications this week' }),
-      ).toBeInTheDocument();
-      expect(ring(panel)).toHaveAccessibleDescription('10 more to reach your goal.');
+      await waitFor(() => expect(goalCard(panel)).not.toBeNull());
+      expect(goalCard(panel)).toHaveTextContent('0 applications submitted');
+      expect(goalCard(panel)).toHaveAccessibleDescription(
+        'Goal: 10 applications · 10 more applications to reach your goal',
+      );
       expect(panel).toHaveTextContent('Your stats show up here once you log applications.');
       expect(within(panel).queryByText('Applied', { selector: 'dt' })).toBeNull();
     });
@@ -397,11 +409,13 @@ describe('Stats tab', () => {
       await applied('2026-10-02'); // earlier this month: not this week
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(ring(panel)).toHaveTextContent('3 of 10 this week');
-      expect(ring(panel)).toHaveAccessibleDescription('7 more to reach your goal.');
+      expect(goalCard(panel)).toHaveTextContent('3 applications submitted');
+      expect(goalCard(panel)).toHaveAccessibleDescription(
+        'Goal: 10 applications · 7 more applications to reach your goal',
+      );
       await user.click(chip(panel, 'This month'));
       expect(card(panel, 'Applied')).toHaveTextContent('4');
-      expect(ring(panel)).toHaveTextContent('3 of 10 this week');
+      expect(goalCard(panel)).toHaveTextContent('3 applications submitted');
     });
 
     it('says when the goal is reached, and how far past it', async () => {
@@ -410,20 +424,25 @@ describe('Stats tab', () => {
       await applied('2026-10-13');
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(ring(panel)).toHaveAccessibleDescription('Goal reached. Nice work.');
+      expect(goalCard(panel)).toHaveTextContent("You've reached your goal!");
+      expect(goalCard(panel)).toHaveAccessibleDescription(
+        'Goal: 2 applications · Weekly goal complete',
+      );
       await applied('2026-10-14');
-      await waitFor(() => expect(ring(panel)).toHaveTextContent('3 of 2 this week'));
-      expect(ring(panel)).toHaveAccessibleDescription('Goal reached, and 1 beyond it.');
+      await waitFor(() => expect(goalCard(panel)).toHaveTextContent('3 applications submitted'));
+      expect(goalCard(panel)).toHaveAccessibleDescription(
+        'Goal: 2 applications · 1 above your goal',
+      );
+      expect(bar(panel)).toHaveAttribute('aria-valuenow', '2');
     });
 
-    it('says "application" for a goal of one', async () => {
+    it('says "application" for one', async () => {
       await updateSettings({ weeklyGoal: 1 });
       await applied('2026-10-13');
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(
-        within(panel).getByRole('img', { name: '1 of 1 application this week' }),
-      ).toBeInTheDocument();
+      expect(goalCard(panel)).toHaveTextContent('1 application submitted');
+      expect(bar(panel)).toHaveAttribute('aria-valuetext', '1 of 1 application this week');
     });
 
     it('follows the first day of the week', async () => {
@@ -432,7 +451,7 @@ describe('Stats tab', () => {
       await applied('2026-10-12');
       const user = userEvent.setup();
       const panel = await openStats(user);
-      expect(ring(panel)).toHaveTextContent('1 of 5 this week');
+      expect(goalCard(panel)).toHaveTextContent('1 application submitted');
     });
   });
 });

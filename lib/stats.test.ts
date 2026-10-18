@@ -455,6 +455,11 @@ describe('across a DST change', () => {
 });
 
 describe('weeklyGoalProgress', () => {
+  it.each([0, -3, Number.NaN, Infinity])('never divides by a goal of %s', (goal) => {
+    const progress = weeklyGoalProgress([app('2026-10-12')], now, 0, goal);
+    expect(progress).toMatchObject({ count: 1, fraction: 0, remaining: 0 });
+  });
+
   it('counts nothing yet, with the whole goal to go', () => {
     expect(weeklyGoalProgress([], now, 0, 10)).toEqual({
       goal: 10,

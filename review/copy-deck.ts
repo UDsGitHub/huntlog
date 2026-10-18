@@ -28,7 +28,7 @@ const SCREENS: [string, RegExp][] = [
     /ApplicationForm|SourceField|Combobox|ResumeField|DuplicateWarning|applicationInput|formDefaults|lib\/applications\.ts/,
   ],
   ['Detail', /ApplicationDetail|StatusTimeline|MoreMenu/],
-  ['Stats', /Stats|stats\.ts|GoalRing|DateRangeFields/],
+  ['Stats', /Stats|stats\.ts|WeeklyGoalCard|DateRangeFields/],
   ['Resumes', /resume|dropGuard/i],
   ['Settings', /Settings|deleteAll|settings\.ts|theme|privacy|notices/],
   ['Shared (sheets, toasts, tabs)', /Sheet|Toast|Tab|.*/],

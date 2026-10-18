@@ -1,6 +1,6 @@
 import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
-// M6 slice: set a weekly goal of 10 → the Stats tab shows the goal progress ring at 3 of 10.
+// M6 slice: set a weekly goal of 10 → the Stats tab shows the goal card at 3 of 10.
 // Switch to dark mode.
 test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ session }) => {
   const page = await session.context.newPage();
@@ -30,18 +30,20 @@ test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ sess
 
   await page.getByRole('tab', { name: 'Stats' }).click();
   const stats = page.getByRole('tabpanel', { name: 'Stats' });
-  await expect(stats.getByRole('img', { name: '3 of 10 applications this week' })).toBeVisible();
-  const goal = stats.getByRole('region', { name: 'Weekly goal' });
-  await expect(goal).toHaveAccessibleDescription('7 more to reach your goal.');
-  // The first card: the goal ring leads on the left, the range's Applied number beside it.
+  const goal = stats.getByRole('region', { name: 'Weekly application goal' });
+  await expect(goal).toContainText('3 applications submitted');
+  await expect(goal).toHaveAccessibleDescription(
+    'Goal: 10 applications · 7 more applications to reach your goal',
+  );
+  await expect(goal.getByRole('progressbar')).toHaveAttribute(
+    'aria-valuetext',
+    '3 of 10 applications this week',
+  );
+  // The goal card leads; the range's Applied joins Interviews and Offers below it.
   const applied = stats.getByRole('definition').first();
   await expect(applied).toHaveText('3');
-  const [number, ring] = [await applied.boundingBox(), await goal.boundingBox()];
-  expect(number!.x).toBeGreaterThan(ring!.x + ring!.width);
-  // The goal is the larger of the two.
-  expect(ring!.height).toBeGreaterThan(number!.height);
-  expect(ring!.y).toBeLessThan(number!.y + number!.height);
-  expect(ring!.y + ring!.height).toBeGreaterThan(number!.y);
+  const [card, number] = [await goal.boundingBox(), await applied.boundingBox()];
+  expect(number!.y).toBeGreaterThan(card!.y + card!.height);
   await expectNoHorizontalScroll(page);
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -50,7 +52,7 @@ test('a weekly goal of 10 shows 3 of 10 on Stats, then dark mode', async ({ sess
   await expectNoHorizontalScroll(page);
   await settings.getByRole('button', { name: 'Close' }).click();
   await expect(settings).toBeHidden();
-  await expect(stats.getByRole('img', { name: '3 of 10 applications this week' })).toBeVisible();
+  await expect(goal.getByRole('progressbar')).toBeVisible();
   // The dark tokens are in use: the page no longer has the light background.
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).not.toBe(
     lightBackground,

@@ -108,6 +108,8 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 **Second pass (2026-10-17, v0.6.2):** after using v0.6.1 the owner asked for: the timeline's date Save and Cancel grouped as ghost icon buttons; shadcn's destructive colors (solid red, white text); a debounced search; More details as one section with its hint kept on the row, no line under the row, and an opening as slow as its closing; the goal ring leading the Stats card (Applied centered when there's no goal); no remembered source in a new form; the uploader without its "Resume file" label, with a "Choose file" link button, a generic name placeholder and a full-width Upload; and sheets that slid in with a jump (focus scrolled the dialog, fixed with `overflow: clip`).
 
+**Goal card (v0.6.3):** at the owner's request the ring became a weekly application goal card (this week's count large, a five-segment bar, a green check once reached, the goal and what's left or past it), with Applied moving in beside Interviews and Offers; without a goal, Applied is laid out the same way, with a pointer to the setting.
+
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
 
