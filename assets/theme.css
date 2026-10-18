@@ -37,8 +37,9 @@
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
   /* Destructive text and edges; a destructive button is filled with --destructive-solid
-     (shadcn: bg-destructive in light, bg-destructive/60 in dark) and its text is white. */
-  --destructive: #e7000b;
+     (shadcn's red: bg-destructive in light, bg-destructive/60 in dark) with white text. The text
+     red is a shade darker than the fill, so it stays 4.5:1 on a highlighted menu item (accent). */
+  --destructive: #c10007;
   --destructive-solid: #e7000b;
   --destructive-foreground: #ffffff;
   /* Decorative lines (cards, dividers). */

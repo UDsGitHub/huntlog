@@ -305,7 +305,8 @@ export function ApplicationForm({
   const workModeLabel = values.workMode
     ? WORK_MODE_LABELS[values.workMode as keyof typeof WORK_MODE_LABELS]
     : undefined;
-  // While collapsed, say what's inside, so remembered defaults are never invisible.
+  // The row's hint, open or closed: what's filled in inside, so remembered defaults are never
+  // invisible, else what the section holds.
   const detailsSummary = [
     values.location.trim(),
     workModeLabel,

@@ -394,7 +394,7 @@ function Count({
     return (
       <div className="flex flex-col-reverse items-end gap-1 text-right">
         <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="text-xl leading-none font-semibold tabular-nums">{value}</dd>
+        <dd className="text-lg leading-none font-semibold tabular-nums">{value}</dd>
       </div>
     );
   }

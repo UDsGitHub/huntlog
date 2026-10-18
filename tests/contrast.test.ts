@@ -49,6 +49,8 @@ const TEXT: [string, string][] = [
   ['destructive', 'background'],
   ['destructive', 'card'],
   ['destructive', 'popover'],
+  // A highlighted destructive menu item (Delete in a MoreMenu).
+  ['destructive', 'accent'],
   ['destructive-foreground', 'destructive-solid'],
   ['warning-foreground', 'warning'],
   ['status-neutral-foreground', 'status-neutral'],
