@@ -8,7 +8,7 @@ import {
   type CheckedBackup,
 } from '@/lib/backupImport';
 import { formatTimestampDate } from '@/lib/dates';
-import { formatBytes } from '@/lib/format';
+import { applicationCount, formatBytes, resumeCount } from '@/lib/format';
 import { formatNumber } from '@/lib/numberInput';
 import { FileDropZone } from './FileDropZone';
 import { SegmentedControl } from './SegmentedControl';
@@ -27,10 +27,8 @@ const SHOWN_ERRORS = 5;
 
 type Mode = 'merge' | 'replace';
 
-const count = (n: number, one: string, many: string) =>
-  `${formatNumber(n)} ${n === 1 ? one : many}`;
-const applications = (n: number) => count(n, 'application', 'applications');
-const resumes = (n: number) => count(n, 'resume', 'resumes');
+const applications = applicationCount;
+const resumes = resumeCount;
 
 /** A file read and checked, or why it can't be imported. */
 type Picked =

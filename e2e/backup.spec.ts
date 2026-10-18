@@ -133,3 +133,32 @@ test('a backup restores everything after Delete all data, resume files included'
   });
   expect(shown).toEqual(Array.from(PDF));
 });
+
+test('Export CSV downloads the applications as a spreadsheet file', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.goto(panelUrl(session.extensionId));
+  await page.getByRole('button', { name: 'Add application', exact: true }).click();
+  await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
+  await page.getByLabel('Company').fill('=Acme, Inc.');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const data = page
+    .getByRole('dialog', { name: 'Settings' })
+    .getByRole('region', { name: 'Your data' });
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    data.getByRole('button', { name: 'Export CSV' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^huntlog-applications-\d{4}-\d{2}-\d{2}\.csv$/);
+  const bytes = fs.readFileSync((await download.path())!);
+  await download.delete();
+  // UTF-8 with a byte-order mark, so Excel reads it as UTF-8.
+  expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+  const [header, row] = bytes.subarray(3).toString('utf8').split('\r\n');
+  expect(header).toMatch(/^Company,Job title,URL,Status,Date applied,/);
+  expect(row).toMatch(/^"'=Acme, Inc\.",,https:\/\/acme\.com\/jobs\/1,Applied,/);
+  // Not a full backup: the line stays as it was.
+  await expect(data.getByText('Last backup: never')).toBeVisible();
+});
