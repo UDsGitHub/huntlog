@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
+import * as applicationsCsv from '@/lib/applicationsCsv';
 import { db } from '@/lib/db';
 import { readSettings, updateSettings } from '@/lib/settings';
 import App from '@/entrypoints/sidepanel/App';
@@ -58,7 +59,7 @@ async function openImport(user: User) {
 }
 
 const pick = (user: User, sheet: HTMLElement, file: File) =>
-  user.upload(within(sheet).getByLabelText('Backup file'), file);
+  user.upload(within(sheet).getByLabelText('File to import'), file);
 
 describe('Import', () => {
   it('merges a backup, then shows its rows on the list', async () => {
@@ -169,7 +170,7 @@ describe('Import', () => {
       'Application 1 (A) has a job posting URL that isn’t a web address',
     );
     expect(alert).toHaveTextContent('…and 2 more.');
-    expect(within(sheet).getByLabelText('Backup file')).toHaveAttribute('aria-invalid', 'true');
+    expect(within(sheet).getByLabelText('File to import')).toHaveAttribute('aria-invalid', 'true');
     expect(within(sheet).getByRole('button', { name: 'Import' })).toBeDisabled();
   });
 
@@ -190,7 +191,7 @@ describe('Import', () => {
   it('takes the same file picked again (fixed since)', async () => {
     const user = userEvent.setup();
     const sheet = await openImport(user);
-    const input = within(sheet).getByLabelText('Backup file') as HTMLInputElement;
+    const input = within(sheet).getByLabelText('File to import') as HTMLInputElement;
     await pick(user, sheet, backupFile());
     await within(sheet).findByText(/Backup from/);
     // Cleared after each pick, so the picker reports the same file again as a change.
@@ -217,5 +218,75 @@ describe('Import', () => {
     expect(await within(sheet).findByRole('alert')).toHaveTextContent(
       "Couldn't import the backup. Nothing was changed. Try again.",
     );
+  });
+
+  describe('a CSV', () => {
+    const csvFile = (text: string, name = 'jobs.csv') =>
+      new File([text], name, { type: 'text/csv' });
+    const CSV = [
+      'Company,URL,Status,Date applied,Colour',
+      'Acme,acme.com/1,Applied,2026-10-01,red',
+      'Globex,globex.com/1,Pending,2026-10-02,blue',
+      ',nocompany.com/1,Applied,2026-10-01,',
+      'Initech,initech.com/1,Applied,2026-10-03,',
+    ].join('\r\n');
+
+    it('previews the rows, then adds them, leaving out what’s already logged', async () => {
+      await addApplication({ url: 'https://initech.com/1', company: 'Initech' });
+      const user = userEvent.setup();
+      const sheet = await openImport(user);
+      await pick(user, sheet, csvFile(CSV));
+      expect(await within(sheet).findByText('2 applications ready to import.')).toBeInTheDocument();
+      expect(sheet).toHaveTextContent(
+        '1 application already logged (the same job posting URL, or company and title), so it’s left out.',
+      );
+      expect(sheet).toHaveTextContent('Row 3: Unknown status “Pending”, imported as Applied.');
+      expect(sheet).toHaveTextContent('1 row skipped');
+      expect(sheet).toHaveTextContent('Row 4: Company: Enter the company name.');
+      expect(sheet).toHaveTextContent('Not imported: the column “Colour”.');
+      // A CSV adds rows: no Merge or Replace.
+      expect(within(sheet).queryByRole('radio', { name: 'Merge' })).toBeNull();
+
+      await user.click(within(sheet).getByRole('checkbox', { name: 'Import them anyway' }));
+      const button = within(sheet).getByRole('button', { name: 'Import 3 applications' });
+      await user.click(within(sheet).getByRole('checkbox', { name: 'Import them anyway' }));
+      expect(button).toHaveTextContent('Import 2 applications');
+      await user.click(button);
+      expect(await screen.findByText('Imported 2 applications.')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Import' })).toBeNull();
+      expect((await db.applications.toArray()).map((app) => app.company).sort()).toEqual([
+        'Acme',
+        'Globex',
+        'Initech',
+      ]);
+    });
+
+    it('says what a file without the needed columns lacks', async () => {
+      const user = userEvent.setup();
+      const sheet = await openImport(user);
+      await pick(user, sheet, csvFile('Name,Link\r\nAcme,acme.com'));
+      expect(await within(sheet).findByRole('alert')).toHaveTextContent(
+        'The file needs a Company and a URL column. Download the template to see them all.',
+      );
+      expect(within(sheet).getByRole('button', { name: 'Import' })).toBeDisabled();
+    });
+
+    it('can’t import when every row is skipped or already logged', async () => {
+      const user = userEvent.setup();
+      const sheet = await openImport(user);
+      await pick(user, sheet, csvFile('Company,URL\r\n,x.com'));
+      expect(await within(sheet).findByText('Nothing to import.')).toBeInTheDocument();
+      expect(within(sheet).getByRole('button', { name: 'Import 0 applications' })).toBeDisabled();
+    });
+
+    it('offers the template', async () => {
+      const template = vi
+        .spyOn(applicationsCsv, 'downloadCsvTemplate')
+        .mockImplementation(() => {});
+      const user = userEvent.setup();
+      const sheet = await openImport(user);
+      await user.click(within(sheet).getByRole('button', { name: 'Download the CSV template' }));
+      expect(template).toHaveBeenCalledTimes(1);
+    });
   });
 });

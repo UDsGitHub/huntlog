@@ -1,4 +1,6 @@
 import { useId, useRef, useState } from 'react';
+import { listApplications } from '@/lib/applications';
+import { downloadCsvTemplate } from '@/lib/applicationsCsv';
 import {
   countLiveData,
   mergeBackup,
@@ -7,9 +9,11 @@ import {
   SettingsRestoreError,
   type CheckedBackup,
 } from '@/lib/backupImport';
+import { importCsvRows, planCsvImport, type CsvPlan } from '@/lib/csvImport';
 import { formatTimestampDate } from '@/lib/dates';
 import { applicationCount, formatBytes, resumeCount } from '@/lib/format';
 import { formatNumber } from '@/lib/numberInput';
+import { listResumes } from '@/lib/resumes';
 import { FileDropZone } from './FileDropZone';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
@@ -30,14 +34,25 @@ type Mode = 'merge' | 'replace';
 const applications = applicationCount;
 const resumes = resumeCount;
 
+/** What a checked file would import: a JSON backup, or a CSV's rows. */
+type Checked = { backup: CheckedBackup } | { csv: CsvPlan };
+
 /** A file read and checked, or why it can't be imported. */
 type Picked =
   | { file: File; state: 'reading' }
-  | { file: File; state: 'ready'; backup: CheckedBackup }
+  | ({ file: File; state: 'ready' } & Checked)
   | { file: File; state: 'refused'; errors: string[] };
 
+/** A CSV by its name, else a backup when it starts like JSON (spec §6: told by its contents). */
+function isCsv(file: File, text: string): boolean {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.csv')) return true;
+  if (name.endsWith('.json')) return false;
+  return !text.trimStart().startsWith('{');
+}
+
 /** Reads and checks a picked file. Never throws: what's wrong is in `errors`. */
-async function readBackup(file: File): Promise<{ backup: CheckedBackup } | { errors: string[] }> {
+async function readImport(file: File): Promise<Checked | { errors: string[] }> {
   if (file.size > MAX_IMPORT_BYTES) return { errors: ['This file is too large to import.'] };
   let text: string;
   try {
@@ -48,7 +63,16 @@ async function readBackup(file: File): Promise<{ backup: CheckedBackup } | { err
   }
   // Let "Checking the file…" paint before the check, which can take a moment for a big file.
   await new Promise((resolve) => setTimeout(resolve, 0));
-  return parseBackup(text);
+  if (!isCsv(file, text)) return parseBackup(text);
+  try {
+    // Checked against what's stored now, for "already logged" and resume names.
+    const [applications, resumes] = await Promise.all([listApplications(), listResumes()]);
+    const result = planCsvImport(text, { applications, resumes });
+    return 'plan' in result ? { csv: result.plan } : { errors: [result.error] };
+  } catch (error) {
+    console.error('Checking the CSV failed', error);
+    return { errors: ["Couldn't check this file. Try again."] };
+  }
 }
 
 /**
@@ -77,6 +101,8 @@ export function ImportSheet({
     current: { applications: number; resumes: number } | null;
   } | null>(null);
   const [dropError, setDropError] = useState<string | null>(null);
+  // A CSV's rows already logged are imported too (spec §6: "Import them anyway").
+  const [includeDuplicates, setIncludeDuplicates] = useState(false);
   const action = useAction(notify);
   // Only the newest pick may show its result.
   const latest = useRef<File | null>(null);
@@ -86,18 +112,36 @@ export function ImportSheet({
     action.reset();
     setDropError(null);
     setPicked({ file, state: 'reading' });
-    const result = await readBackup(file);
+    setIncludeDuplicates(false);
+    const result = await readImport(file);
     if (latest.current !== file) return;
     setPicked(
-      'backup' in result
-        ? { file, state: 'ready', backup: result.backup }
-        : { file, state: 'refused', errors: result.errors },
+      'errors' in result
+        ? { file, state: 'refused', errors: result.errors }
+        : { file, state: 'ready', ...result },
     );
   }
 
-  const backup = picked?.state === 'ready' ? picked.backup : null;
+  const backup = picked?.state === 'ready' && 'backup' in picked ? picked.backup : null;
+  const csv = picked?.state === 'ready' && 'csv' in picked ? picked.csv : null;
+  const csvCount = csv ? csv.rows.filter((row) => includeDuplicates || !row.duplicate).length : 0;
+
+  async function importCsv() {
+    if (!csv || action.busy || csvCount === 0) return;
+    const done = await action.run(
+      async () => {
+        const added = await importCsvRows(csv, { includeDuplicates });
+        onImported();
+        notify(`Imported ${applications(added)}.`);
+        return true;
+      },
+      () => "Couldn't import the file. Nothing was added. Try again.",
+    );
+    if (done) onClose();
+  }
 
   async function start() {
+    if (csv) return importCsv();
     if (!backup || action.busy) return;
     if (mode === 'replace') {
       try {
@@ -161,22 +205,29 @@ export function ImportSheet({
         setMode('merge');
         setConfirm(null);
         setDropError(null);
+        setIncludeDuplicates(false);
         action.reset();
       }}
       title="Import"
-      description="Restore a Huntlog backup (.json)."
+      description="Restore a Huntlog backup (.json), or add applications from a spreadsheet (.csv)."
       dismissible
       footer={
         <button
           type="button"
           {...SUBMIT_SHORTCUT}
-          disabled={!backup}
+          disabled={!backup && csvCount === 0}
           // Busy: still focusable (disabling would drop focus to the page), and start() ignores it.
           aria-disabled={action.busy || undefined}
           onClick={() => void start()}
           className="btn btn-primary w-full"
         >
-          {action.busy ? 'Importing…' : mode === 'replace' ? 'Replace all data…' : 'Import'}
+          {action.busy
+            ? 'Importing…'
+            : csv
+              ? `Import ${applications(csvCount)}`
+              : mode === 'replace'
+                ? 'Replace all data…'
+                : 'Import'}
         </button>
       }
     >
@@ -184,8 +235,8 @@ export function ImportSheet({
         <FileDropZone
           inputRef={fileInput}
           id={`${id}-file`}
-          label="Backup file"
-          accept=".json,application/json"
+          label="File to import"
+          accept=".json,.csv,application/json,text/csv"
           file={picked && { name: picked.file.name, detail: formatBytes(picked.file.size) }}
           busy={action.busy}
           invalid={errors.length > 0}
@@ -200,13 +251,19 @@ export function ImportSheet({
             'aria-describedby':
               [
                 picked && `${id}-file-chosen`,
-                errors.length ? `${id}-errors` : backup && `${id}-summary`,
+                errors.length ? `${id}-errors` : (backup || csv) && `${id}-summary`,
               ]
                 .filter(Boolean)
                 .join(' ') || undefined,
             'aria-invalid': errors.length > 0 || undefined,
           }}
         />
+        <p className="text-xs text-muted-foreground">
+          A spreadsheet needs the template’s columns.{' '}
+          <button type="button" onClick={downloadCsvTemplate} className="link">
+            Download the CSV template
+          </button>
+        </p>
       </div>
       {picked?.state === 'reading' && (
         <p role="status" className="text-sm text-muted-foreground">
@@ -237,6 +294,15 @@ export function ImportSheet({
               : 'Deletes everything here, then restores the backup, settings included.'}
           </p>
         </>
+      )}
+      {csv && (
+        <CsvPreview
+          id={`${id}-summary`}
+          plan={csv}
+          count={csvCount}
+          includeDuplicates={includeDuplicates}
+          onIncludeDuplicates={setIncludeDuplicates}
+        />
       )}
       {action.error && (
         <p role="alert" className="field-error">
@@ -271,6 +337,94 @@ export function ImportSheet({
         {null}
       </Sheet>
     </Sheet>
+  );
+}
+
+/** "Row 4: …" lines, up to a few, then how many more. */
+function RowList({ items }: { items: { row: number; text: string }[] }) {
+  const more = items.length - SHOWN_ERRORS;
+  return (
+    <>
+      <ul className="list-disc pl-5">
+        {items.slice(0, SHOWN_ERRORS).map((item, i) => (
+          <li key={i}>
+            Row {formatNumber(item.row)}: {item.text}
+          </li>
+        ))}
+      </ul>
+      {more > 0 && <p>…and {formatNumber(more)} more.</p>}
+    </>
+  );
+}
+
+/**
+ * A CSV's preview (spec §6), before anything is added: how many rows will be imported, which have
+ * warnings, which are skipped and why, which are already logged (left out unless the user ticks
+ * Import them anyway), and the columns that aren't Huntlog's.
+ */
+function CsvPreview({
+  id,
+  plan,
+  count,
+  includeDuplicates,
+  onIncludeDuplicates,
+}: {
+  id: string;
+  plan: CsvPlan;
+  count: number;
+  includeDuplicates: boolean;
+  onIncludeDuplicates: (include: boolean) => void;
+}) {
+  const checkbox = useId();
+  const duplicates = plan.rows.filter((row) => row.duplicate).length;
+  const warned = plan.rows.flatMap((row) => row.warnings.map((text) => ({ row: row.row, text })));
+  const skipped = plan.skipped.map((row) => ({ row: row.row, text: row.reason }));
+  return (
+    <div className="flex min-w-0 flex-col gap-3 text-sm">
+      <p id={id} role="status">
+        {count === 0 ? 'Nothing to import.' : `${applications(count)} ready to import.`}
+      </p>
+      {duplicates > 0 && (
+        <div className="flex flex-col gap-1">
+          <p>
+            {applications(duplicates)} already logged (the same job posting URL, or company and
+            title), so {duplicates === 1 ? 'it’s' : 'they’re'} left out.
+          </p>
+          <label htmlFor={checkbox} className="flex items-start gap-2">
+            <input
+              id={checkbox}
+              type="checkbox"
+              checked={includeDuplicates}
+              onChange={(event) => onIncludeDuplicates(event.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--primary)]"
+            />
+            Import them anyway
+          </label>
+        </div>
+      )}
+      {warned.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="font-medium">Imported with a note</p>
+          <div className="text-muted-foreground">
+            <RowList items={warned} />
+          </div>
+        </div>
+      )}
+      {skipped.length > 0 && (
+        <div className="flex flex-col gap-1 text-destructive">
+          <p className="font-medium">
+            {formatNumber(skipped.length)} {skipped.length === 1 ? 'row' : 'rows'} skipped
+          </p>
+          <RowList items={skipped} />
+        </div>
+      )}
+      {plan.ignoredColumns.length > 0 && (
+        <p className="text-muted-foreground">
+          Not imported: {plan.ignoredColumns.length === 1 ? 'the column' : 'the columns'}{' '}
+          {plan.ignoredColumns.map((name) => `“${name}”`).join(', ')}.
+        </p>
+      )}
+    </div>
   );
 }
 
