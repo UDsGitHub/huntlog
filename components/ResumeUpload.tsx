@@ -286,7 +286,10 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
         const target = event.target as HTMLElement;
         // ⌘/Ctrl+Enter anywhere in it uploads too, rather than saving the application with the
         // chosen file left behind.
-        if (
+        if (isSubmitShortcut(event) && event.repeat) {
+          // A held shortcut uploads once.
+          event.preventDefault();
+        } else if (
           isSubmitShortcut(event) ||
           (event.key === 'Enter' && target instanceof HTMLInputElement && target.type !== 'file')
         ) {

@@ -17,9 +17,12 @@ export const SUBMIT_SHORTCUT = {
   'aria-keyshortcuts': 'Meta+Enter Control+Enter',
 } as const;
 
-function isMac(): boolean {
-  return /Mac|iPhone|iPad/.test(navigator.platform);
-}
+// navigator.platform still names the OS in Chrome (user-agent reduction keeps it); the newer
+// userAgentData.platform is checked first where there is one.
+const IS_MAC = /mac|iphone|ipad/i.test(
+  (navigator as Navigator & { userAgentData?: { platform: string } }).userAgentData?.platform ||
+    navigator.platform,
+);
 
 /**
  * The shortcut drawn at the right of a full-width Save (give the button `relative`). Hidden from
@@ -31,7 +34,7 @@ export function SubmitShortcutHint() {
       aria-hidden="true"
       className="absolute right-3 rounded border border-primary-foreground/30 px-1.5 font-sans text-xs font-normal text-primary-foreground/80"
     >
-      {isMac() ? '⌘↵' : 'Ctrl+↵'}
+      {IS_MAC ? '⌘↵' : 'Ctrl+↵'}
     </kbd>
   );
 }

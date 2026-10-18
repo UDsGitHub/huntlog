@@ -306,7 +306,7 @@ describe('Add view', () => {
     await user.type(field(/Notes/), 'Call back');
     // Where plain Enter is a new line, the shortcut saves.
     await user.keyboard('{Meta>}{Enter}{/Meta}');
-    expect(screen.queryByRole('form')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
     const [saved] = await db.applications.toArray();
     expect(saved).toMatchObject({ company: 'Acme', notes: 'Call back' });
 
@@ -316,7 +316,7 @@ describe('Add view', () => {
     await user.type(field('Job posting URL'), 'beta.com/jobs/2');
     field('Status').focus();
     await user.keyboard('{Control>}{Enter}{/Control}');
-    expect(screen.queryByRole('form')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
     await waitFor(async () => expect(await db.applications.count()).toBe(2));
   });
 

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as applications from '@/lib/applications';
 import { addApplication, softDeleteApplication } from '@/lib/applications';
@@ -128,6 +128,18 @@ describe('Detail view', () => {
     (document.activeElement as HTMLElement).blur();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.getByRole('button', { name: /^Acme/ })).toHaveFocus());
+  });
+
+  it("a held Escape that closed the menu doesn't then leave the page", async () => {
+    await seed();
+    const user = userEvent.setup();
+    await openDetail(user);
+    await user.click(screen.getByRole('button', { name: 'More actions for Acme' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    // The key's auto-repeat, now that the menu has gone.
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape', repeat: true });
+    expect(screen.getByRole('heading', { level: 2, name: 'Acme' })).toBeInTheDocument();
   });
 
   it('Escape does nothing while another tab is showing', async () => {

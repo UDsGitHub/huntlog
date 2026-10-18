@@ -81,7 +81,8 @@ export function ApplicationDetail({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const section = page.current;
-      if (event.key !== 'Escape' || event.defaultPrevented || !section) return;
+      // Not a held key's repeats: the press that closed a menu or sheet mustn't then leave the page.
+      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented || !section) return;
       if (section.closest('[inert]') || document.querySelector('dialog[open]')) return;
       const target = event.target;
       if (target !== document.body && !(target instanceof Node && section.contains(target))) return;

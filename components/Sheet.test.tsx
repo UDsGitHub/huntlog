@@ -456,4 +456,53 @@ describe('Sheet submit shortcut', () => {
     await user.keyboard('{Meta>}{Enter}{/Meta}');
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it('does nothing from a toast inside the sheet', async () => {
+    let show!: ReturnType<typeof useToast>['show'];
+    const onSubmit = vi.fn();
+    function WithToast() {
+      const toast = useToast();
+      useEffect(() => {
+        show = toast.show;
+      }, [toast.show]);
+      return (
+        <>
+          <SubmitHarness onSubmit={onSubmit} />
+          <Toast toast={toast.toast} onDismiss={toast.dismiss} />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<WithToast />);
+    act(() => show({ message: 'Saved' }));
+    screen.getByRole('button', { name: 'Dismiss' }).focus();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("never presses an outer sheet's button from a sheet opened inside it", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Sheet
+        open
+        onClose={() => {}}
+        title="Outer"
+        footer={
+          <button type="button" onClick={onSubmit} {...SUBMIT_SHORTCUT}>
+            Save
+          </button>
+        }
+      >
+        <Sheet open onClose={() => {}} title="Inner">
+          <label>
+            Confirm <input />
+          </label>
+        </Sheet>
+      </Sheet>,
+    );
+    screen.getByLabelText('Confirm').focus();
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

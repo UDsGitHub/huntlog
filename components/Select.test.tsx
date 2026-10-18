@@ -80,6 +80,33 @@ describe('Select', () => {
     expect(select()).toHaveFocus();
   });
 
+  it('⌘/Ctrl+Enter on an open list chooses too, so a sheet around it never gets it', async () => {
+    const onChange = vi.fn();
+    const outer = vi.fn();
+    const user = userEvent.setup();
+    render(
+      // Stands in for the sheet: it takes a ⌘/Ctrl+Enter nothing else used.
+      <div
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || event.defaultPrevented) return;
+          event.preventDefault();
+          outer();
+        }}
+      >
+        <Harness onChange={onChange} />
+      </div>,
+    );
+    select().focus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{Control>}{Enter}{/Control}');
+    expect(onChange).toHaveBeenCalledWith('screening');
+    expect(list()).toBeNull();
+    expect(outer).not.toHaveBeenCalled();
+    // Closed, it's left to the sheet.
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    expect(list()).toBeNull();
+    expect(outer).toHaveBeenCalled();
+  });
+
   it('chooses with Space, and Home/End open at either end', async () => {
     const user = userEvent.setup();
     render(<Harness />);

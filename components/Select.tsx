@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type Ref } from 'react
 import { foldText } from '@/lib/listQuery';
 import { CheckIcon, ChevronDownIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
+import { isSubmitShortcut } from './submitShortcut';
 import { OPTION_HEIGHT, useDropDirection } from './useDropDirection';
 
 export interface SelectOption {
@@ -102,6 +103,13 @@ export function Select({
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    // ⌘/Ctrl+Enter on an open list picks the highlighted option, like Enter, rather than reaching
+    // the sheet's submit shortcut with the list still open (a closed one leaves it to the sheet).
+    if (open && isSubmitShortcut(event)) {
+      event.preventDefault();
+      choose(active);
+      return;
+    }
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const { key } = event;
     const last = flat.length - 1;

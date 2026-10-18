@@ -198,9 +198,13 @@ export function Sheet({
   function onKeyDown(event: KeyboardEvent) {
     if (isSubmitShortcut(event)) {
       // Presses the sheet's main button (marked by SUBMIT_SHORTCUT) from anywhere in it. Not when
-      // a control already used the key (a Combobox picking, the inline upload), not while the
-      // discard question is up or sliding out, and not on a held-down key, so it saves once.
-      if (event.defaultPrevented || !open || confirming || event.repeat) return;
+      // a control already used the key (a list picking, the inline upload), not from a toast's
+      // buttons, not while the discard question is up or sliding out, and not on a held-down key,
+      // so it saves once. Stopped either way, so a sheet opened from inside another (Settings'
+      // confirmations) never presses the outer one's button.
+      event.stopPropagation();
+      const fromToast = event.target instanceof Node && toastRegion.current?.contains(event.target);
+      if (event.defaultPrevented || !open || confirming || event.repeat || fromToast) return;
       const button = dialog.current?.querySelector<HTMLButtonElement>('[data-sheet-submit]');
       if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
       event.preventDefault();
