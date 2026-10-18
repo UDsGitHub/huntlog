@@ -23,11 +23,14 @@ import {
   RotateCcwIcon,
   SunIcon,
   Trash2Icon,
+  UploadIcon,
 } from './icons';
+import { ImportSheet } from './ImportSheet';
 import { NumberField } from './NumberField';
 import { SegmentedControl } from './SegmentedControl';
 import { Select } from './Select';
 import { Sheet } from './Sheet';
+import { useAction } from './useAction';
 import { useLastBackup } from './useLastBackup';
 import { useSettings } from './useSettings';
 import { useToday } from './useToday';
@@ -50,6 +53,8 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: ReactNode }[] = [
 interface Props {
   /** Data was deleted: the app returns to an empty list. */
   onDataDeleted: () => void;
+  /** Data was imported: the app returns to the list, showing it. */
+  onDataImported: () => void;
   /** A short confirmation, shown as a toast. */
   notify: (message: string) => void;
   /**
@@ -64,7 +69,7 @@ interface Props {
  * goal, display, your data, and about. Every change saves as it's made and applies in every open
  * window (settings live in storage, and `useSettings` follows changes from anywhere).
  */
-export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
+export function SettingsPanel({ onDataDeleted, onDataImported, notify, active }: Props) {
   const settings = useSettings();
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -89,7 +94,12 @@ export function SettingsPanel({ onDataDeleted, notify, active }: Props) {
       )}
       <GoalCard goal={settings.weeklyGoal} onChange={(weeklyGoal) => void save({ weeklyGoal })} />
       <DisplayCard settings={settings} onChange={(patch) => void save(patch)} />
-      <DataCard onDataDeleted={onDataDeleted} notify={notify} active={active} />
+      <DataCard
+        onDataDeleted={onDataDeleted}
+        onDataImported={onDataImported}
+        notify={notify}
+        active={active}
+      />
       <AboutCard />
     </div>
   );
@@ -320,8 +330,8 @@ function DisplayCard({
  * Your data (spec §4.8, §6): export a backup, with how long ago the last one was, then Delete all
  * data and Reset settings, each confirmed in a sheet.
  */
-function DataCard({ onDataDeleted, notify, active }: Props) {
-  const [open, setOpen] = useState<'delete' | 'reset' | null>(null);
+function DataCard({ onDataDeleted, onDataImported, notify, active }: Props) {
+  const [open, setOpen] = useState<'import' | 'delete' | 'reset' | null>(null);
   // Settings closing (a capture) closes its sheet too, at once: left open while Settings slides
   // out, it would stay modal over the panel. A delete still running reports its outcome in a
   // toast.
@@ -336,7 +346,13 @@ function DataCard({ onDataDeleted, notify, active }: Props) {
         Everything is stored only in this browser. Export a backup now and then: one file with your
         applications, resumes and settings.
       </p>
-      <ExportButtons notify={notify} />
+      <BackupButtons notify={notify} onImport={() => setOpen('import')} />
+      <ImportSheet
+        open={open === 'import'}
+        onClose={() => setOpen(null)}
+        onImported={onDataImported}
+        notify={notify}
+      />
       <div className="flex flex-wrap gap-2 border-t pt-3">
         <button type="button" onClick={() => setOpen('delete')} className="btn btn-destructive">
           <Trash2Icon />
@@ -367,8 +383,14 @@ function DataCard({ onDataDeleted, notify, active }: Props) {
   );
 }
 
-/** Export a JSON backup (spec §6), and when the last one was made. */
-function ExportButtons({ notify }: { notify: (message: string) => void }) {
+/** Export a JSON backup and Import (spec §6), and when the last backup was made. */
+function BackupButtons({
+  notify,
+  onImport,
+}: {
+  notify: (message: string) => void;
+  onImport: () => void;
+}) {
   const lastBackup = useLastBackup();
   // Re-rendered each new day, so "today" becomes "yesterday" in a panel left open.
   useToday();
@@ -394,6 +416,10 @@ function ExportButtons({ notify }: { notify: (message: string) => void }) {
         >
           <DownloadIcon />
           {action.busy ? 'Exporting…' : 'Export backup'}
+        </button>
+        <button type="button" onClick={onImport} className="btn btn-outline">
+          <UploadIcon />
+          Import…
         </button>
       </div>
       {lastBackup.loaded && <p className="field-hint">{lastBackupText(lastBackup.at)}</p>}
@@ -426,48 +452,6 @@ function ConfirmField({ value, onChange }: { value: string; onChange: (value: st
       />
     </div>
   );
-}
-
-/**
- * Runs a sheet's action once at a time (a ref, so a double activation before React re-renders
- * can't start it twice), showing a failure in the sheet. `reset` forgets the error, for when the
- * sheet closes; a still-running attempt that then fails reports through `onOrphanedError` (a
- * toast), since the sheet that would say whether the data is gone has closed (e.g. a capture
- * switched tabs mid-delete).
- */
-function useAction(onOrphanedError: (message: string) => void) {
-  const running = useRef(false);
-  const attempt = useRef(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function run(
-    action: () => Promise<boolean>,
-    describe: (cause: unknown) => string,
-  ): Promise<boolean> {
-    if (running.current) return false;
-    running.current = true;
-    const mine = ++attempt.current;
-    setBusy(true);
-    setError(null);
-    try {
-      return await action();
-    } catch (cause) {
-      console.error(cause);
-      if (mine === attempt.current) setError(describe(cause));
-      else onOrphanedError(describe(cause));
-      return false;
-    } finally {
-      running.current = false;
-      if (mine === attempt.current) setBusy(false);
-    }
-  }
-  function reset() {
-    attempt.current++;
-    running.current = false;
-    setBusy(false);
-    setError(null);
-  }
-  return { busy, error, run, reset };
 }
 
 /** Why it failed, saying plainly whether the data is gone. */

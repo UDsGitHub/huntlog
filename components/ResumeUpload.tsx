@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent,
   type FormEvent,
 } from 'react';
 import { formatBytes } from '@/lib/format';
@@ -17,8 +16,7 @@ import {
   ResumeValidationError,
 } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
-import { carriesFiles } from './dropGuard';
-import { FileIcon, UploadIcon } from './icons';
+import { FileDropZone } from './FileDropZone';
 import { isSubmitShortcut } from './submitShortcut';
 import { useFieldErrors } from './useFieldErrors';
 
@@ -55,7 +53,6 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
   const [nameTyped, setNameTyped] = useState(false);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const refs = useMemo(() => ({ file: fileInput, name: nameInput, note: noteInput }), []);
   const { errors, fail, clear, described, errorText } = useFieldErrors(
     id,
@@ -114,99 +111,26 @@ export function ResumeUpload({ variant, onUploaded, onCancel, formId, onStateCha
     }
   }
 
-  function onDrop(event: DragEvent) {
-    // Only drags that carry files light the zone up (not a text selection).
-    if (!carriesFiles(event.dataTransfer)) return;
-    event.preventDefault();
-    setDragging(false);
-    if (saving) return;
-    const files = event.dataTransfer.files;
-    if (files.length !== 1) {
-      fail({ file: 'Drop one file at a time.' });
-      return;
-    }
-    // The picker's own value no longer matches: clear it, so picking that file again still counts.
-    if (fileInput.current) fileInput.current.value = '';
-    choose(files[0]!);
-    fileInput.current?.focus();
-  }
-
   const fields = (
     <>
       <div className="flex min-w-0 flex-col gap-1">
-        {/* The drop zone says what it's for; the name stays for screen readers. */}
-        <span id={`${id}-file-label`} className="sr-only">
-          Resume file
-        </span>
-        {/* Visually hidden but focusable: the drop zone below is its label, so a click anywhere
-            in it opens the picker, and it shows this input's focus. */}
-        <input
-          ref={fileInput}
+        <FileDropZone
+          inputRef={fileInput}
           id={`${id}-file`}
-          type="file"
+          label="Resume file"
           accept={RESUME_ACCEPT}
-          aria-labelledby={`${id}-file-label`}
-          onChange={(event) => {
-            const picked = event.target.files?.[0];
-            if (picked) choose(picked);
-          }}
-          className="peer sr-only"
-          {...described('file', Boolean(file) && `${id}-file-chosen`, `${id}-file-hint`)}
-        />
-        <label
-          htmlFor={`${id}-file`}
-          data-dropzone=""
-          onDragEnter={(event) => carriesFiles(event.dataTransfer) && setDragging(true)}
-          onDragOver={(event) => {
-            if (!carriesFiles(event.dataTransfer)) return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = saving ? 'none' : 'copy';
-          }}
-          onDragLeave={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-              setDragging(false);
+          file={
+            file && {
+              name: file.name,
+              detail: `${formatLabel(file.name)} · ${formatBytes(file.size)}`,
             }
-          }}
-          onDrop={onDrop}
-          className={`group flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-dashed px-3 py-4 text-center transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring hover:bg-accent/50 ${
-            dragging
-              ? 'border-primary bg-accent'
-              : errors.file
-                ? 'border-destructive'
-                : 'border-input'
-          }`}
-        >
-          {file ? (
-            <>
-              <FileIcon className="size-5 text-muted-foreground" />
-              <span id={`${id}-file-chosen`} className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium break-all">{file.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatLabel(file.name)} · {formatBytes(file.size)}
-                </span>
-              </span>
-              <span
-                aria-hidden="true"
-                className="btn btn-link pointer-events-none group-hover:underline"
-              >
-                Change file
-              </span>
-            </>
-          ) : (
-            <>
-              <UploadIcon className="size-5 text-muted-foreground" />
-              <span className="text-sm">
-                {dragging ? 'Drop it here' : 'Choose a file or drag it here'}
-              </span>
-              <span
-                aria-hidden="true"
-                className="btn btn-link pointer-events-none group-hover:underline"
-              >
-                Choose file
-              </span>
-            </>
-          )}
-        </label>
+          }
+          busy={saving}
+          invalid={Boolean(errors.file)}
+          onPick={choose}
+          onError={(message) => fail({ file: message })}
+          inputProps={described('file', Boolean(file) && `${id}-file-chosen`, `${id}-file-hint`)}
+        />
         <p id={`${id}-file-hint`} className="text-xs text-muted-foreground">
           PDF, DOCX, DOC, TXT or RTF, up to 10 MB.
         </p>
