@@ -4,6 +4,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
 import { createDraft, draftKey } from '@/lib/captureDraft';
+import * as applicationsCsv from '@/lib/applicationsCsv';
 import * as backup from '@/lib/backup';
 import { LAST_BACKUP_KEY } from '@/lib/backup';
 import * as deleteAll from '@/lib/deleteAll';
@@ -593,6 +594,16 @@ describe('Settings', () => {
     expect(await within(data).findByRole('alert')).toHaveTextContent(
       "Couldn't export your data. Try again.",
     );
+    expect(within(data).getByText('Last backup: never')).toBeInTheDocument();
+  });
+
+  it('exports the applications as CSV, without counting it as a backup', async () => {
+    const exporting = vi.spyOn(applicationsCsv, 'exportCsv').mockResolvedValue(2);
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    await user.click(within(data).getByRole('button', { name: 'Export CSV' }));
+    expect(exporting).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('CSV downloaded: 2 applications.')).toBeInTheDocument();
     expect(within(data).getByText('Last backup: never')).toBeInTheDocument();
   });
 });

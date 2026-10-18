@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { exportCsv } from '@/lib/applicationsCsv';
 import { exportBackup, lastBackupText } from '@/lib/backup';
 import { deleteAllData, LeftoversError } from '@/lib/deleteAll';
 import { localeWeekStart, type WeekStart } from '@/lib/locale';
+import { formatNumber } from '@/lib/numberInput';
 import {
   isWeeklyGoal,
   MAX_WEEKLY_GOAL,
@@ -383,7 +385,7 @@ function DataCard({ onDataDeleted, onDataImported, notify, active }: Props) {
   );
 }
 
-/** Export a JSON backup and Import (spec §6), and when the last backup was made. */
+/** Export a JSON backup or a CSV, and Import (spec §6), with when the last backup was made. */
 function BackupButtons({
   notify,
   onImport,
@@ -395,6 +397,8 @@ function BackupButtons({
   // Re-rendered each new day, so "today" becomes "yesterday" in a panel left open.
   useToday();
   const action = useAction(notify);
+  const csv = useAction(notify);
+  const error = action.error ?? csv.error;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
@@ -417,15 +421,38 @@ function BackupButtons({
           <DownloadIcon />
           {action.busy ? 'Exporting…' : 'Export backup'}
         </button>
+        <button
+          type="button"
+          aria-disabled={csv.busy || undefined}
+          onClick={async () => {
+            let exported = 0;
+            const done = await csv.run(
+              async () => {
+                exported = await exportCsv();
+                return true;
+              },
+              () => "Couldn't export your applications. Try again.",
+            );
+            if (done) {
+              notify(
+                `CSV downloaded: ${formatNumber(exported)} ${exported === 1 ? 'application' : 'applications'}.`,
+              );
+            }
+          }}
+          className="btn btn-outline"
+        >
+          <DownloadIcon />
+          {csv.busy ? 'Exporting…' : 'Export CSV'}
+        </button>
         <button type="button" onClick={onImport} className="btn btn-outline">
           <UploadIcon />
           Import…
         </button>
       </div>
       {lastBackup.loaded && <p className="field-hint">{lastBackupText(lastBackup.at)}</p>}
-      {action.error && (
+      {error && (
         <p role="alert" className="field-error">
-          {action.error}
+          {error}
         </p>
       )}
     </div>
