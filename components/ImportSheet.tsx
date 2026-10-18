@@ -48,6 +48,8 @@ async function readBackup(file: File): Promise<{ backup: CheckedBackup } | { err
     console.error('Reading the import failed', error);
     return { errors: ["Couldn't read this file. Check that it opens, then try again."] };
   }
+  // Let "Checking the file…" paint before the check, which can take a moment for a big file.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   return parseBackup(text);
 }
 
@@ -111,7 +113,7 @@ export function ImportSheet({
     const done = await action.run(
       async () => {
         const counts = await mergeBackup(backup);
-        onImported();
+        if (counts.changed) onImported();
         notify(
           counts.applications + counts.resumes === 0
             ? 'Everything in the backup was already here.'
@@ -192,12 +194,16 @@ export function ImportSheet({
           onPick={(file) => void pick(file)}
           onError={(message) => {
             latest.current = null;
+            action.reset();
             setPicked(null);
             setDropError(message);
           }}
           inputProps={{
             'aria-describedby':
-              [picked && `${id}-file-chosen`, errors.length ? `${id}-errors` : `${id}-summary`]
+              [
+                picked && `${id}-file-chosen`,
+                errors.length ? `${id}-errors` : backup && `${id}-summary`,
+              ]
                 .filter(Boolean)
                 .join(' ') || undefined,
             'aria-invalid': errors.length > 0 || undefined,

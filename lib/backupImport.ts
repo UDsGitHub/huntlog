@@ -6,7 +6,7 @@ import {
   SALARY_PERIODS,
   WORK_MODES,
 } from './applicationInput';
-import { safeHref } from './applications';
+import { listApplications, safeHref } from './applications';
 import {
   BACKUP_FORMAT,
   BACKUP_VERSION,
@@ -14,13 +14,16 @@ import {
   isTimestamp,
   type BackupSettings,
 } from './backup';
-import { isValidLocalDate } from './dates';
+import { MAX_TITLE_LENGTH, MAX_URL_LENGTH } from './captureDraft';
+import { checkPastLocalDate } from './dates';
 import { db as defaultDb, type JobLogDB } from './db';
 import { derivedFields } from './dedupe';
 import { FORM_DEFAULTS_KEY } from './formDefaults';
+import { isKnownCurrency } from './locale';
 import {
   checkContents,
   formatMimeType,
+  listResumes,
   MAX_RESUME_NAME_LENGTH,
   MAX_RESUME_NOTE_LENGTH,
 } from './resumes';
@@ -56,14 +59,18 @@ const isId = (value: unknown): value is string =>
 
 /**
  * Checks one application from a backup, as strictly as typed input (spec §6): a web address that
- * is http(s), known statuses and choices, text within its limits. It doesn't apply the form's
- * rules about combinations (a job moved past Saved with Skip has no Date applied, and stays
- * valid). Returns the record to store, or what's wrong with it.
+ * is http(s), known statuses and choices, text within its limits, a Date applied not in the
+ * future, a minimum salary not above the maximum, a timeline ending at the status. It doesn't
+ * apply the form's rule that Date applied is required (a job moved past Saved with Skip has none,
+ * and stays valid). Returns the record to store, or what's wrong with it.
  */
-function checkApplication(raw: unknown): { application?: Application; problem?: string } {
+function checkApplication(
+  raw: unknown,
+  now: Date,
+): { application?: Application; problem?: string } {
   if (!isObject(raw)) return { problem: 'isn’t a record' };
   if (!isId(raw.id)) return { problem: 'has no valid id' };
-  if (typeof raw.url !== 'string' || !safeHref(raw.url)) {
+  if (typeof raw.url !== 'string' || raw.url.length > MAX_URL_LENGTH || !safeHref(raw.url)) {
     return { problem: 'has a job posting URL that isn’t a web address (http or https)' };
   }
   if (typeof raw.company !== 'string' || !raw.company.trim()) return { problem: 'has no company' };
@@ -76,6 +83,10 @@ function checkApplication(raw: unknown): { application?: Application; problem?: 
   ) {
     return { problem: 'has an invalid status history' };
   }
+  // Stats and Undo rely on the timeline ending where the status is.
+  if ((history.at(-1) as Raw).status !== raw.status) {
+    return { problem: 'has a status history that doesn’t end at its status' };
+  }
   for (const field of ['createdAt', 'updatedAt'] as const) {
     if (!isTimestamp(raw[field])) return { problem: `has an invalid ${field}` };
   }
@@ -86,7 +97,7 @@ function checkApplication(raw: unknown): { application?: Application; problem?: 
   const application: Application = {
     id: raw.id,
     url: raw.url,
-    company: raw.company,
+    company: raw.company.trim(),
     status: raw.status,
     statusHistory: (history as Raw[]).map((entry): StatusHistoryEntry => ({
       status: entry.status as StatusHistoryEntry['status'],
@@ -100,7 +111,7 @@ function checkApplication(raw: unknown): { application?: Application; problem?: 
   if (!absent(raw.deletedAt)) application.deletedAt = raw.deletedAt as string;
 
   const texts: [keyof Application, number | undefined][] = [
-    ['title', undefined],
+    ['title', MAX_TITLE_LENGTH],
     ['resumeNameSnapshot', undefined],
     ['location', MAX_LOCATION_LENGTH],
     ['source', MAX_SOURCE_LENGTH],
@@ -119,7 +130,9 @@ function checkApplication(raw: unknown): { application?: Application; problem?: 
     application.resumeId = raw.resumeId;
   }
   if (!absent(raw.appliedAt)) {
-    if (typeof raw.appliedAt !== 'string' || !isValidLocalDate(raw.appliedAt)) {
+    // A day of leeway: a backup made where it's already tomorrow is still good.
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12);
+    if (typeof raw.appliedAt !== 'string' || checkPastLocalDate(raw.appliedAt, tomorrow)) {
       return { problem: 'has an invalid Date applied' };
     }
     application.appliedAt = raw.appliedAt;
@@ -137,8 +150,19 @@ function checkApplication(raw: unknown): { application?: Application; problem?: 
     }
     application[field] = value;
   }
+  if (
+    application.salaryMin !== undefined &&
+    application.salaryMax !== undefined &&
+    application.salaryMin > application.salaryMax
+  ) {
+    return { problem: 'has a minimum salary above its maximum' };
+  }
   if (!absent(raw.salaryCurrency)) {
-    if (typeof raw.salaryCurrency !== 'string' || !/^[A-Z]{3}$/.test(raw.salaryCurrency)) {
+    if (
+      typeof raw.salaryCurrency !== 'string' ||
+      !/^[A-Z]{3}$/.test(raw.salaryCurrency) ||
+      !isKnownCurrency(raw.salaryCurrency)
+    ) {
       return { problem: 'has an invalid currency' };
     }
     application.salaryCurrency = raw.salaryCurrency;
@@ -246,7 +270,7 @@ function describe(kind: string, index: number, raw: unknown, label: 'company' | 
  * any invalid record refuses it, with every problem listed, so nothing is half imported. A file
  * that isn't a Huntlog backup, or is from a newer version, is refused with one message.
  */
-export function parseBackup(text: string): ParsedBackup {
+export function parseBackup(text: string, now: Date = new Date()): ParsedBackup {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -272,7 +296,7 @@ export function parseBackup(text: string): ParsedBackup {
   const applications: Application[] = [];
   const appIds = new Set<string>();
   raw.applications.forEach((item, i) => {
-    const { application, problem } = checkApplication(item);
+    const { application, problem } = checkApplication(item, now);
     const where = describe('Application', i, item, 'company');
     if (problem) errors.push(`${where} ${problem}.`);
     else if (appIds.has(application!.id)) errors.push(`${where} repeats an earlier id.`);
@@ -309,13 +333,24 @@ export async function countLiveData(
   database: JobLogDB = defaultDb,
 ): Promise<{ applications: number; resumes: number }> {
   const [applications, resumes] = await Promise.all([
-    database.applications.filter((app) => !app.deletedAt).count(),
-    database.resumes.filter((resume) => !resume.deletedAt).count(),
+    listApplications(database),
+    listResumes(database),
   ]);
-  return { applications, resumes };
+  return { applications: applications.length, resumes: resumes.length };
 }
 
-/** The data was replaced, but the settings or the remembered form defaults weren't restored. */
+/**
+ * An application linking a resume that isn't there keeps only the resume's name (the snapshot,
+ * spec §4.6), rather than a link to nothing that no picker can show or protect.
+ */
+function withoutMissingResume(app: Application, present: (id: string) => boolean): Application {
+  if (!app.resumeId || present(app.resumeId)) return app;
+  const copy = { ...app };
+  delete copy.resumeId;
+  return copy;
+}
+
+/** The data was replaced, but the settings weren't restored. */
 export class SettingsRestoreError extends Error {
   constructor(cause: unknown) {
     super('Data replaced, but the settings could not be restored', { cause });
@@ -325,14 +360,15 @@ export class SettingsRestoreError extends Error {
 
 /**
  * Replace all (spec §6): every application and resume is replaced by the backup's, in one
- * transaction (all or nothing). Then the settings are restored from it and the remembered form
- * defaults cleared, as Delete all data does. A failure after the data is written rejects with
+ * transaction (all or nothing). Then the settings are restored from it, and the remembered form
+ * defaults cleared, as Delete all data does. A failure restoring the settings rejects with
  * `SettingsRestoreError`: the data is replaced, only the settings aren't.
  */
 export async function replaceWithBackup(
   backup: CheckedBackup,
   database: JobLogDB = defaultDb,
 ): Promise<void> {
+  const resumeIds = new Set(backup.resumes.map(({ resume }) => resume.id));
   await database.transaction(
     'rw',
     database.applications,
@@ -342,7 +378,9 @@ export async function replaceWithBackup(
       await database.applications.clear();
       await database.resumes.clear();
       await database.resumeFiles.clear();
-      await database.applications.bulkAdd(backup.applications);
+      await database.applications.bulkAdd(
+        backup.applications.map((app) => withoutMissingResume(app, (id) => resumeIds.has(id))),
+      );
       await database.resumes.bulkAdd(backup.resumes.map(({ resume }) => resume));
       await database.resumeFiles.bulkAdd(
         backup.resumes.flatMap(({ resume, file }) => (file ? [{ id: resume.id, data: file }] : [])),
@@ -353,16 +391,23 @@ export async function replaceWithBackup(
     const { weeklyGoal, weekStartsOn, theme } = backup.settings;
     // A setting the backup doesn't hold goes back to its default (undefined clears it).
     await updateSettings({ weeklyGoal, weekStartsOn, theme });
-    await browser.storage.local.remove(FORM_DEFAULTS_KEY);
   } catch (error) {
     throw new SettingsRestoreError(error);
+  }
+  try {
+    await browser.storage.local.remove(FORM_DEFAULTS_KEY);
+  } catch (error) {
+    // Harmless if left: a remembered resume that's gone isn't offered (usableFormDefaults).
+    console.error('Clearing the remembered form defaults failed', error);
   }
 }
 
 export interface MergeCounts {
-  /** Applications and resumes the backup added or updated. */
+  /** Live applications and resumes the backup added or updated: what the user will see. */
   applications: number;
   resumes: number;
+  /** Whether anything was written at all (deleted records included). */
+  changed: boolean;
 }
 
 const newer = (incoming: { updatedAt: string }, stored: { updatedAt: string } | undefined) =>
@@ -383,12 +428,6 @@ export function mergeBackup(
     database.resumes,
     database.resumeFiles,
     async () => {
-      const storedApps = await database.applications.bulkGet(
-        backup.applications.map((app) => app.id),
-      );
-      const apps = backup.applications.filter((app, i) => newer(app, storedApps[i]));
-      await database.applications.bulkPut(apps);
-
       const storedResumes = await database.resumes.bulkGet(
         backup.resumes.map(({ resume }) => resume.id),
       );
@@ -398,7 +437,24 @@ export function mergeBackup(
       await database.resumeFiles.bulkPut(
         resumes.flatMap(({ resume, file }) => (file ? [{ id: resume.id, data: file }] : [])),
       );
-      return { applications: apps.length, resumes: resumes.length };
+
+      const storedApps = await database.applications.bulkGet(
+        backup.applications.map((app) => app.id),
+      );
+      const winners = backup.applications.filter((app, i) => newer(app, storedApps[i]));
+      // Resumes are written first, so a link to one the backup just added counts as present.
+      const linked = [...new Set(winners.flatMap((app) => (app.resumeId ? [app.resumeId] : [])))];
+      const present = new Set(
+        (await database.resumes.bulkGet(linked)).flatMap((resume) => (resume ? [resume.id] : [])),
+      );
+      const apps = winners.map((app) => withoutMissingResume(app, (id) => present.has(id)));
+      await database.applications.bulkPut(apps);
+
+      return {
+        applications: apps.filter((app) => !app.deletedAt).length,
+        resumes: resumes.filter(({ resume }) => !resume.deletedAt).length,
+        changed: apps.length + resumes.length > 0,
+      };
     },
   );
 }

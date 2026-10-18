@@ -188,6 +188,12 @@ describe('parseBackup', () => {
     [{ location: 'x'.repeat(201) }, 'has a location that’s too long'],
     [{ notes: 42 }, 'has an invalid notes'],
     [{ id: '' }, 'has no valid id'],
+    [{ status: 'offer' }, 'has a status history that doesn’t end at its status'],
+    [{ appliedAt: '2099-01-01' }, 'has an invalid Date applied'],
+    [{ salaryMin: 200000, salaryMax: 50000 }, 'has a minimum salary above its maximum'],
+    [{ salaryCurrency: 'ZZZ' }, 'has an invalid currency'],
+    [{ url: `https://acme.com/${'x'.repeat(2048)}` }, 'has a job posting URL that isn’t'],
+    [{ title: 'x'.repeat(301) }, 'has a title that’s too long'],
   ])('refuses an application with %j', (fields, problem) => {
     const result = parseBackup(backupText({ applications: [appRecord(fields)] }));
     expect(result).toEqual({ errors: [expect.stringContaining(problem)] });
@@ -269,13 +275,34 @@ describe('parseBackup', () => {
   it('keeps a stored Date-applied-less job past Saved (Skip) and a resume without a file', () => {
     const backup = parsed(
       backupText({
-        applications: [appRecord({ status: 'interviewing', appliedAt: undefined })],
+        applications: [
+          appRecord({
+            status: 'interviewing',
+            statusHistory: [
+              { status: 'saved', at: T },
+              { status: 'interviewing', at: T },
+            ],
+            appliedAt: undefined,
+          }),
+        ],
         resumes: [resumeRecord({ file: null })],
       }),
     );
     expect(backup.applications[0]).not.toHaveProperty('appliedAt');
     expect(backup.resumes[0]!.file).toBeNull();
     expect(backup.resumes[0]!.resume.size).toBe(PDF_BYTES.length);
+  });
+
+  it('takes a Date applied of tomorrow (a backup made a time zone ahead) and trims the company', () => {
+    const now = new Date(2026, 9, 18, 9);
+    const backup = parseBackup(
+      backupText({ applications: [appRecord({ appliedAt: '2026-10-19', company: ' Acme ' })] }),
+      now,
+    );
+    expect('backup' in backup && backup.backup.applications[0]).toMatchObject({
+      appliedAt: '2026-10-19',
+      company: 'Acme',
+    });
   });
 
   it('keeps only valid settings', () => {
@@ -327,7 +354,7 @@ describe('mergeBackup', () => {
       ),
       db,
     );
-    expect(counts).toEqual({ applications: 2, resumes: 0 });
+    expect(counts).toEqual({ applications: 2, resumes: 0, changed: true });
     expect((await stored('older')).company).toBe('Updated');
     expect((await stored('newer')).company).toBe('Kept');
     expect((await stored('tie')).company).toBe('Mine');
@@ -405,6 +432,37 @@ describe('mergeBackup', () => {
     expect((await readSettings()).theme).toBe('light');
   });
 
+  it('counts only what the user will see, and says when nothing changed', async () => {
+    const backup = parsed(
+      backupText({
+        applications: [appRecord({ deletedAt: T }), appRecord({ id: 'a2', company: 'Live' })],
+      }),
+    );
+    expect(await mergeBackup(backup, db)).toEqual({ applications: 1, resumes: 0, changed: true });
+    expect(await mergeBackup(backup, db)).toEqual({ applications: 0, resumes: 0, changed: false });
+  });
+
+  it('keeps a link to a resume stored here or in the backup, and drops one to neither', async () => {
+    const mine = await addResume(file('Mine.pdf', PDF_BYTES), {}, db);
+    await mergeBackup(
+      parsed(
+        backupText({
+          applications: [
+            appRecord({ id: 'here', resumeId: mine.id, resumeNameSnapshot: 'Mine' }),
+            appRecord({ id: 'backup', resumeId: 'r1', resumeNameSnapshot: 'Backend v3' }),
+            appRecord({ id: 'nowhere', resumeId: 'gone', resumeNameSnapshot: 'Gone' }),
+          ],
+          resumes: [resumeRecord()],
+        }),
+      ),
+      db,
+    );
+    expect((await stored('here')).resumeId).toBe(mine.id);
+    expect((await stored('backup')).resumeId).toBe('r1');
+    expect(await stored('nowhere')).not.toHaveProperty('resumeId');
+    expect((await stored('nowhere')).resumeNameSnapshot).toBe('Gone');
+  });
+
   it('writes nothing when a write fails part way', async () => {
     await db.applications.add(
       parsed(backupText({ applications: [appRecord({ company: 'Before' })] })).applications[0]!,
@@ -468,11 +526,40 @@ describe('replaceWithBackup', () => {
   });
 
   it('says so when the data is replaced but the settings aren’t', async () => {
-    vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValue(new Error('broken'));
+    vi.spyOn(fakeBrowser.storage.local, 'set').mockRejectedValue(new Error('broken'));
     await expect(
-      replaceWithBackup(parsed(backupText({ applications: [appRecord()] })), db),
+      replaceWithBackup(
+        parsed(backupText({ settings: { theme: 'dark' }, applications: [appRecord()] })),
+        db,
+      ),
     ).rejects.toBeInstanceOf(SettingsRestoreError);
     expect(await db.applications.count()).toBe(1);
+  });
+
+  it('succeeds when only clearing the form defaults fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValue(new Error('broken'));
+    await expect(
+      replaceWithBackup(
+        parsed(backupText({ settings: { theme: 'dark', weeklyGoal: 4, weekStartsOn: 1 } })),
+        db,
+      ),
+    ).resolves.toBeUndefined();
+    expect((await readSettings()).theme).toBe('dark');
+  });
+
+  it('drops a link to a resume the backup doesn’t hold, keeping its name', async () => {
+    await replaceWithBackup(
+      parsed(
+        backupText({
+          applications: [appRecord({ resumeId: 'gone', resumeNameSnapshot: 'Gone' })],
+        }),
+      ),
+      db,
+    );
+    const [app] = await db.applications.toArray();
+    expect(app).not.toHaveProperty('resumeId');
+    expect(app!.resumeNameSnapshot).toBe('Gone');
   });
 });
 

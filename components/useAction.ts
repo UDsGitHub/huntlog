@@ -5,7 +5,8 @@ import { useRef, useState } from 'react';
  * can't start it twice), showing a failure in the sheet. `reset` forgets the error, for when the
  * sheet closes; a still-running attempt that then fails reports through `onOrphanedError` (a
  * toast), since the sheet that would say whether the data is gone has closed (e.g. a capture
- * switched tabs mid-delete).
+ * switched tabs mid-delete). It stays running, and busy, until it ends: a sheet reopened
+ * meanwhile can't start a second one alongside it.
  */
 export function useAction(onOrphanedError: (message: string) => void) {
   const running = useRef(false);
@@ -30,13 +31,11 @@ export function useAction(onOrphanedError: (message: string) => void) {
       return false;
     } finally {
       running.current = false;
-      if (mine === attempt.current) setBusy(false);
+      setBusy(false);
     }
   }
   function reset() {
     attempt.current++;
-    running.current = false;
-    setBusy(false);
     setError(null);
   }
   return { busy, error, run, reset };

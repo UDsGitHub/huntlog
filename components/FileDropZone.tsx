@@ -71,6 +71,9 @@ export function FileDropZone({
         aria-labelledby={`${id}-label`}
         onChange={(event) => {
           const picked = event.target.files?.[0];
+          // Cleared, so picking the same file again (fixed since) still counts as a change, and
+          // a pick ignored mid-action leaves nothing behind.
+          event.target.value = '';
           if (picked && !busy) onPick(picked);
         }}
         className="peer sr-only"

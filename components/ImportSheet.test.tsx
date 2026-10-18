@@ -187,6 +187,16 @@ describe('Import', () => {
     expect(await within(sheet).findByRole('alert')).toHaveTextContent(message);
   });
 
+  it('takes the same file picked again (fixed since)', async () => {
+    const user = userEvent.setup();
+    const sheet = await openImport(user);
+    const input = within(sheet).getByLabelText('Backup file') as HTMLInputElement;
+    await pick(user, sheet, backupFile());
+    await within(sheet).findByText(/Backup from/);
+    // Cleared after each pick, so the picker reports the same file again as a change.
+    expect(input.value).toBe('');
+  });
+
   it('a later file replaces an earlier one’s result', async () => {
     const user = userEvent.setup();
     const sheet = await openImport(user);
