@@ -112,6 +112,8 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 **Quick logging (v0.6.4):** the owner reversed the v0.6.2 removal of the remembered source (it's there so a run of applications is quick to log), and asked for the last-used resume to be remembered too, preselected only while it's still offered.
 
+**Captures (v0.6.5):** a capture now sets Source from the job board in its address (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Wellfound, Dice, Monster) and starts with the last-used resume. Fixed with it: a resume remembered before the panel opened was never preselected (v0.6.4), and a row's status chip drew over the toast's buttons.
+
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
 

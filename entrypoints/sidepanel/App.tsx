@@ -57,6 +57,9 @@ const TABS: Tab<TabId>[] = [
 
 const TAB_ORDER = TABS.map((tab) => tab.id);
 
+/** How long a capture's form waits for the remembered defaults (its resume) at most. */
+const CAPTURE_DEFAULTS_WAIT_MS = 300;
+
 type View =
   | { name: 'list' }
   /** `nonce`: the capture it was opened for (0 for a manual Add), so its form keeps one key. */
@@ -119,20 +122,25 @@ export default function App() {
   // Remembered source, work mode and resume for the next manual Add (spec §4.2).
   // undefined until loaded: the Add form reads them once, on mount, so it waits for them.
   const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
-  // The remembered resume as stored now (null when none is remembered or it's gone), so one
-  // archived or deleted since isn't preselected. The Add form waits for it only when there's one.
+  // The remembered resume as stored now, so one archived or deleted since isn't preselected. The
+  // Add form waits for it only when there's one. Each result carries the id it was read for: a
+  // live query keeps its last result while a new id loads, and the one for "no resume" must not
+  // pass for "this resume is gone".
   const rememberedResumeId = formDefaults?.resumeId;
   const rememberedResume = useLiveQuery(
-    async () => (rememberedResumeId ? ((await getResume(rememberedResumeId)) ?? null) : null),
+    async () => ({
+      id: rememberedResumeId,
+      resume: rememberedResumeId ? await getResume(rememberedResumeId) : undefined,
+    }),
     [rememberedResumeId],
   );
   const addDefaults = useMemo(
     () =>
       !formDefaults?.resumeId
         ? formDefaults
-        : rememberedResume === undefined
+        : rememberedResume?.id !== formDefaults.resumeId
           ? undefined
-          : usableFormDefaults(formDefaults, rememberedResume ?? undefined),
+          : usableFormDefaults(formDefaults, rememberedResume.resume),
     [formDefaults, rememberedResume],
   );
   // A file dropped outside a drop zone mustn't replace the panel with it.
@@ -218,6 +226,28 @@ export default function App() {
     selectTab('applications');
     navigate({ name: 'add', nonce: latestCapture.current });
   });
+
+  // The Add form for the current sheet, with the defaults it mounted with. Latched: once a form
+  // is showing it stays (and keeps its defaults) until its sheet has gone, whatever the defaults
+  // do meanwhile (another window saving, this one's Save remembering a new resume). A manual Add
+  // mounts once the defaults are ready; a capture waits for them at most CAPTURE_DEFAULTS_WAIT_MS
+  // from its arrival, so it can never hang on storage.
+  const addKey = sheetView?.name === 'add' ? `${formSession}-${sheetView.nonce}` : null;
+  const [addForm, setAddForm] = useState<{ key: string; defaults?: FormDefaults } | null>(null);
+  const [captureWaitOver, setCaptureWaitOver] = useState<string | null>(null);
+  if (
+    addKey &&
+    addForm?.key !== addKey &&
+    (addDefaults || (prefill && captureWaitOver === addKey))
+  ) {
+    setAddForm({ key: addKey, defaults: addDefaults });
+  }
+  const waitingCapture = addKey !== null && addForm?.key !== addKey && Boolean(prefill);
+  useEffect(() => {
+    if (!waitingCapture || !addKey) return;
+    const timer = setTimeout(() => setCaptureWaitOver(addKey), CAPTURE_DEFAULTS_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [waitingCapture, addKey]);
 
   function openAdd() {
     setFormSession((n) => n + 1);
@@ -483,18 +513,18 @@ export default function App() {
           />
         </Sheet>
         {/* Add and Edit open as a sheet over the list or detail view (spec §4.2). */}
-        {sheetView?.name === 'add' && (prefill || addDefaults) && (
-          // Remount per capture: a new capture replaces whatever is in the form (spec §4.1). A
-          // manual Add waits for the remembered defaults (read once, on mount); a capture doesn't
-          // use them, so it never waits.
+        {sheetView?.name === 'add' && addForm?.key === addKey && (
+          // Remount per capture: a new capture replaces whatever is in the form (spec §4.1). The
+          // form reads the remembered defaults once, on mount: a manual Add waits for them, and a
+          // capture (which uses only their resume) waits at most CAPTURE_DEFAULTS_WAIT_MS.
           <ApplicationForm
             // Stable for the life of this sheet: consume() clearing the prefill on Save or Back
             // mustn't remount it mid slide-out. A new capture is a new view, so a new form.
-            key={`${formSession}-${sheetView.nonce}`}
+            key={addKey}
             open={view === sheetView}
             onClosed={() => formClosed(sheetView)}
             prefill={prefill}
-            defaults={addDefaults}
+            defaults={addForm.defaults}
             onSaved={(application) => {
               announce(`Saved ${application.company}.`);
               setSavedRow(application.id);

@@ -68,12 +68,14 @@ describe('reading and remembering', () => {
     });
   });
 
-  it('after a capture, keeps the old source and resume where the capture had none', async () => {
+  it('after a capture, keeps the old source where it had none, but its resume exactly', async () => {
     await rememberFormDefaults({ source: 'LinkedIn', resumeId: 'r1' });
     expect(await rememberFormDefaults({ resumeId: 'r2' }, { captured: true })).toEqual({
       source: 'LinkedIn',
       resumeId: 'r2',
     });
+    // Its form showed the remembered resume: clearing it there means "none".
+    expect(await rememberFormDefaults({}, { captured: true })).toEqual({ source: 'LinkedIn' });
   });
 
   it('after a capture, keeps old defaults where the capture had nothing', async () => {

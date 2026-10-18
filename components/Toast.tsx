@@ -130,7 +130,8 @@ export function Toast({
         // Clear of the floating button when it shows (it publishes the room it takes). Inside a
         // sheet, its region already sits above the sheet's footer.
         style={{ bottom: 'calc(var(--fab-clearance, 0px) + 1rem)' }}
-        className="pointer-events-none fixed inset-x-4 flex justify-center"
+        // Above everything on the page: the rows' chips and links (z-10) and the floating button.
+        className="pointer-events-none fixed inset-x-4 z-30 flex justify-center"
       >
         {!region && card}
       </div>

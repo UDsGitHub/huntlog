@@ -47,8 +47,10 @@ let writes: Promise<unknown> = Promise.resolve();
 /**
  * Remembers a newly saved application's source, work mode and resume (never an edit's). After a manual
  * Add they're remembered exactly, blanks included: the defaults are "what the last one had".
- * After a capture only the values it has replace the old ones, since a capture's blanks mean
- * "not captured", not "none". Writes run in order, so overlapping saves can't swap them.
+ * After a capture the resume is remembered exactly too (its form showed the remembered one, so
+ * a blank means "none"), but only a source or work mode it has replaces the old one: its form
+ * never showed those, so their blanks mean "not filled in", not "none". Writes run in order, so
+ * overlapping saves can't swap them.
  * Never throws.
  */
 export function rememberFormDefaults(
@@ -57,7 +59,12 @@ export function rememberFormDefaults(
 ): Promise<FormDefaults> {
   const write = writes.then(async () => {
     const next = parseFormDefaults(application);
-    const defaults = captured ? { ...(await readFormDefaults()), ...next } : next;
+    let defaults = next;
+    if (captured) {
+      const kept = await readFormDefaults();
+      delete kept.resumeId;
+      defaults = { ...kept, ...next };
+    }
     try {
       await browser.storage.local.set({ [FORM_DEFAULTS_KEY]: defaults });
     } catch (error) {

@@ -45,6 +45,7 @@ import { Combobox } from './Combobox';
 import { NumberField } from './NumberField';
 import { Select } from './Select';
 import { SourceField } from './SourceField';
+import { sourceFromUrl } from '@/lib/captureSource';
 
 interface Props {
   /** The sheet is showing (it stays mounted while it slides out after closing). */
@@ -126,6 +127,8 @@ export function ApplicationForm({
   // Without React's colons, the ids are valid in CSS selectors too (happy-dom resolves `list` that way).
   const id = useId().replace(/:/g, '');
   const draft = application ? undefined : prefill?.draft;
+  // The job board a capture came from, told by its address (spec §4.1).
+  const [capturedSource] = useState(() => sourceFromUrl(draft?.url));
   const [initial] = useState<FormValues>(() =>
     application
       ? formValuesFrom(application)
@@ -134,17 +137,18 @@ export function ApplicationForm({
           company: '',
           title: draft?.title ?? '',
           location: '',
-          // Remembered defaults are for a manual Add only (this form owns that rule); a capture
-          // fills just what it captured.
+          // Remembered defaults (this form owns these rules): a manual Add starts with the last
+          // work mode and source; a capture fills just what it captured, its source told by the
+          // address. Both start with the last resume, the one most likely sent again.
           workMode: (!draft && defaults?.workMode) || '',
           status: 'applied',
-          resumeId: (!draft && defaults?.resumeId) || '',
+          resumeId: defaults?.resumeId || '',
           appliedAt: todayLocal(),
           salaryMin: '',
           salaryMax: '',
           salaryCurrency: defaultCurrency(),
           salaryPeriod: 'year',
-          source: (!draft && defaults?.source) || '',
+          source: (draft ? capturedSource : defaults?.source) || '',
           notes: '',
         },
   );
@@ -205,6 +209,7 @@ export function ApplicationForm({
   const hints = {
     url: Boolean(draft?.url) && values.url === draft?.url,
     title: Boolean(draft?.title) && values.title === draft?.title,
+    source: Boolean(capturedSource) && values.source === capturedSource,
   };
 
   const set = (field: keyof FormValues) => (value: string) => {
@@ -580,7 +585,9 @@ export function ApplicationForm({
                   onChange={set('source')}
                   error={errors.source}
                   inputRef={register('source')}
+                  describedBy={hints.source ? `${id}-source-hint` : undefined}
                 />
+                {hints.source && <AutoFilledHint id={`${id}-source-hint`} />}
 
                 <Field label="Notes" htmlFor={`${id}-notes`}>
                   <AutoGrowTextarea
