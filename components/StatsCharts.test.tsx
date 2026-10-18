@@ -223,7 +223,7 @@ describe('WeeklyGoalCard', () => {
   ])('with %i of 5: "%s"', (count, submitted, widths, summary) => {
     render(<WeeklyGoalCard progress={progress(count)} />);
     const card = screen.getByRole('region', { name: 'Weekly application goal' });
-    expect(card).toHaveTextContent(submitted);
+    expect(card).toHaveTextContent(`${submitted} this week`);
     expect(card).toHaveAccessibleDescription(summary);
     expect(fills()).toEqual(widths);
     expect(bar()).toHaveAttribute('aria-valuenow', String(Math.min(count, 5)));

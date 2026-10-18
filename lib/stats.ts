@@ -359,7 +359,7 @@ export interface GoalProgress {
   goal: number;
   /** Applications applied this week. Can pass the goal. */
   count: number;
-  /** How full the ring is: 0 to 1, full once the goal is reached. */
+  /** How full the goal bar is: 0 to 1, full once the goal is reached. */
   fraction: number;
   /** How many more reach the goal; 0 once reached. */
   remaining: number;

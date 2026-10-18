@@ -27,7 +27,7 @@ import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
-import { ActivityChart, OutcomesBar, WeeklyGoalCard } from './StatsCharts';
+import { ActivityChart, applicationWord, OutcomesBar, WeeklyGoalCard } from './StatsCharts';
 import { useEdgeFade } from './useEdgeFade';
 import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
@@ -77,7 +77,8 @@ export function StatsPanel({ active }: { active: boolean }) {
   const resultNow = result?.now;
   const progress = useMemo(
     () =>
-      apps && resultNow && goal !== undefined && weekStartsOn !== undefined
+      // A goal that isn't a positive number counts as none (no goal card, the no-goal layout).
+      apps && resultNow && goal !== undefined && goal > 0 && weekStartsOn !== undefined
         ? weeklyGoalProgress(apps, resultNow, weekStartsOn, goal)
         : undefined,
     [apps, resultNow, goal, weekStartsOn],
@@ -345,11 +346,6 @@ function CustomRangeForm({
 }
 
 /**
- * The first card (spec §4.7): the range's Applied count, large, with the weekly goal ring beside
- * it while a goal is set (counting this week, whatever the range). Just the ring when there's no
- * count to show (nothing logged yet, or no usable range).
- */
-/**
  * The range's Applied count when no weekly goal is set: the headline number in a card of its own,
  * laid out like the goal card (label on top, the number large, left-aligned), with a quiet pointer
  * to the goal setting.
@@ -387,9 +383,7 @@ function Count({
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <span className="text-4xl leading-none font-semibold tabular-nums">{value}</span>{' '}
-        <span className="text-sm text-muted-foreground">
-          {value === 1 ? 'application' : 'applications'} submitted
-        </span>
+        <span className="text-sm text-muted-foreground">{applicationWord(value)} submitted</span>
       </dd>
     </div>
   ) : (

@@ -1,6 +1,6 @@
 # Design review after M6
 
-**Outcome:** every decision below landed in v0.6.1 (PRs #47–#55), including the rename to Huntlog; the screenshots and copy deck show v0.6.0 as reviewed.
+**Outcome:** every decision below landed in v0.6.1 (PRs #47–#55), including the rename to Huntlog; the screenshots show v0.6.0 as reviewed, while the copy deck is kept current (regenerated in v0.6.3).
 
 Prepared for the owner's review before M7 (milestones.md, "After M6: owner design review"). M6 itself is done and tagged v0.6.0; the decisions go into spec.md and are applied in follow-up PRs (v0.6.x) before M7 starts.
 

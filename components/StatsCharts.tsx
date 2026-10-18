@@ -171,7 +171,9 @@ export function segmentFill(fraction: number, index: number, segments = GOAL_SEG
   return Math.min(1, Math.max(0, clamped * segments - index));
 }
 
-const applications = (n: number) => `${n} ${n === 1 ? 'application' : 'applications'}`;
+/** "application" or "applications", for a count. */
+export const applicationWord = (n: number) => (n === 1 ? 'application' : 'applications');
+const applications = (n: number) => `${n} ${applicationWord(n)}`;
 
 /**
  * The goal card's bottom line: the goal, then how far there is to go, that it's complete, or how
@@ -180,9 +182,7 @@ const applications = (n: number) => `${n} ${n === 1 ? 'application' : 'applicati
 export function goalSummary({ count, goal }: Pick<GoalProgress, 'count' | 'goal'>): string {
   const target = `Goal: ${applications(goal)}`;
   const left = goal - count;
-  if (left > 0) {
-    return `${target} · ${left} more ${left === 1 ? 'application' : 'applications'} to reach your goal`;
-  }
+  if (left > 0) return `${target} · ${left} more ${applicationWord(left)} to reach your goal`;
   if (left === 0) return `${target} · Weekly goal complete`;
   return `${target} · ${count - goal} above your goal`;
 }
@@ -195,10 +195,9 @@ export function goalSummary({ count, goal }: Pick<GoalProgress, 'count' | 'goal'
  */
 export function WeeklyGoalCard({ progress }: { progress: GoalProgress }) {
   const id = useId();
-  const { count, goal } = progress;
+  const { count, goal, fraction } = progress;
   if (!Number.isFinite(goal) || goal <= 0) return null;
   const reached = count >= goal;
-  const fraction = count / goal;
   return (
     <section
       aria-labelledby={`${id}-heading`}
@@ -213,7 +212,7 @@ export function WeeklyGoalCard({ progress }: { progress: GoalProgress }) {
           <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="text-4xl leading-none font-semibold tabular-nums">{count}</span>{' '}
             <span className="text-sm text-muted-foreground">
-              {count === 1 ? 'application' : 'applications'} submitted
+              {applicationWord(count)} submitted this week
             </span>
           </p>
           {reached && (
