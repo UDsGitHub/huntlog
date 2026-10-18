@@ -552,6 +552,7 @@ function DeleteAllSheet({
           }}
           className="btn btn-destructive w-full"
         >
+          {action.busy && <Spinner />}
           {action.busy ? 'Deleting…' : 'Delete all data'}
         </button>
       }
@@ -622,6 +623,7 @@ function ResetSheet({
           }}
           className={`btn w-full ${alsoDelete ? 'btn-destructive' : 'btn-primary'}`}
         >
+          {action.busy && <Spinner />}
           {action.busy
             ? alsoDelete
               ? 'Deleting…'

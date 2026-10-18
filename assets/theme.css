@@ -38,11 +38,10 @@
   --accent-foreground: #18181b;
   /* Destructive text and edges. A destructive button is shadcn's tint: --destructive-solid at 20%
      behind text in --destructive-solid itself (the owner's choice, v0.7.1, knowing that button's
-     text falls short of 4.5:1). The text red is a shade darker than the fill, so it stays 4.5:1
-     on a highlighted menu item (accent). */
+     text falls short of 4.5:1). In light, the text red (--destructive) is a shade darker than the
+     button's, so it stays 4.5:1 on a highlighted menu item (accent). */
   --destructive: #c10007;
   --destructive-solid: #e7000b;
-  --destructive-foreground: #ffffff;
   /* Decorative lines (cards, dividers). */
   --border: #e4e4e7;
   /* Form-control outlines: 3:1 against the page, so a field's edge is visible (WCAG 1.4.11). */
@@ -104,8 +103,8 @@
   --accent: #27272a;
   --accent-foreground: #fafafa;
   --destructive: #ff6467;
+  /* The same red as the text in dark: on the dark page no darker shade is needed. */
   --destructive-solid: #ff6467;
-  --destructive-foreground: #ffffff;
   --border: #2e2e33;
   --input: #6b6b74;
   --ring: #a1a1aa;

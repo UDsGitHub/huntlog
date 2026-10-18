@@ -44,6 +44,19 @@ type Picked =
   | ({ file: File; state: 'ready' } & Checked)
   | { file: File; state: 'refused'; errors: string[] };
 
+/**
+ * Resolves once a frame has been painted, so "Checking the file…" and its loader are on screen
+ * (and the loader turning off the main thread) before a big file's check blocks the page. A
+ * timer alone can fire before the next paint. Capped, since a hidden page paints no frames.
+ */
+function afterPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    requestAnimationFrame(() => setTimeout(done, 0));
+    setTimeout(done, 100);
+  });
+}
+
 /** A CSV by its name, else a backup when it starts like JSON (spec §6: told by its contents). */
 function isCsv(file: File, text: string): boolean {
   const name = file.name.toLowerCase();
@@ -64,8 +77,7 @@ async function readImport(file: File): Promise<Checked | { errors: string[] }> {
     console.error('Reading the import failed', error);
     return { errors: ["Couldn't read this file. Check that it opens, then try again."] };
   }
-  // Let "Checking the file…" paint before the check, which can take a moment for a big file.
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await afterPaint();
   if (!isCsv(file, text)) return parseBackup(text);
   try {
     // Checked against what's stored now, for "already logged" and resume names.
@@ -226,7 +238,9 @@ export function ImportSheet({
         >
           {action.busy && <Spinner />}
           {action.busy
-            ? 'Importing…'
+            ? mode === 'replace' && !csv
+              ? 'Replacing…'
+              : 'Importing…'
             : csv
               ? `Import ${applications(csvCount)}`
               : mode === 'replace'
