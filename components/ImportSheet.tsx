@@ -17,6 +17,7 @@ import { listResumes } from '@/lib/resumes';
 import { FileDropZone } from './FileDropZone';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
+import { Spinner } from './Spinner';
 import { SUBMIT_SHORTCUT } from './submitShortcut';
 import { useAction } from './useAction';
 
@@ -43,6 +44,19 @@ type Picked =
   | ({ file: File; state: 'ready' } & Checked)
   | { file: File; state: 'refused'; errors: string[] };
 
+/**
+ * Resolves once a frame has been painted, so "Checking the file…" and its loader are on screen
+ * (and the loader turning off the main thread) before a big file's check blocks the page. A
+ * timer alone can fire before the next paint. Capped, since a hidden page paints no frames.
+ */
+function afterPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    requestAnimationFrame(() => setTimeout(done, 0));
+    setTimeout(done, 100);
+  });
+}
+
 /** A CSV by its name, else a backup when it starts like JSON (spec §6: told by its contents). */
 function isCsv(file: File, text: string): boolean {
   const name = file.name.toLowerCase();
@@ -63,8 +77,7 @@ async function readImport(file: File): Promise<Checked | { errors: string[] }> {
     console.error('Reading the import failed', error);
     return { errors: ["Couldn't read this file. Check that it opens, then try again."] };
   }
-  // Let "Checking the file…" paint before the check, which can take a moment for a big file.
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await afterPaint();
   if (!isCsv(file, text)) return parseBackup(text);
   try {
     // Checked against what's stored now, for "already logged" and resume names.
@@ -223,8 +236,11 @@ export function ImportSheet({
           onClick={() => void start()}
           className="btn btn-primary w-full"
         >
+          {action.busy && <Spinner />}
           {action.busy
-            ? 'Importing…'
+            ? mode === 'replace' && !csv
+              ? 'Replacing…'
+              : 'Importing…'
             : csv
               ? `Import ${applications(csvCount)}`
               : mode === 'replace'
@@ -268,7 +284,8 @@ export function ImportSheet({
         </p>
       </div>
       {picked?.state === 'reading' && (
-        <p role="status" className="text-sm text-muted-foreground">
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
           Checking the file…
         </p>
       )}
@@ -332,6 +349,7 @@ export function ImportSheet({
             onClick={() => void replace()}
             className="btn btn-destructive w-full"
           >
+            {action.busy && <Spinner />}
             {action.busy ? 'Replacing…' : 'Replace all data'}
           </button>
         }

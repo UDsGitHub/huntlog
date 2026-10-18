@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
 import * as applicationsCsv from '@/lib/applicationsCsv';
+import * as backupImport from '@/lib/backupImport';
 import { db } from '@/lib/db';
 import { readSettings, updateSettings } from '@/lib/settings';
 import App from '@/entrypoints/sidepanel/App';
@@ -54,7 +55,7 @@ async function openImport(user: User) {
   render(<App />);
   await user.click(await screen.findByRole('button', { name: 'Settings' }));
   const settings = await screen.findByRole('dialog', { name: 'Settings' });
-  await user.click(within(settings).getByRole('button', { name: 'Import…' }));
+  await user.click(within(settings).getByRole('button', { name: 'Import' }));
   return screen.findByRole('dialog', { name: 'Import' });
 }
 
@@ -95,7 +96,7 @@ describe('Import', () => {
     await screen.findByText(/Backup merged/);
     await user.click(
       within(screen.getByRole('dialog', { name: 'Settings' })).getByRole('button', {
-        name: 'Import…',
+        name: 'Import',
       }),
     );
     const again = await screen.findByRole('dialog', { name: 'Import' });
@@ -206,6 +207,35 @@ describe('Import', () => {
     await pick(user, sheet, backupFile());
     await waitFor(() => expect(within(sheet).queryByRole('alert')).toBeNull());
     expect(within(sheet).getByRole('button', { name: 'Import' })).toBeEnabled();
+  });
+
+  it('shows a turning loader while it checks the file and while it imports', async () => {
+    let finishMerge!: () => void;
+    vi.spyOn(backupImport, 'mergeBackup').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishMerge = () => resolve({ applications: 1, resumes: 0, changed: true });
+        }),
+    );
+    const user = userEvent.setup();
+    const sheet = await openImport(user);
+    let finishRead!: (text: string) => void;
+    const file = backupFile();
+    const text = await file.text();
+    vi.spyOn(file, 'text').mockReturnValue(new Promise((resolve) => (finishRead = resolve)));
+    await pick(user, sheet, file);
+    const checking = await within(sheet).findByRole('status');
+    expect(checking).toHaveTextContent('Checking the file…');
+    expect(checking.querySelector('[data-spinner]')).not.toBeNull();
+    finishRead(text);
+    const button = await within(sheet).findByRole('button', { name: 'Import' });
+    expect(button.querySelector('[data-spinner]')).toBeNull();
+    await user.click(button);
+    expect(button).toHaveTextContent('Importing…');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button.querySelector('[data-spinner]')).not.toBeNull();
+    finishMerge();
+    expect(await screen.findByText(/Backup merged/)).toBeInTheDocument();
   });
 
   it('says nothing changed when the write fails', async () => {

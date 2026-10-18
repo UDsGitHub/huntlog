@@ -51,7 +51,8 @@ const TEXT: [string, string][] = [
   ['destructive', 'popover'],
   // A highlighted destructive menu item (Delete in a MoreMenu).
   ['destructive', 'accent'],
-  ['destructive-foreground', 'destructive-solid'],
+  // No pair for the destructive button: it's shadcn's red tint with red text, kept by the owner's
+  // choice (v0.7.1) although its text is under 4.5:1.
   ['warning-foreground', 'warning'],
   ['success', 'card'],
   ['success', 'background'],

@@ -90,7 +90,7 @@ test('a backup restores everything after Delete all data, resume files included'
   await expect(deleting).toBeHidden();
   await settings.locator('label', { hasText: 'Light' }).click();
 
-  await data.getByRole('button', { name: 'Import…' }).click();
+  await data.getByRole('button', { name: 'Import' }).click();
   const importing = page.getByRole('dialog', { name: 'Import' });
   await importing.getByLabel('File to import').setInputFiles({
     name: download.suggestedFilename(),
@@ -177,7 +177,7 @@ test('a CSV imports after a preview, and the template downloads', async ({ sessi
   const data = page
     .getByRole('dialog', { name: 'Settings' })
     .getByRole('region', { name: 'Your data' });
-  await data.getByRole('button', { name: 'Import…' }).click();
+  await data.getByRole('button', { name: 'Import' }).click();
   const importing = page.getByRole('dialog', { name: 'Import' });
   const [template] = await Promise.all([
     page.waitForEvent('download'),

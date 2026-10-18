@@ -113,7 +113,7 @@ test('design-review screenshots', async ({ session }) => {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Delete all data?' })).toBeHidden();
     // Import, previewing a CSV: rows to add, one already logged, a note, a row skipped.
-    await settings.getByRole('button', { name: 'Import…' }).click();
+    await settings.getByRole('button', { name: 'Import' }).click();
     const importing = page.getByRole('dialog', { name: 'Import' });
     await importing.getByLabel('File to import').setInputFiles({
       name: 'applications.csv',
