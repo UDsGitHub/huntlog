@@ -32,6 +32,7 @@ import { useEdgeFade } from './useEdgeFade';
 import { useFieldErrors } from './useFieldErrors';
 import { useToday } from './useToday';
 import { useSettings } from './useSettings';
+import { SUBMIT_SHORTCUT } from './submitShortcut';
 
 const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent' });
 
@@ -288,7 +289,7 @@ function CustomRangeSheet({
       title="Custom range"
       description="Both dates are included."
       footer={
-        <button type="submit" form={formId} className="btn btn-primary w-full">
+        <button type="submit" form={formId} {...SUBMIT_SHORTCUT} className="btn btn-primary w-full">
           Apply
         </button>
       }

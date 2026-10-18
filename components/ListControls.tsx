@@ -20,6 +20,7 @@ import { DateRangeFields } from './DateRangeFields';
 import { CheckIcon, SearchIcon, SlidersHorizontalIcon } from './icons';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
+import { SUBMIT_SHORTCUT } from './submitShortcut';
 
 const SORT_LABELS: Record<SortKey, string> = {
   activity: 'Last activity',
@@ -165,7 +166,12 @@ function FilterSheet({
           >
             Reset
           </button>
-          <button type="button" onClick={apply} className="btn btn-primary flex-1">
+          <button
+            type="button"
+            onClick={apply}
+            {...SUBMIT_SHORTCUT}
+            className="btn btn-primary flex-1"
+          >
             Apply
           </button>
         </div>

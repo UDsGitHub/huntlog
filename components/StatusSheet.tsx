@@ -18,6 +18,7 @@ import { ArrowLeftIcon, CheckIcon } from './icons';
 import { rovingIndex } from './rovingIndex';
 import { Sheet } from './Sheet';
 import type { StatusPick } from './StatusChip';
+import { SUBMIT_SHORTCUT } from './submitShortcut';
 
 /** What a chip opens the sheet for. */
 export type StatusTarget = Pick<Application, 'company' | 'status' | 'appliedAt'> &
@@ -268,7 +269,12 @@ function AppliedAtStep({
         )}
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={setDateAndFinish} className="btn btn-primary flex-1">
+        <button
+          type="button"
+          onClick={setDateAndFinish}
+          {...SUBMIT_SHORTCUT}
+          className="btn btn-primary flex-1"
+        >
           Set date
         </button>
         <button type="button" onClick={() => onDone(undefined)} className="btn btn-outline flex-1">

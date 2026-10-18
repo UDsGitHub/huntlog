@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { WORK_MODE_LABELS } from '@/lib/applicationInput';
 import { getApplication, NotFoundError, safeHref, softDeleteApplication } from '@/lib/applications';
 import { formatLocalDate, formatTimestampDate } from '@/lib/dates';
@@ -58,6 +58,7 @@ export function ApplicationDetail({
   const app = useLiveQuery(async () => (await getApplication(id)) ?? null, [id]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const page = useRef<HTMLElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const loaded = app !== undefined;
   // Slides in when it opens over the list; coming back from Edit, it's simply there again.
@@ -68,6 +69,29 @@ export function ApplicationDetail({
     // Fall back to the heading when there's no Edit button (the row is gone).
     (initialFocus === 'edit' && editButton.current ? editButton : heading).current?.focus();
   }, [loaded, initialFocus, active]);
+
+  // Escape goes back to the list, like Back. Listened for on the document so it works with
+  // focus on the page body too (after a click on plain text). Only while this page can be used:
+  // not behind a sheet or menu (they handle their own Escape first), not on another tab (its
+  // section is inert then), and not from focus elsewhere, such as a toast.
+  const onBackRef = useRef(onBack);
+  useEffect(() => {
+    onBackRef.current = onBack;
+  });
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const section = page.current;
+      // Not a held key's repeats: the press that closed a menu or sheet mustn't then leave the page.
+      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented || !section) return;
+      if (section.closest('[inert]') || document.querySelector('dialog[open]')) return;
+      const target = event.target;
+      if (target !== document.body && !(target instanceof Node && section.contains(target))) return;
+      event.preventDefault();
+      onBackRef.current();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const back = (
     <button
@@ -83,7 +107,11 @@ export function ApplicationDetail({
   if (app === undefined) return null;
   if (app === null) {
     return (
-      <section aria-labelledby="detail-heading" className={`${slide} flex flex-col gap-3`}>
+      <section
+        ref={page}
+        aria-labelledby="detail-heading"
+        className={`${slide} flex flex-col gap-3`}
+      >
         <div className="flex items-center gap-1">
           {back}
           <h2 id="detail-heading" ref={heading} tabIndex={-1} className="section-heading">
@@ -109,7 +137,11 @@ export function ApplicationDetail({
   const salary = formatSalary(app);
 
   return (
-    <section aria-labelledby="detail-heading" className={`${slide} flex min-w-0 flex-col gap-4`}>
+    <section
+      ref={page}
+      aria-labelledby="detail-heading"
+      className={`${slide} flex min-w-0 flex-col gap-4`}
+    >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 items-center gap-1">
           {back}
