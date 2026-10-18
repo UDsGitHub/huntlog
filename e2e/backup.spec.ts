@@ -92,7 +92,7 @@ test('a backup restores everything after Delete all data, resume files included'
 
   await data.getByRole('button', { name: 'Import…' }).click();
   const importing = page.getByRole('dialog', { name: 'Import' });
-  await importing.getByLabel('Backup file').setInputFiles({
+  await importing.getByLabel('File to import').setInputFiles({
     name: download.suggestedFilename(),
     mimeType: 'application/json',
     buffer: backup,
@@ -161,4 +161,57 @@ test('Export CSV downloads the applications as a spreadsheet file', async ({ ses
   expect(row).toMatch(/^"'=Acme, Inc\.",,https:\/\/acme\.com\/jobs\/1,Applied,/);
   // Not a full backup: the line stays as it was.
   await expect(data.getByText('Last backup: never')).toBeVisible();
+});
+
+test('a CSV imports after a preview, and the template downloads', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(panelUrl(session.extensionId));
+  await page.getByRole('button', { name: 'Add application', exact: true }).click();
+  await page.getByLabel('Job posting URL').fill('https://acme.com/jobs/1');
+  await page.getByLabel('Company').fill('Acme');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Acme' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const data = page
+    .getByRole('dialog', { name: 'Settings' })
+    .getByRole('region', { name: 'Your data' });
+  await data.getByRole('button', { name: 'Import…' }).click();
+  const importing = page.getByRole('dialog', { name: 'Import' });
+  const [template] = await Promise.all([
+    page.waitForEvent('download'),
+    importing.getByRole('button', { name: 'Download the CSV template' }).click(),
+  ]);
+  expect(template.suggestedFilename()).toBe('huntlog-template.csv');
+  const header = fs
+    .readFileSync((await template.path())!)
+    .subarray(3)
+    .toString('utf8');
+  await template.delete();
+
+  const rows = [
+    'Acme,,https://acme.com/jobs/1,Applied,2026-10-01',
+    'Globex,Engineer,https://globex.com/1,Interviewing,2026-10-02',
+    '"Initech, LLC",,https://initech.com/1,Pending,2026-10-03',
+    ',,https://nocompany.com/1,Applied,2026-10-01',
+  ];
+  const columns = header.trim().split(',').length;
+  const csv = [header.trim(), ...rows.map((row) => row + ','.repeat(columns - 5))].join('\r\n');
+  await importing
+    .getByLabel('File to import')
+    .setInputFiles({ name: 'jobs.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await expect(importing.getByText('2 applications ready to import.')).toBeVisible();
+  await expect(importing).toContainText('1 application already logged');
+  await expect(importing).toContainText('Row 4: Unknown status “Pending”, imported as Applied.');
+  await expect(importing).toContainText('Row 5: Company: Enter the company name.');
+  await expectNoHorizontalScroll(page);
+  await importing.getByRole('button', { name: 'Import 2 applications' }).click();
+  await expect(importing).toBeHidden();
+  await expect(page.getByText('Imported 2 applications.')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await sheetsClosed(page);
+  for (const company of ['Acme', 'Globex', 'Initech, LLC']) {
+    await expect(page.getByRole('listitem').filter({ hasText: company })).toHaveCount(1);
+  }
 });
