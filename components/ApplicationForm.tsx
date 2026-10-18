@@ -138,13 +138,13 @@ export function ApplicationForm({
           // fills just what it captured.
           workMode: (!draft && defaults?.workMode) || '',
           status: 'applied',
-          resumeId: '',
+          resumeId: (!draft && defaults?.resumeId) || '',
           appliedAt: todayLocal(),
           salaryMin: '',
           salaryMax: '',
           salaryCurrency: defaultCurrency(),
           salaryPeriod: 'year',
-          source: '',
+          source: (!draft && defaults?.source) || '',
           notes: '',
         },
   );

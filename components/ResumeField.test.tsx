@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import * as resumes from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
 import { addResume, deleteResume, purgeDeletedResumeData, setResumeArchived } from '@/lib/resumes';
+import { createDraft, draftKey } from '@/lib/captureDraft';
 import App from '@/entrypoints/sidepanel/App';
 import { resumeOptionLabels } from './ResumeField';
 
@@ -63,7 +64,8 @@ async function openAdd(user: User, waitForOption?: string) {
   await user.click(await screen.findByRole('button', { name: 'Add application' }));
   if (waitForOption) {
     // Open once and wait for the option to arrive (polling open/close in waitFor is costly).
-    await user.click(resumeSelect());
+    // The form itself may wait for the resume list (a remembered resume to check).
+    await user.click(await screen.findByRole('combobox', { name: /^Resume/ }));
     await within(screen.getByRole('listbox', { name: 'Resumes' })).findByRole('option', {
       name: waitForOption,
     });
@@ -317,5 +319,70 @@ describe('Resume field', () => {
     });
     await waitFor(() => expect(resumeSelect()).toHaveValue('Resume (file not available)'));
     expect(optionLabels()).not.toContain('Data v2');
+  });
+
+  describe('remembered from the last new application', () => {
+    async function addWithResume(user: User, company: string, resume: string) {
+      await user.type(screen.getByLabelText('Job posting URL'), `https://${company}.com/1`);
+      await user.type(screen.getByLabelText('Company'), company);
+      await pickResume(user, resume);
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await screen.findByRole('button', { name: new RegExp(`^${company}`) });
+    }
+
+    it('starts the next manual Add with that resume', async () => {
+      await addResume(picked('cv.pdf'), { name: 'Backend v3' });
+      await addResume(picked('cv2.pdf'), { name: 'Data v2' });
+      const user = userEvent.setup();
+      await openAdd(user, 'Data v2');
+      await addWithResume(user, 'acme', 'Data v2');
+      // Remembered just after the save.
+      await waitFor(async () =>
+        expect((await fakeBrowser.storage.local.get('formDefaults')).formDefaults).toMatchObject({
+          resumeId: expect.any(String),
+        }),
+      );
+      await user.click(screen.getByRole('button', { name: 'Add application' }));
+      // The field shows the name once its own resume list has loaded.
+      await waitFor(() => expect(resumeSelect()).toHaveValue('Data v2'));
+    });
+
+    it('leaves it out once the resume is archived or deleted', async () => {
+      const kept = await addResume(picked('cv.pdf'), { name: 'Backend v3' });
+      const gone = await addResume(picked('cv2.pdf'), { name: 'Data v2' });
+      // Offered throughout, so waiting for its option means the list has loaded.
+      await addResume(picked('cv3.pdf'), { name: 'Spare' });
+      const user = userEvent.setup();
+      await fakeBrowser.storage.local.set({ formDefaults: { resumeId: kept.id } });
+      await setResumeArchived(kept.id, true);
+      await openAdd(user, 'Spare');
+      expect(resumeSelect()).toHaveValue('');
+      await user.click(screen.getByRole('button', { name: 'Back' }));
+      await act(async () => {
+        await fakeBrowser.storage.local.set({ formDefaults: { resumeId: gone.id } });
+        await deleteResume(gone.id);
+      });
+      await user.click(await screen.findByRole('button', { name: 'Add application' }));
+      await user.click(await screen.findByRole('combobox', { name: /^Resume/ }));
+      await within(screen.getByRole('listbox', { name: 'Resumes' })).findByRole('option', {
+        name: 'Spare',
+      });
+      await user.keyboard('{Escape}');
+      expect(resumeSelect()).toHaveValue('');
+    });
+
+    it("isn't used by a capture", async () => {
+      const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' });
+      await fakeBrowser.storage.local.set({ formDefaults: { resumeId: resume.id } });
+      vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
+        id: 3,
+      } satisfies Partial<Browser.windows.Window> as never);
+      await fakeBrowser.storage.session.set({
+        [draftKey(3)]: createDraft('page', { url: 'https://acme.com/1', title: 'Engineer' }),
+      });
+      render(<App />);
+      await waitFor(() => expect(screen.getByLabelText(/Job title/)).toHaveValue('Engineer'));
+      expect(resumeSelect()).toHaveValue('');
+    });
   });
 });

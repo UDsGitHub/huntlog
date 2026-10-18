@@ -96,7 +96,7 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 - **Notes** starts three lines tall and grows with its text, up to about twelve lines, then scrolls. It can't be resized by hand.
 - **Save** is a full-width button that stays visible at the bottom of the sheet (a sticky bar), however long the form is. Leaving is the header's back button (or Escape); with unsaved changes it first asks to discard them. Clicking outside the sheet doesn't close it.
 - **Currency** lists the locale's default plus USD, EUR and GBP first, then every other code.
-- **Remembered defaults:** a new manual Add starts with the work mode of the last *new* application (edits don't count), stored in `chrome.storage.local`. The source is never remembered: it differs from one job to the next, so a new form starts with none (a source stored by an earlier version is ignored). After a manual Add the work mode is remembered exactly, blanks included. After a capture, only the values it has replace the old ones, since a capture's blanks mean "not captured". They never prefill a capture, which only fills what it captured, or Edit.
+- **Remembered defaults:** so a run of similar applications is quick to log, a new manual Add starts with the source, work mode and resume of the last *new* application (edits don't count), stored in `chrome.storage.local`. The resume is preselected only while the picker still offers it (not archived or deleted since); otherwise the field starts empty. After a manual Add they're remembered exactly, blanks included. After a capture, only the values it has replace the old ones, since a capture's blanks mean "not captured". They never prefill a capture, which only fills what it captured, or Edit.
 
 
 
