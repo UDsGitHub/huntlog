@@ -63,13 +63,27 @@ export function applicationRow(
   return CSV_COLUMNS.map((column) => neutralizeFormula(values[column]));
 }
 
-/** The CSV file's text: a byte-order mark (so Excel reads accents), the header, then the rows. */
+/**
+ * The CSV file in parts, one per row, so a long list is never one big string (a Blob joins them):
+ * a byte-order mark (so Excel reads accents), the header, then the rows.
+ */
+export function applicationsCsvParts(
+  applications: readonly Application[],
+  resumes: readonly Pick<Resume, 'id' | 'name'>[],
+): string[] {
+  const names = new Map(resumes.map((resume) => [resume.id, resume.name]));
+  return [
+    BOM + toCsv([[...CSV_COLUMNS]]),
+    ...applications.map((app) => toCsv([applicationRow(app, names)])),
+  ];
+}
+
+/** The CSV file's text, joined. */
 export function applicationsCsv(
   applications: readonly Application[],
   resumes: readonly Pick<Resume, 'id' | 'name'>[],
 ): string {
-  const names = new Map(resumes.map((resume) => [resume.id, resume.name]));
-  return BOM + toCsv([[...CSV_COLUMNS], ...applications.map((app) => applicationRow(app, names))]);
+  return applicationsCsvParts(applications, resumes).join('');
 }
 
 /** Downloads every live application as CSV (spec §6), newest change first. Returns how many. */
@@ -85,7 +99,7 @@ export async function exportCsv(
     () => Promise.all([listApplications(database), database.resumes.toArray()]),
   );
   downloadBlob(
-    new Blob([applicationsCsv(applications, resumes)], { type: 'text/csv;charset=utf-8' }),
+    new Blob(applicationsCsvParts(applications, resumes), { type: 'text/csv;charset=utf-8' }),
     `huntlog-applications-${todayLocal(now)}.csv`,
   );
   return applications.length;

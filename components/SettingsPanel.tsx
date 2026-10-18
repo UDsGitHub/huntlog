@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { exportCsv } from '@/lib/applicationsCsv';
 import { exportBackup, lastBackupText } from '@/lib/backup';
+import { applicationCount } from '@/lib/format';
 import { deleteAllData, LeftoversError } from '@/lib/deleteAll';
 import { localeWeekStart, type WeekStart } from '@/lib/locale';
-import { formatNumber } from '@/lib/numberInput';
 import {
   isWeeklyGoal,
   MAX_WEEKLY_GOAL,
@@ -398,6 +398,7 @@ function BackupButtons({
   useToday();
   const action = useAction(notify);
   const csv = useAction(notify);
+  // One error line, for whichever export was tried last: starting one forgets the other's.
   const error = action.error ?? csv.error;
   return (
     <div className="flex flex-col gap-2">
@@ -406,15 +407,16 @@ function BackupButtons({
           type="button"
           // Busy: still focusable (disabling would drop focus to the page), and run() ignores it.
           aria-disabled={action.busy || undefined}
-          onClick={async () => {
-            const done = await action.run(
+          onClick={() => {
+            csv.reset();
+            void action.run(
               async () => {
                 await exportBackup();
+                notify('Backup downloaded.');
                 return true;
               },
               () => "Couldn't export your data. Try again.",
             );
-            if (done) notify('Backup downloaded.');
           }}
           className="btn btn-outline"
         >
@@ -424,20 +426,15 @@ function BackupButtons({
         <button
           type="button"
           aria-disabled={csv.busy || undefined}
-          onClick={async () => {
-            let exported = 0;
-            const done = await csv.run(
+          onClick={() => {
+            action.reset();
+            void csv.run(
               async () => {
-                exported = await exportCsv();
+                notify(`CSV downloaded: ${applicationCount(await exportCsv())}.`);
                 return true;
               },
               () => "Couldn't export your applications. Try again.",
             );
-            if (done) {
-              notify(
-                `CSV downloaded: ${formatNumber(exported)} ${exported === 1 ? 'application' : 'applications'}.`,
-              );
-            }
           }}
           className="btn btn-outline"
         >

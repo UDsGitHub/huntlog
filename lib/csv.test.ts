@@ -53,6 +53,18 @@ describe('parseCsv', () => {
     expect('rows' in result && result.rows.map((row) => row.line)).toEqual([1, 2, 5]);
   });
 
+  it('opens quotes only at the start of a cell', () => {
+    // Bad CSV is read as it is, never swallowing the lines after it.
+    expect(cells('"a" "b",c\r\nd,e\r\n')).toEqual([
+      ['a "b"', 'c'],
+      ['d', 'e'],
+    ]);
+    expect(cells('"",x\r\n""x",y\r\n')).toEqual([
+      ['', 'x'],
+      ['x"', 'y'],
+    ]);
+  });
+
   it('fails for a quote that never closes', () => {
     expect(parseCsv('a\r\n"b,c\r\nd')).toEqual({
       error: 'A quoted value starting on line 2 never ends.',
@@ -66,7 +78,7 @@ describe('parseCsv', () => {
 });
 
 describe('formulas', () => {
-  it.each(['=SUM(A1)', '+1', '-5 years', '@cmd', '\tx', '\rx'])(
+  it.each(['=SUM(A1)', '+1', '-5 years', '@cmd', '\tx', '\rx', '  =HYPERLINK("x")', '＝1', '＋1'])(
     'neutralizes %j and restores it',
     (value) => {
       expect(neutralizeFormula(value)).toBe(`'${value}`);
@@ -74,7 +86,12 @@ describe('formulas', () => {
     },
   );
 
-  it.each(['Acme', "'quoted", '', '5=5'])('leaves %j alone', (value) => {
+  it.each(["'quoted", "'- follow up", "''"])('keeps %j as it was across a round trip', (value) => {
+    expect(neutralizeFormula(value)).toBe(`'${value}`);
+    expect(restoreFormulaText(neutralizeFormula(value))).toBe(value);
+  });
+
+  it.each(['Acme', '', '5=5', 'a -b'])('leaves %j alone', (value) => {
     expect(neutralizeFormula(value)).toBe(value);
     expect(restoreFormulaText(value)).toBe(value);
   });

@@ -1,3 +1,4 @@
+import { formatNumber } from './numberInput';
 import type { Application } from './types';
 
 const PERIOD_LABELS = { year: 'year', month: 'month', hour: 'hour' } as const;
@@ -63,3 +64,10 @@ export function formatBytes(bytes: number, locale?: string): string {
     maximumFractionDigits: decimals[unit],
   }).format(value);
 }
+
+/** "1 application", "1,204 applications": a count (in Latin digits) with its noun. */
+export function countOf(n: number, one: string, many: string, locale?: string): string {
+  return `${formatNumber(n, locale)} ${n === 1 ? one : many}`;
+}
+export const applicationCount = (n: number) => countOf(n, 'application', 'applications');
+export const resumeCount = (n: number) => countOf(n, 'resume', 'resumes');

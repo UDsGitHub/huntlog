@@ -4,20 +4,25 @@
  * library ships in the extension (spec §9).
  */
 
-const FORMULA_START = /^[=+\-@\t\r]/;
+/**
+ * What a spreadsheet may run as a formula: `=`, `+`, `-` or `@` (or their full-width forms),
+ * even after leading spaces, and a cell starting with a tab or carriage return.
+ */
+const FORMULA_START = /^(\s*[=+\-@＝＋－＠]|[\t\r])/;
 
 /**
- * A spreadsheet runs a cell that starts with `=`, `+`, `-` or `@` (or a tab or carriage return)
- * as a formula, so such a cell gets a leading `'`, which spreadsheets show as text (spec §6). An
- * import removes it again (`restoreFormulaText`).
+ * Guards a cell a spreadsheet would run as a formula with a leading `'`, which spreadsheets show
+ * as text (spec §6). A cell that already starts with `'` gets one more, so `restoreFormulaText`
+ * can always take exactly one off and an export reads back as it was.
  */
 export function neutralizeFormula(value: string): string {
-  return FORMULA_START.test(value) ? `'${value}` : value;
+  return FORMULA_START.test(value) || value.startsWith("'") ? `'${value}` : value;
 }
 
-/** Undoes `neutralizeFormula`: a `'` before a formula character is dropped. */
+/** Undoes `neutralizeFormula`: the `'` it added is dropped. */
 export function restoreFormulaText(value: string): string {
-  return value.startsWith("'") && FORMULA_START.test(value.slice(1)) ? value.slice(1) : value;
+  const rest = value.slice(1);
+  return value.startsWith("'") && (FORMULA_START.test(rest) || rest.startsWith("'")) ? rest : value;
 }
 
 function cell(value: string): string {
@@ -30,7 +35,7 @@ export function toCsv(rows: readonly (readonly string[])[]): string {
 }
 
 /** A UTF-8 byte-order mark: without it, Excel reads the file in the system's code page. */
-export const BOM = '﻿';
+export const BOM = '\uFEFF';
 
 /**
  * Reads CSV text into rows of cells. Takes CRLF, LF or CR line ends, a byte-order mark, quoted
@@ -50,12 +55,16 @@ export function parseCsv(
   let rowLine = 1;
   // Whether anything was read on this row: a blank line has no cells.
   let started = false;
+  // At the start of a cell: only there does a quote open a quoted value. After one closes, the
+  // rest of the cell (bad CSV) is taken as it is, never reopening quotes over the next lines.
+  let fresh = true;
 
   const endRow = () => {
     if (started) rows.push({ line: rowLine, cells: [...cells, value] });
     cells = [];
     value = '';
     started = false;
+    fresh = true;
   };
 
   for (let i = 0; i < source.length; i++) {
@@ -72,13 +81,15 @@ export function parseCsv(
       }
       continue;
     }
-    if (char === '"' && value === '') {
+    if (char === '"' && fresh) {
       quoted = true;
       started = true;
+      fresh = false;
     } else if (char === ',') {
       cells.push(value);
       value = '';
       started = true;
+      fresh = true;
     } else if (char === '\r' || char === '\n') {
       if (char === '\r' && source[i + 1] === '\n') i++;
       endRow();
@@ -87,6 +98,7 @@ export function parseCsv(
     } else {
       value += char;
       started = true;
+      fresh = false;
     }
   }
   if (quoted) return { error: `A quoted value starting on line ${rowLine} never ends.` };

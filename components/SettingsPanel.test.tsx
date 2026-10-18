@@ -606,4 +606,22 @@ describe('Settings', () => {
     expect(await screen.findByText('CSV downloaded: 2 applications.')).toBeInTheDocument();
     expect(within(data).getByText('Last backup: never')).toBeInTheDocument();
   });
+
+  it('shows only the latest export’s error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(backup, 'exportBackup').mockRejectedValue(new Error('broken'));
+    const csvExport = vi.spyOn(applicationsCsv, 'exportCsv').mockRejectedValue(new Error('x'));
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    await user.click(within(data).getByRole('button', { name: 'Export backup' }));
+    expect(await within(data).findByRole('alert')).toHaveTextContent("Couldn't export your data.");
+    await user.click(within(data).getByRole('button', { name: 'Export CSV' }));
+    expect(await within(data).findByRole('alert')).toHaveTextContent(
+      "Couldn't export your applications.",
+    );
+    csvExport.mockResolvedValue(1);
+    await user.click(within(data).getByRole('button', { name: 'Export CSV' }));
+    expect(await screen.findByText('CSV downloaded: 1 application.')).toBeInTheDocument();
+    expect(within(data).queryByRole('alert')).toBeNull();
+  });
 });
