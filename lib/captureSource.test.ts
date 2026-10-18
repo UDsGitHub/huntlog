@@ -15,6 +15,10 @@ describe('sourceFromUrl', () => {
     ['https://www.dice.com/job-detail/1', 'Dice'],
     ['https://www.monster.com/job-openings/1', 'Monster'],
     ['HTTPS://WWW.LINKEDIN.COM./jobs/view/1', 'LinkedIn'],
+    ['https://lnkd.in/abc', 'LinkedIn'],
+    ['https://angel.co/company/acme/jobs/1', 'Wellfound'],
+    ['https://www.monster.de/stellenangebot/1', 'Monster'],
+    ['https://www.ziprecruiter.co.uk/jobs/1', 'ZipRecruiter'],
   ])('%s is %s', (url, source) => {
     expect(sourceFromUrl(url)).toBe(source);
   });
@@ -29,6 +33,10 @@ describe('sourceFromUrl', () => {
     'https://notindeed.com/job/1',
     'https://indeed.com.evil.test/job/1',
     'https://dicey.com/job/1',
+    // Short brands on country domains are other businesses.
+    'https://dice.fm/event/1',
+    'https://www.linkedin.de/jobs/1',
+    'https://wellfound.io/jobs/1',
     // Not a web page, or not an address at all.
     'chrome://settings',
     'file:///Users/me/linkedin.com.html',

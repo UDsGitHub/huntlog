@@ -30,11 +30,12 @@ test('a toast sits above the rows under it, its buttons reachable', async ({ ses
   for (const name of ['Undo', 'Dismiss']) {
     const button = page.getByRole('button', { name, exact: true });
     await expect(button).toBeVisible();
-    const box = (await button.boundingBox())!;
-    const top = await page.evaluate(
-      ([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.textContent ?? null,
-      [box.x + box.width / 2, box.y + box.height / 2] as const,
-    );
-    expect(top).toBe(await button.textContent());
+    // The element drawn at the button's center is the button itself (or inside it).
+    const onTop = await button.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return hit !== null && element.contains(hit);
+    });
+    expect(onTop, name).toBe(true);
   }
 });

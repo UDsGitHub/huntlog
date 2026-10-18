@@ -383,6 +383,25 @@ describe('Resume field', () => {
       await waitFor(() => expect(resumeSelect()).toHaveValue('Backend v3'));
     });
 
+    // Regression: the form unmounted (losing what was typed) when the remembered resume changed
+    // while it was open, since its defaults went back to loading.
+    it('keeps an open form as it is when another window remembers a different resume', async () => {
+      const first = await addResume(picked('cv.pdf'), { name: 'Backend v3' });
+      const second = await addResume(picked('cv2.pdf'), { name: 'Data v2' });
+      await fakeBrowser.storage.local.set({ formDefaults: { resumeId: first.id } });
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(await screen.findByRole('button', { name: 'Add application' }));
+      await waitFor(() => expect(resumeSelect()).toHaveValue('Backend v3'));
+      await user.type(screen.getByLabelText('Company'), 'Acme');
+      const form = screen.getByRole('dialog', { name: 'Add application' });
+      await act(() => fakeBrowser.storage.local.set({ formDefaults: { resumeId: second.id } }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.getByRole('dialog', { name: 'Add application' })).toBe(form);
+      expect(screen.getByLabelText('Company')).toHaveValue('Acme');
+      expect(resumeSelect()).toHaveValue('Backend v3');
+    });
+
     it('is used by a capture too', async () => {
       const resume = await addResume(picked('cv.pdf'), { name: 'Backend v3' });
       await fakeBrowser.storage.local.set({ formDefaults: { resumeId: resume.id } });
