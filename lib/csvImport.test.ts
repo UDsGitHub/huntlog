@@ -4,7 +4,7 @@ import { applicationsCsv, CSV_COLUMNS } from './applicationsCsv';
 import { BOM, toCsv } from './csv';
 import { importCsvRows, planCsvImport, type CsvContext, type CsvPlan } from './csvImport';
 import { JobLogDB } from './db';
-import { addResume, listResumes } from './resumes';
+import { addResume, listResumes, setResumeArchived } from './resumes';
 import { setStatus } from './applications';
 
 let db: JobLogDB;
@@ -58,6 +58,7 @@ describe('planCsvImport', () => {
         resumeId: resume.id,
       },
       db,
+      new Date(2026, 9, 2, 9),
     );
     const text = applicationsCsv([acme], [resume]);
     // Read in another locale too: the file is locale-free.
@@ -199,8 +200,9 @@ describe('planCsvImport', () => {
 
   it('links a resume by name (the newest of that name), else keeps the name only', () => {
     const resumes = [
-      { id: 'new', name: 'Backend v3' },
-      { id: 'old', name: 'Backend v3' },
+      { id: 'archived', name: 'Backend v3', archived: true },
+      { id: 'new', name: 'Backend v3', archived: false },
+      { id: 'old', name: 'Backend v3', archived: false },
     ];
     const { rows } = plan(
       csv(
@@ -218,6 +220,61 @@ describe('planCsvImport', () => {
     expect(rows[1]!.application.resumeNameSnapshot).toBe('Frontend');
     expect(rows[1]!.warnings).toEqual([
       'No resume named “Frontend” in your library, so only its name is kept.',
+    ]);
+  });
+
+  it('numbers rows as a spreadsheet does, counting blank lines but not line breaks in a cell', () => {
+    const { skipped } = plan('Company,URL\r\n\r\n"Two\r\nlines",a.com/1\r\nBad,javascript:x\r\n');
+    expect(skipped).toEqual([
+      { row: 4, reason: 'URL: Enter a valid web address (http or https).' },
+    ]);
+  });
+
+  it('reads a semicolon-separated file, as Excel saves one in many locales', () => {
+    const { rows } = plan('Company;URL;Salary min\r\nAcme;acme.com/1;85000,5\r\n', {
+      ...empty,
+      locale: 'de-DE',
+    });
+    expect(rows[0]!.application).toMatchObject({ company: 'Acme', salaryMin: 85000.5 });
+  });
+
+  it.each([
+    ['en-US', '3/1/2026', '2026-03-01'],
+    ['en-US', '3/1/26 0:00', '2026-03-01'],
+    ['en-GB', '01/03/2026', '2026-03-01'],
+    ['de-DE', '01.03.2026', '2026-03-01'],
+    ['en-US', '2026/3/1', '2026-03-01'],
+  ])('reads a Date applied a spreadsheet rewrote (%s %s)', (locale, text, date) => {
+    const { rows } = plan(csv(['Company', 'URL', 'Date applied'], ['A', 'a.com/1', text]), {
+      ...empty,
+      locale,
+    });
+    expect(rows[0]!.application.appliedAt).toBe(date);
+  });
+
+  it('skips a Date applied it can’t read', () => {
+    const { skipped } = plan(
+      csv(['Company', 'URL', 'Date applied'], ['A', 'a.com/1', '2/30/2026']),
+    );
+    expect(skipped).toEqual([{ row: 2, reason: 'Date applied: Enter a valid date.' }]);
+  });
+
+  it('reads Created and Updated leniently, never in the future or out of order', () => {
+    const { rows } = plan(
+      csv(
+        ['Company', 'URL', 'Status', 'Created', 'Updated'],
+        ['A', 'a.com/1', 'Saved', '2026-09-01 08:00', '2026-08-01T00:00:00Z'],
+        ['B', 'b.com/1', 'Saved', '2026-09-01T00:00:00Z', '2099-01-01T00:00:00Z'],
+        ['C', 'c.com/1', 'Saved', 'last week', ''],
+      ),
+    );
+    const [a, b, c] = rows.map((row) => row.application);
+    expect(a!.createdAt).toBe(new Date(2026, 8, 1, 8).toISOString());
+    expect(a!.updatedAt).toBe(a!.createdAt);
+    expect(b!.updatedAt).toBe(NOW.toISOString());
+    expect(c!.createdAt).toBe(NOW.toISOString());
+    expect(rows[2]!.warnings).toEqual([
+      'Created “last week” couldn’t be read, so the import time is used.',
     ]);
   });
 
@@ -262,6 +319,34 @@ describe('importCsvRows', () => {
       'applied',
       'screening',
     ]);
+  });
+
+  it('checks again at import time: a job added since, or a resume archived since', async () => {
+    const resume = await addResume(
+      {
+        name: 'Cv.pdf',
+        size: 5,
+        arrayBuffer: async () => new Uint8Array([37, 80, 68, 70, 45]).buffer,
+      },
+      {},
+      db,
+    );
+    const planned = plan(
+      csv(
+        ['Company', 'URL', 'Resume'],
+        ['Acme', 'acme.com/1', 'Cv'],
+        ['Globex', 'globex.com/1', 'Cv'],
+      ),
+      { ...empty, resumes: await listResumes(db) },
+    );
+    expect(planned.rows.map((row) => row.duplicate)).toEqual([false, false]);
+    // Meanwhile, in another window.
+    await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
+    await setResumeArchived(resume.id, true, db);
+    expect(await importCsvRows(planned, {}, db)).toBe(1);
+    const globex = (await listApplications(db)).find((app) => app.company === 'Globex')!;
+    expect(globex).not.toHaveProperty('resumeId');
+    expect(globex.resumeNameSnapshot).toBe('Cv');
   });
 
   it('adds none when the write fails', async () => {

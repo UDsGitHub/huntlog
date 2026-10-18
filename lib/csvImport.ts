@@ -8,12 +8,13 @@ import {
   type InputField,
 } from './applicationInput';
 import { CSV_COLUMNS, type CsvColumn } from './applicationsCsv';
-import { isTimestamp } from './backup';
-import { parseCsv, restoreFormulaText } from './csv';
-import { parseLocalDate } from './dates';
+import { detectDelimiter, parseCsv, restoreFormulaText } from './csv';
+import { isValidLocalDate, parseLocalDate } from './dates';
 import { db as defaultDb, type JobLogDB } from './db';
 import { derivedFields } from './dedupe';
+import { listApplications } from './applications';
 import { foldText } from './listQuery';
+import { isResumeOffered, listResumes } from './resumes';
 import { appliedAtOptional, STATUS_LABELS, STATUSES } from './status';
 import type { Application, Resume, Status } from './types';
 
@@ -21,8 +22,8 @@ import type { Application, Resume, Status } from './types';
 export interface CsvContext {
   /** Live applications, for "already logged". */
   applications: readonly Pick<Application, 'urlNormalized' | 'companyTitleKey'>[];
-  /** Live resumes, newest first, to link by name. */
-  resumes: readonly Pick<Resume, 'id' | 'name'>[];
+  /** Live resumes, newest first, to link by name (archived ones aren't linked). */
+  resumes: readonly Pick<Resume, 'id' | 'name' | 'archived'>[];
   now?: Date;
   locale?: string;
 }
@@ -79,6 +80,41 @@ const FIELD_COLUMNS: Record<InputField, CsvColumn> = {
 const PLAIN_NUMBER = /^\d+(\.\d{1,2})?$/;
 const salary = (text: string) => (PLAIN_NUMBER.test(text) ? Number(text) : text || undefined);
 
+/** The order of day and month in the locale's numeric dates: "3/1/2026" is March 1 in en-US. */
+function dayMonthOrder(locale?: string): ('day' | 'month')[] {
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'numeric', day: 'numeric' })
+    .formatToParts(new Date(2026, 10, 22))
+    .flatMap((part) => (part.type === 'day' || part.type === 'month' ? [part.type] : []));
+}
+
+/**
+ * A Date applied as a spreadsheet may have rewritten it (spec §6): `2026-03-01` as exported, or
+ * the locale's numeric date (`3/1/2026` in en-US, `01.03.2026` in de-DE, two-digit years as 20xx),
+ * with any time after it dropped. Returns YYYY-MM-DD, or undefined if it isn't a real date.
+ */
+export function readCsvDate(text: string, locale?: string): string | undefined {
+  const value = text.trim().split(/[\sT]/)[0] ?? '';
+  let year: string, month: string, day: string;
+  const yearFirst = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(value);
+  const yearLast = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/.exec(value);
+  if (yearFirst) [year, month, day] = [yearFirst[1]!, yearFirst[2]!, yearFirst[3]!];
+  else if (yearLast) {
+    const [first = 'month', second = 'day'] = dayMonthOrder(locale);
+    const parts: Record<string, string> = { [first]: yearLast[1]!, [second]: yearLast[2]! };
+    [month, day] = [parts.month!, parts.day!];
+    year = yearLast[3]!.length === 2 ? `20${yearLast[3]}` : yearLast[3]!;
+  } else return undefined;
+  const date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  return isValidLocalDate(date) ? date : undefined;
+}
+
+/** A Created or Updated time as ISO, read leniently (a spreadsheet rewrites it), or undefined. */
+function readTimestamp(text: string): string | undefined {
+  if (!text) return undefined;
+  const time = Date.parse(text);
+  return Number.isNaN(time) ? undefined : new Date(time).toISOString();
+}
+
 /** Local noon of a date: a status entry on that day, whatever DST does. */
 function noonOf(date: string): string {
   const day = parseLocalDate(date)!;
@@ -97,7 +133,7 @@ export function planCsvImport(
   context: CsvContext,
 ): { plan: CsvPlan } | { error: string } {
   const now = context.now ?? new Date();
-  const parsed = parseCsv(text);
+  const parsed = parseCsv(text, { delimiter: detectDelimiter(text), keepBlankLines: true });
   if ('error' in parsed) return { error: parsed.error };
   const [header, ...records] = parsed.rows;
   if (!header) return { error: 'This file is empty.' };
@@ -126,12 +162,15 @@ export function planCsvImport(
   );
   const resumesByName = new Map<string, Pick<Resume, 'id' | 'name'>>();
   // Newest first: the first of a name is the one linked.
+  // Only what the form's picker offers: an archived resume is never newly linked.
   for (const resume of context.resumes) {
+    if (resume.archived) continue;
     if (!resumesByName.has(loose(resume.name))) resumesByName.set(loose(resume.name), resume);
   }
 
   const rows: CsvRow[] = [];
   const skipped: CsvPlan['skipped'] = [];
+  // Blank lines are kept as rows, so the numbers match a spreadsheet's (the header is row 1).
   records.forEach(({ cells }, index) => {
     const row = index + 2;
     const get = (column: CsvColumn) => {
@@ -160,7 +199,9 @@ export function planCsvImport(
       : undefined;
     if (periodText && !period) problems.push('Per: Choose per year, month or hour.');
 
-    const appliedAt = get('Date applied');
+    const appliedText = get('Date applied');
+    // Unreadable text goes to the check as it is, which says it isn't a valid date.
+    const appliedAt = appliedText && (readCsvDate(appliedText, context.locale) ?? appliedText);
     // A job past Saved without a date is kept as one (like Skip), not given today's date.
     const undated = !appliedAt && !appliedAtOptional(status);
     if (undated) warnings.push('No Date applied, so it isn’t counted in Applied or the rates.');
@@ -200,15 +241,21 @@ export function planCsvImport(
       updatedAt: at,
     };
     if (!application.companyTitleKey) delete application.companyTitleKey;
-    const created = get('Created');
-    const updated = get('Updated');
-    if (isTimestamp(created)) application.createdAt = created;
-    if (isTimestamp(updated)) application.updatedAt = updated;
+    // Never in the future (it would win every later merge), and never updated before created.
+    const times: Partial<Record<'Created' | 'Updated', string>> = {};
+    for (const column of ['Created', 'Updated'] as const) {
+      const text = get(column);
+      const time = readTimestamp(text);
+      if (time) times[column] = time > at ? at : time;
+      else if (text)
+        warnings.push(`${column} “${text}” couldn’t be read, so the import time is used.`);
+    }
+    if (times.Created) application.createdAt = times.Created;
+    if (times.Updated) application.updatedAt = times.Updated;
+    if (application.updatedAt < application.createdAt)
+      application.updatedAt = application.createdAt;
     application.statusHistory = [
-      {
-        status,
-        at: values.appliedAt ? noonOf(values.appliedAt) : isTimestamp(created) ? created : at,
-      },
+      { status, at: values.appliedAt ? noonOf(values.appliedAt) : (times.Created ?? at) },
     ];
 
     const resumeName = get('Resume');
@@ -238,18 +285,40 @@ export function planCsvImport(
 
 /**
  * Adds the planned applications (spec §6), all in one transaction: all of them or none. Returns
- * how many. Duplicates are left out unless `includeDuplicates`.
+ * how many. "Already logged" is checked again against what's stored now (another window may have
+ * added one of these since the preview), and against the rows before it; such rows are left out
+ * unless `includeDuplicates`. A resume no longer offered (archived or deleted since) isn't
+ * linked: only its name is kept.
  */
-export async function importCsvRows(
+export function importCsvRows(
   plan: CsvPlan,
   { includeDuplicates = false }: { includeDuplicates?: boolean } = {},
   database: JobLogDB = defaultDb,
 ): Promise<number> {
-  const applications = plan.rows
-    .filter((row) => includeDuplicates || !row.duplicate)
-    .map((row) => row.application);
-  await database.transaction('rw', database.applications, () =>
-    database.applications.bulkAdd(applications),
-  );
-  return applications.length;
+  return database.transaction('rw', database.applications, database.resumes, async () => {
+    const [stored, resumes] = await Promise.all([
+      listApplications(database),
+      listResumes(database),
+    ]);
+    const offered = new Set(resumes.filter(isResumeOffered).map((resume) => resume.id));
+    const urls = new Set(stored.map((app) => app.urlNormalized));
+    const keys = new Set(
+      stored.flatMap((app) => (app.companyTitleKey ? [app.companyTitleKey] : [])),
+    );
+    const added: Application[] = [];
+    for (const { application } of plan.rows) {
+      const key = application.companyTitleKey;
+      const logged = urls.has(application.urlNormalized) || (!!key && keys.has(key));
+      if (logged && !includeDuplicates) continue;
+      urls.add(application.urlNormalized);
+      if (key) keys.add(key);
+      if (application.resumeId && !offered.has(application.resumeId)) {
+        const unlinked = { ...application };
+        delete unlinked.resumeId;
+        added.push(unlinked);
+      } else added.push(application);
+    }
+    await database.applications.bulkAdd(added);
+    return added.length;
+  });
 }

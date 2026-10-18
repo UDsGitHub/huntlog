@@ -29,6 +29,20 @@ function cell(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
+/**
+ * The separator a CSV uses, told by its first line: Excel in many European locales writes `;`
+ * (its comma is the decimal separator), and some tools a tab. The one seen most wins; a comma if
+ * none is.
+ */
+export function detectDelimiter(text: string): ',' | ';' | '\t' {
+  const first = text.split(/\r\n|\n|\r/, 1)[0] ?? '';
+  const count = (char: string) => first.split(char).length - 1;
+  const [best] = ([',', ';', '\t'] as const)
+    .map((char) => [char, count(char)] as const)
+    .sort((a, b) => b[1] - a[1]);
+  return best![1] > 0 ? best![0] : ',';
+}
+
 /** Rows as CSV text, each line ending in CRLF. Cells are written as given. */
 export function toCsv(rows: readonly (readonly string[])[]): string {
   return rows.map((row) => `${row.map(cell).join(',')}\r\n`).join('');
@@ -45,6 +59,15 @@ export const BOM = '\uFEFF';
  */
 export function parseCsv(
   text: string,
+  {
+    delimiter = ',',
+    keepBlankLines = false,
+  }: {
+    /** `;` for a CSV from a spreadsheet in a locale whose decimal separator is a comma. */
+    delimiter?: string;
+    /** Blank lines as rows of one empty cell, so a row's index matches a spreadsheet's. */
+    keepBlankLines?: boolean;
+  } = {},
 ): { rows: { line: number; cells: string[] }[] } | { error: string } {
   const source = text.startsWith(BOM) ? text.slice(1) : text;
   const rows: { line: number; cells: string[] }[] = [];
@@ -59,8 +82,10 @@ export function parseCsv(
   // rest of the cell (bad CSV) is taken as it is, never reopening quotes over the next lines.
   let fresh = true;
 
-  const endRow = () => {
-    if (started) rows.push({ line: rowLine, cells: [...cells, value] });
+  const endRow = (atLineEnd: boolean) => {
+    if (started || (keepBlankLines && atLineEnd)) {
+      rows.push({ line: rowLine, cells: [...cells, value] });
+    }
     cells = [];
     value = '';
     started = false;
@@ -85,14 +110,14 @@ export function parseCsv(
       quoted = true;
       started = true;
       fresh = false;
-    } else if (char === ',') {
+    } else if (char === delimiter) {
       cells.push(value);
       value = '';
       started = true;
       fresh = true;
     } else if (char === '\r' || char === '\n') {
       if (char === '\r' && source[i + 1] === '\n') i++;
-      endRow();
+      endRow(true);
       line++;
       rowLine = line;
     } else {
@@ -102,6 +127,6 @@ export function parseCsv(
     }
   }
   if (quoted) return { error: `A quoted value starting on line ${rowLine} never ends.` };
-  endRow();
+  endRow(false);
   return { rows };
 }

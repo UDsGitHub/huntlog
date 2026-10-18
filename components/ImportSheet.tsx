@@ -48,7 +48,9 @@ function isCsv(file: File, text: string): boolean {
   const name = file.name.toLowerCase();
   if (name.endsWith('.csv')) return true;
   if (name.endsWith('.json')) return false;
-  return !text.trimStart().startsWith('{');
+  // Anything starting like JSON (an object or an array) goes to the backup check, which says
+  // plainly when it isn't a backup.
+  return !/^[{[]/.test(text.trimStart());
 }
 
 /** Reads and checks a picked file. Never throws: what's wrong is in `errors`. */
@@ -340,22 +342,22 @@ export function ImportSheet({
   );
 }
 
-/** "Row 4: …" lines, up to a few, then how many more. */
-function RowList({ items }: { items: { row: number; text: string }[] }) {
+/** A list of problems or notes, up to a few, then how many more. */
+function CappedList({ items }: { items: string[] }) {
   const more = items.length - SHOWN_ERRORS;
   return (
     <>
       <ul className="list-disc pl-5">
         {items.slice(0, SHOWN_ERRORS).map((item, i) => (
-          <li key={i}>
-            Row {formatNumber(item.row)}: {item.text}
-          </li>
+          <li key={i}>{item}</li>
         ))}
       </ul>
       {more > 0 && <p>…and {formatNumber(more)} more.</p>}
     </>
   );
 }
+
+const rowLine = (row: number, text: string) => `Row ${formatNumber(row)}: ${text}`;
 
 /**
  * A CSV's preview (spec §6), before anything is added: how many rows will be imported, which have
@@ -377,8 +379,11 @@ function CsvPreview({
 }) {
   const checkbox = useId();
   const duplicates = plan.rows.filter((row) => row.duplicate).length;
-  const warned = plan.rows.flatMap((row) => row.warnings.map((text) => ({ row: row.row, text })));
-  const skipped = plan.skipped.map((row) => ({ row: row.row, text: row.reason }));
+  // Notes only for rows that will be imported: an already-logged one left out has none to show.
+  const warned = plan.rows
+    .filter((row) => includeDuplicates || !row.duplicate)
+    .flatMap((row) => row.warnings.map((text) => rowLine(row.row, text)));
+  const skipped = plan.skipped.map((row) => rowLine(row.row, row.reason));
   return (
     <div className="flex min-w-0 flex-col gap-3 text-sm">
       <p id={id} role="status">
@@ -406,7 +411,7 @@ function CsvPreview({
         <div className="flex flex-col gap-1">
           <p className="font-medium">Imported with a note</p>
           <div className="text-muted-foreground">
-            <RowList items={warned} />
+            <CappedList items={warned} />
           </div>
         </div>
       )}
@@ -415,7 +420,7 @@ function CsvPreview({
           <p className="font-medium">
             {formatNumber(skipped.length)} {skipped.length === 1 ? 'row' : 'rows'} skipped
           </p>
-          <RowList items={skipped} />
+          <CappedList items={skipped} />
         </div>
       )}
       {plan.ignoredColumns.length > 0 && (
@@ -430,7 +435,6 @@ function CsvPreview({
 
 /** Why a file was refused: every problem, up to a few, then how many more. */
 function ErrorList({ id, errors }: { id: string; errors: string[] }) {
-  const more = errors.length - SHOWN_ERRORS;
   return (
     <div id={id} role="alert" className="flex flex-col gap-1 text-sm text-destructive">
       {errors.length === 1 ? (
@@ -438,12 +442,7 @@ function ErrorList({ id, errors }: { id: string; errors: string[] }) {
       ) : (
         <>
           <p>This backup can’t be imported:</p>
-          <ul className="list-disc pl-5">
-            {errors.slice(0, SHOWN_ERRORS).map((error) => (
-              <li key={error}>{error}</li>
-            ))}
-          </ul>
-          {more > 0 && <p>…and {formatNumber(more)} more.</p>}
+          <CappedList items={errors} />
         </>
       )}
     </div>

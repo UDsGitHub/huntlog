@@ -279,6 +279,26 @@ describe('Import', () => {
       expect(within(sheet).getByRole('button', { name: 'Import 0 applications' })).toBeDisabled();
     });
 
+    it('lists notes only for rows it will import', async () => {
+      await addApplication({ url: 'https://acme.com/1', company: 'Acme' });
+      const user = userEvent.setup();
+      const sheet = await openImport(user);
+      await pick(user, sheet, csvFile('Company,URL,Status\r\nAcme,acme.com/1,Pending'));
+      await within(sheet).findByText('Nothing to import.');
+      expect(sheet).not.toHaveTextContent('Unknown status');
+      await user.click(within(sheet).getByRole('checkbox', { name: 'Import them anyway' }));
+      expect(sheet).toHaveTextContent('Row 2: Unknown status “Pending”, imported as Applied.');
+    });
+
+    it('sends a file starting like JSON to the backup check, whatever its name', async () => {
+      const user = userEvent.setup();
+      const sheet = await openImport(user);
+      await pick(user, sheet, new File(['[1, 2]'], 'export', { type: 'application/json' }));
+      expect(await within(sheet).findByRole('alert')).toHaveTextContent(
+        'This isn’t a Huntlog backup.',
+      );
+    });
+
     it('offers the template', async () => {
       const template = vi
         .spyOn(applicationsCsv, 'downloadCsvTemplate')
