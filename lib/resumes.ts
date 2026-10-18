@@ -191,6 +191,11 @@ export function listResumes(database: JobLogDB = defaultDb): Promise<Resume[]> {
     .toArray();
 }
 
+/** Whether the form's resume picker offers this resume: live and not archived. */
+export function isResumeOffered(resume: Pick<Resume, 'archived' | 'deletedAt'>): boolean {
+  return !resume.deletedAt && !resume.archived;
+}
+
 /** A live resume's metadata, or undefined. */
 export async function getResume(
   id: string,

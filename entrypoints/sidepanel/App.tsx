@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ApplicationDetail } from '@/components/ApplicationDetail';
 import { ApplicationForm, readFailedMessage } from '@/components/ApplicationForm';
 import { ApplicationList } from '@/components/ApplicationList';
@@ -35,13 +36,14 @@ import {
 import { STATUS_LABELS } from '@/lib/status';
 import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
-import { purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
+import { getResume, purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
 import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import {
   onFormDefaultsChanged,
   readFormDefaults,
   rememberFormDefaults,
   type FormDefaults,
+  usableFormDefaults,
 } from '@/lib/formDefaults';
 import type { Application } from '@/lib/types';
 
@@ -114,9 +116,25 @@ export default function App() {
   const latestCapture = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const { toast, show: showToast, dismiss: dismissToast } = useToast();
-  // Remembered source and work mode for the next manual Add (spec §4.2).
+  // Remembered source, work mode and resume for the next manual Add (spec §4.2).
   // undefined until loaded: the Add form reads them once, on mount, so it waits for them.
   const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
+  // The remembered resume as stored now (null when none is remembered or it's gone), so one
+  // archived or deleted since isn't preselected. The Add form waits for it only when there's one.
+  const rememberedResumeId = formDefaults?.resumeId;
+  const rememberedResume = useLiveQuery(
+    async () => (rememberedResumeId ? ((await getResume(rememberedResumeId)) ?? null) : null),
+    [rememberedResumeId],
+  );
+  const addDefaults = useMemo(
+    () =>
+      !formDefaults?.resumeId
+        ? formDefaults
+        : rememberedResume === undefined
+          ? undefined
+          : usableFormDefaults(formDefaults, rememberedResume ?? undefined),
+    [formDefaults, rememberedResume],
+  );
   // A file dropped outside a drop zone mustn't replace the panel with it.
   useEffect(() => guardFileDrops(), []);
   // Files of resumes deleted in a session that closed before their Undo toast ended (spec §4.6).
@@ -465,7 +483,7 @@ export default function App() {
           />
         </Sheet>
         {/* Add and Edit open as a sheet over the list or detail view (spec §4.2). */}
-        {sheetView?.name === 'add' && (prefill || formDefaults) && (
+        {sheetView?.name === 'add' && (prefill || addDefaults) && (
           // Remount per capture: a new capture replaces whatever is in the form (spec §4.1). A
           // manual Add waits for the remembered defaults (read once, on mount); a capture doesn't
           // use them, so it never waits.
@@ -476,7 +494,7 @@ export default function App() {
             open={view === sheetView}
             onClosed={() => formClosed(sheetView)}
             prefill={prefill}
-            defaults={formDefaults}
+            defaults={addDefaults}
             onSaved={(application) => {
               announce(`Saved ${application.company}.`);
               setSavedRow(application.id);

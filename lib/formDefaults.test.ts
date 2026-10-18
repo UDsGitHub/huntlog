@@ -5,6 +5,7 @@ import {
   readFormDefaults,
   onFormDefaultsChanged,
   rememberFormDefaults,
+  usableFormDefaults,
 } from './formDefaults';
 
 beforeEach(() => {
@@ -18,19 +19,31 @@ describe('parseFormDefaults', () => {
     expect(parseFormDefaults({ workMode: 'remote' })).toEqual({ workMode: 'remote' });
   });
 
-  it('ignores a source stored by an older version (the source is no longer remembered)', () => {
-    expect(parseFormDefaults({ source: 'LinkedIn', workMode: 'hybrid' })).toEqual({
-      workMode: 'hybrid',
-    });
-    expect(parseFormDefaults({ source: 'LinkedIn' })).toEqual({});
+  it('keeps a valid source, work mode and resume', () => {
+    expect(parseFormDefaults({ source: ' LinkedIn ', workMode: 'hybrid', resumeId: 'r1' })).toEqual(
+      {
+        source: 'LinkedIn',
+        workMode: 'hybrid',
+        resumeId: 'r1',
+      },
+    );
   });
 
-  it.each([[null], [undefined], ['LinkedIn'], [42], [{ workMode: 'office' }], [{ workMode: 42 }]])(
-    'drops malformed %j',
-    (raw) => {
-      expect(parseFormDefaults(raw)).toEqual({});
-    },
-  );
+  it.each([
+    [null],
+    [undefined],
+    ['LinkedIn'],
+    [42],
+    [{ workMode: 'office' }],
+    [{ workMode: 42 }],
+    [{ source: 42 }],
+    [{ source: '   ' }],
+    [{ source: 'x'.repeat(101) }],
+    [{ resumeId: 7 }],
+    [{ resumeId: '' }],
+  ])('drops malformed %j', (raw) => {
+    expect(parseFormDefaults(raw)).toEqual({});
+  });
 });
 
 describe('reading and remembering', () => {
@@ -46,10 +59,20 @@ describe('reading and remembering', () => {
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({});
   });
 
-  it("doesn't remember the source", async () => {
-    await rememberFormDefaults({ source: 'Referral', workMode: 'remote' } as never);
+  it('remembers the source and resume too', async () => {
+    await rememberFormDefaults({ source: 'Referral', workMode: 'remote', resumeId: 'r1' });
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
+      source: 'Referral',
       workMode: 'remote',
+      resumeId: 'r1',
+    });
+  });
+
+  it('after a capture, keeps the old source and resume where the capture had none', async () => {
+    await rememberFormDefaults({ source: 'LinkedIn', resumeId: 'r1' });
+    expect(await rememberFormDefaults({ resumeId: 'r2' }, { captured: true })).toEqual({
+      source: 'LinkedIn',
+      resumeId: 'r2',
     });
   });
 
@@ -92,5 +115,24 @@ describe('onFormDefaultsChanged', () => {
     stop();
     await rememberFormDefaults({ workMode: 'hybrid' });
     expect(seen).toEqual([{ workMode: 'remote' }, {}]);
+  });
+});
+
+describe('usableFormDefaults', () => {
+  const live = { id: 'r1', archived: false };
+
+  it('keeps a remembered resume the picker still offers', () => {
+    const defaults = { source: 'LinkedIn', resumeId: 'r1' };
+    expect(usableFormDefaults(defaults, live)).toEqual(defaults);
+  });
+
+  it.each([
+    ['archived', { id: 'r1', archived: true }],
+    ['deleted', { id: 'r1', archived: false, deletedAt: '2026-10-01T00:00:00Z' }],
+    ['missing', undefined],
+  ])('drops a resume that is %s, keeping the rest', (_state, resume) => {
+    expect(usableFormDefaults({ source: 'LinkedIn', resumeId: 'r1' }, resume)).toEqual({
+      source: 'LinkedIn',
+    });
   });
 });

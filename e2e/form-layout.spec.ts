@@ -93,9 +93,7 @@ test('a focused field is never hidden behind the Save footer', async ({ session 
   }
 });
 
-test('the remembered work mode survives a panel reload; the source is never remembered', async ({
-  session,
-}) => {
+test('remembered source and work mode survive a panel reload', async ({ session }) => {
   const page = await session.context.newPage();
   await page.goto(panelUrl(session.extensionId));
   await page.getByRole('button', { name: 'Add application' }).click();
@@ -116,17 +114,17 @@ test('the remembered work mode survives a panel reload; the source is never reme
         async () => (await chrome.storage.local.get('formDefaults')).formDefaults,
       ),
     )
-    .toEqual({ workMode: 'remote' });
+    .toEqual({ source: 'Referral', workMode: 'remote' });
 
   await page.reload();
   await page.getByRole('button', { name: 'Add application' }).click();
   await expect(page.getByRole('button', { name: 'More details' })).toHaveAccessibleDescription(
-    'Remote',
+    'Remote · Referral',
   );
   await page.getByRole('button', { name: 'More details' }).click();
   await expect(
     page.getByRole('group', { name: /^Source/ }).getByRole('button', { name: 'Referral' }),
-  ).toHaveAttribute('aria-pressed', 'false');
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('a job logged as Saved has no date applied', async ({ session }) => {

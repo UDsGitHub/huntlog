@@ -244,23 +244,24 @@ describe('Remembered defaults', () => {
     await screen.findByRole('button', { name: new RegExp(`^${fields.company}`) });
   }
 
-  it('start the next manual Add with the last work mode, shown while collapsed, but never the source', async () => {
+  it('start the next manual Add with the last source and work mode, shown while collapsed', async () => {
     const user = userEvent.setup();
     await openAdd(user);
     await leaveForm(user);
     await addOne(user, { company: 'acme', source: 'Referral', workMode: 'remote' });
 
     await user.click(screen.getByRole('button', { name: 'Add application' }));
-    expect(sourceValue()).toBe('');
+    expect(sourceValue()).toBe('Referral');
     expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'remote');
     expect(detailsToggle()).toHaveAttribute('aria-expanded', 'false');
-    expect(detailsToggle()).toHaveAccessibleDescription('Remote');
+    expect(detailsToggle()).toHaveAccessibleDescription('Remote · Referral');
     expect((await fakeBrowser.storage.local.get(FORM_DEFAULTS_KEY))[FORM_DEFAULTS_KEY]).toEqual({
+      source: 'Referral',
       workMode: 'remote',
     });
   });
 
-  it('load from storage when the panel opens, ignoring a source an older version stored', async () => {
+  it('load from storage when the panel opens', async () => {
     await fakeBrowser.storage.local.set({
       [FORM_DEFAULTS_KEY]: { source: 'LinkedIn', workMode: 'hybrid' },
     });
@@ -269,7 +270,7 @@ describe('Remembered defaults', () => {
     await waitFor(() =>
       expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', 'hybrid'),
     );
-    expect(sourceValue()).toBe('');
+    expect(sourceValue()).toBe('LinkedIn');
   });
 
   it('remember a blank too: the defaults follow the last application', async () => {

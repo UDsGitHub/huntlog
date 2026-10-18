@@ -110,6 +110,8 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 **Goal card (v0.6.3):** at the owner's request the ring became a weekly application goal card (this week's count large, a five-segment bar, a green check once reached, the goal and what's left or past it), with Applied moving in beside Interviews and Offers; without a goal, Applied is laid out the same way, with a pointer to the setting.
 
+**Quick logging (v0.6.4):** the owner reversed the v0.6.2 removal of the remembered source (it's there so a run of applications is quick to log), and asked for the last-used resume to be remembered too, preselected only while it's still offered.
+
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
 
