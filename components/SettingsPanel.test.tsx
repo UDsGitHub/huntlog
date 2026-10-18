@@ -4,6 +4,8 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { addApplication } from '@/lib/applications';
 import { db } from '@/lib/db';
 import { createDraft, draftKey } from '@/lib/captureDraft';
+import * as backup from '@/lib/backup';
+import { LAST_BACKUP_KEY } from '@/lib/backup';
 import * as deleteAll from '@/lib/deleteAll';
 import { FORM_DEFAULTS_KEY } from '@/lib/formDefaults';
 import { readSettings, SETTINGS_KEYS, updateSettings } from '@/lib/settings';
@@ -554,5 +556,43 @@ describe('Settings', () => {
     await act(() => fakeBrowser.storage.local.remove(FORM_DEFAULTS_KEY));
     await user.click(screen.getByRole('button', { name: 'Add application' }));
     expect(screen.getByLabelText(/Work mode/)).toHaveAttribute('data-value', '');
+  });
+
+  it('exports a backup and shows when the last one was made', async () => {
+    const exporting = vi.spyOn(backup, 'exportBackup').mockImplementation(async () => {
+      await fakeBrowser.storage.local.set({ [LAST_BACKUP_KEY]: new Date().toISOString() });
+      return { applications: 0, resumes: 0 };
+    });
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    expect(await within(data).findByText('Last backup: never')).toBeInTheDocument();
+    await user.click(within(data).getByRole('button', { name: 'Export backup' }));
+    expect(exporting).toHaveBeenCalledTimes(1);
+    expect(await within(data).findByText('Last backup: today')).toBeInTheDocument();
+    expect(await screen.findByText('Backup downloaded.')).toBeInTheDocument();
+  });
+
+  it('shows a backup made in another window', async () => {
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    await within(data).findByText('Last backup: never');
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    await act(() =>
+      fakeBrowser.storage.local.set({ [LAST_BACKUP_KEY]: threeDaysAgo.toISOString() }),
+    );
+    expect(await within(data).findByText('Last backup: 3 days ago')).toBeInTheDocument();
+  });
+
+  it('says so when an export fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(backup, 'exportBackup').mockRejectedValue(new Error('broken'));
+    const user = userEvent.setup();
+    const data = card(await openSettings(user), 'Your data');
+    await user.click(within(data).getByRole('button', { name: 'Export backup' }));
+    expect(await within(data).findByRole('alert')).toHaveTextContent(
+      "Couldn't export your data. Try again.",
+    );
+    expect(within(data).getByText('Last backup: never')).toBeInTheDocument();
   });
 });
