@@ -114,6 +114,8 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 **Captures (v0.6.5):** a capture now sets Source from the job board in its address (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Wellfound, Dice, Monster) and starts with the last-used resume. Fixed with it: a resume remembered before the panel opened was never preselected (v0.6.4), and a row's status chip drew over the toast's buttons.
 
+**Sheet shortcut (v0.6.6):** ⌘/Ctrl+Enter presses a sheet's main button from any control in it (never a destructive one), and Escape leaves the detail view.
+
 ## M7 — Export & import
 **Slice:** Export a JSON backup → "Delete all data" → import with Replace → everything is back, including resume files that open.
 
@@ -121,6 +123,7 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 - JSON import with Merge (newest `updatedAt` wins) or Replace. CSV import with validation and a preview.
 - A "Last backup: N days ago" line in Settings.
 - **Tests:** a full round-trip test (spec §10 acceptance), merge conflict resolution, and handling of malformed CSV rows.
+- **Decisions (owner, 2026-10-18; spec §6):** CSV rows get one status entry dated their Date applied; CSV rows already logged are skipped unless "Import them anyway"; Replace all asks with a plain confirmation naming the counts; Merge keeps the current settings and Replace restores them; backups hold live rows only. The backup is named `huntlog-backup-YYYY-MM-DD.json` after the rename.
 
 ## M8 — Real page extraction
 **Slice:** Right-click a Greenhouse, Lever, Workday or Ashby posting, or any page with JSON-LD → title, company, location, work mode and salary arrive prefilled.

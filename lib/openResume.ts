@@ -1,3 +1,4 @@
+import { downloadBlob } from './download';
 import { getResumeBlob, resumeFileExists, safeFileName } from './resumes';
 import type { Resume } from './types';
 
@@ -23,14 +24,6 @@ export async function openResume(resume: Pick<Resume, 'id' | 'mimeType'>): Promi
   }
   const file = await getResumeBlob(resume.id);
   if (!file) return false;
-  const url = URL.createObjectURL(file.blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = safeFileName(file.resume.fileName);
-  document.body.append(link);
-  link.click();
-  link.remove();
-  // The download has started from the click; give the browser a moment before revoking.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  downloadBlob(file.blob, safeFileName(file.resume.fileName));
   return true;
 }

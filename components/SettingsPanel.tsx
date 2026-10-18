@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { exportBackup, lastBackupText } from '@/lib/backup';
 import { deleteAllData, LeftoversError } from '@/lib/deleteAll';
 import { localeWeekStart, type WeekStart } from '@/lib/locale';
 import {
@@ -13,6 +14,7 @@ import {
   type Theme,
 } from '@/lib/settings';
 import {
+  DownloadIcon,
   ExternalLinkIcon,
   MinusIcon,
   MonitorIcon,
@@ -26,7 +28,9 @@ import { NumberField } from './NumberField';
 import { SegmentedControl } from './SegmentedControl';
 import { Select } from './Select';
 import { Sheet } from './Sheet';
+import { useLastBackup } from './useLastBackup';
 import { useSettings } from './useSettings';
+import { useToday } from './useToday';
 
 /** What must be typed before data is deleted (spec §4.8). Case-sensitive; spaces around ignored. */
 export const CONFIRM_WORD = 'DELETE';
@@ -312,7 +316,10 @@ function DisplayCard({
   );
 }
 
-/** Delete all data, and Reset settings (spec §4.8), each confirmed in a sheet. */
+/**
+ * Your data (spec §4.8, §6): export a backup, with how long ago the last one was, then Delete all
+ * data and Reset settings, each confirmed in a sheet.
+ */
 function DataCard({ onDataDeleted, notify, active }: Props) {
   const [open, setOpen] = useState<'delete' | 'reset' | null>(null);
   // Settings closing (a capture) closes its sheet too, at once: left open while Settings slides
@@ -326,9 +333,11 @@ function DataCard({ onDataDeleted, notify, active }: Props) {
   return (
     <Card title="Your data">
       <p className="text-sm text-muted-foreground">
-        Everything is stored only in this browser. Export and import arrive in a later version.
+        Everything is stored only in this browser. Export a backup now and then: one file with your
+        applications, resumes and settings.
       </p>
-      <div className="flex flex-wrap gap-2">
+      <ExportButtons notify={notify} />
+      <div className="flex flex-wrap gap-2 border-t pt-3">
         <button type="button" onClick={() => setOpen('delete')} className="btn btn-destructive">
           <Trash2Icon />
           Delete all data
@@ -355,6 +364,45 @@ function DataCard({ onDataDeleted, notify, active }: Props) {
         notify={notify}
       />
     </Card>
+  );
+}
+
+/** Export a JSON backup (spec §6), and when the last one was made. */
+function ExportButtons({ notify }: { notify: (message: string) => void }) {
+  const lastBackup = useLastBackup();
+  // Re-rendered each new day, so "today" becomes "yesterday" in a panel left open.
+  useToday();
+  const action = useAction(notify);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          // Busy: still focusable (disabling would drop focus to the page), and run() ignores it.
+          aria-disabled={action.busy || undefined}
+          onClick={async () => {
+            const done = await action.run(
+              async () => {
+                await exportBackup();
+                return true;
+              },
+              () => "Couldn't export your data. Try again.",
+            );
+            if (done) notify('Backup downloaded.');
+          }}
+          className="btn btn-outline"
+        >
+          <DownloadIcon />
+          {action.busy ? 'Exporting…' : 'Export backup'}
+        </button>
+      </div>
+      {lastBackup.loaded && <p className="field-hint">{lastBackupText(lastBackup.at)}</p>}
+      {action.error && (
+        <p role="alert" className="field-error">
+          {action.error}
+        </p>
+      )}
+    </div>
   );
 }
 

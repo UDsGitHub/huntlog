@@ -186,7 +186,7 @@ Opened from the gear in the header as a near-full-height sheet of grouped cards.
   - **Theme:** System (default), Light, or Dark, as a three-way segmented control.
   - **First day of the week:** the locale's default (named, e.g. "Locale default (Monday)"), Sunday, Monday, or Saturday.
 - **Your data:**
-  - Export / Import (§6).
+  - **Export backup**, **Export CSV** and **Import…** (§6), with the "Last backup" line.
   - **Delete all data** (a solid destructive button)**:** permanently deletes every application and resume (with its file), and the remembered form defaults. Settings stay. The user must type `DELETE` before the button works.
   - **Reset settings:** puts the weekly goal, first day of the week and theme back to their defaults, after a confirmation. It has an "Also delete all my data" checkbox, off by default. Ticking it adds the same typed `DELETE` confirmation and changes the button to "Reset and delete everything". Unticking clears what was typed.
 - **About:** a link to the privacy policy (a page bundled with the extension), a link to the third-party notices (font and icon licenses), and the version.
@@ -259,17 +259,26 @@ interface Settings {
 - The `unlimitedStorage` permission is requested because resume files add up.
 - **Migrations:** versioned Dexie schema (`schemaVersion`).
 
-**Export**
+**Export** (Settings → Your data). Files download through a link from the side panel, so no `downloads` permission is needed.
 
-- **JSON (full backup):** all applications, resumes (files base64-encoded), and settings. The file is named `job-log-backup-YYYY-MM-DD.json`.
-- **CSV (applications only):** one row per application, with the resume name rather than the file, for use in spreadsheets.
+- **JSON (full backup, Export backup):** every application and resume the user still has (resume files base64-encoded) and the settings. Soft-deleted rows stay out: a backup holds what the user has, not what they deleted (except a resume deleted within its Undo window that a live application still links to, so no link points at nothing). Only the settings the user has set are included. The file is recognised by its contents (`"format": "huntlog-backup"` and a version number), not its name, and is named `huntlog-backup-YYYY-MM-DD.json` (the local date).
+- **CSV (applications only, Export CSV):** one row per application, with the resume's name rather than the file, for use in spreadsheets. Its columns are fixed: Company, Job title, URL, Status, Date applied, Location, Work mode, Salary min, Salary max, Currency, Per, Source, Notes, Resume, Created, Updated. Values are plain and locale-free (statuses and work modes as their labels, numbers like `85000.5`, dates as `YYYY-MM-DD`, Created and Updated as ISO timestamps). It's UTF-8 with a byte-order mark, so Excel reads accents. A cell that starts with `=`, `+`, `-` or `@` gets a leading `'`, so a spreadsheet never runs it as a formula.
 
-**Import**
+**Import** (Settings → Your data → Import…): a sheet with a drop zone that takes one JSON or CSV file, told apart by its contents.
 
-- **JSON:** the user chooses **Merge** (match by `id`, newest `updatedAt` wins) or **Replace all** (with confirmation).
-- **CSV:** the expected headers match the CSV export format, and a downloadable template is provided. Rows are validated, and the user sees a preview before committing. Unknown statuses map to Applied, with a warning.
+- **JSON:** the sheet shows what the backup holds (counts and its date), then the user chooses **Merge** or **Replace all**.
+  - The whole file is checked before anything changes, as strictly as typed input (web addresses must be `http(s)`, statuses and other choices must be known values, text within its limits, resume files must match their format and be 10 MB or less). Any invalid record refuses the whole file, saying which; nothing is half imported. A backup from a newer version of Huntlog is refused with a message.
+  - **Merge** matches by `id`: the newer `updatedAt` wins, and on a tie the stored row stays. A resume and its file go together. The settings stay as they are, since they have no `updatedAt` to compare.
+  - **Replace all** asks first, naming what it replaces and with what ("your 42 applications and 3 resumes, with the 40 applications and 5 resumes in this backup"), on a destructive button. It replaces every application and resume and restores the settings from the backup. The remembered form defaults are cleared, as by Delete all data.
+  - An application whose resume isn't in the data shows the resume's snapshot name (§4.6).
+- **CSV:** the headers are those of the export (in any order; a column may be left out, except Company and URL). A downloadable template has the header row only. Rows are validated like the Add form, and the user sees a preview before committing: how many rows will be imported, which have warnings, which are skipped for errors (by row number, with the reason), and which are already logged.
+  - **Already logged:** a row with the same job posting URL or company + title (§4.5) as an existing application, or as an earlier row, is skipped unless the user ticks **Import them anyway**, so importing the same file twice doesn't double everything.
+  - **Unknown statuses** map to Applied, with a warning on that row. Statuses and work modes match their labels or stored values, ignoring case.
+  - **Status history:** a CSV has no timeline, so each row gets one entry for its status, dated its Date applied (or its Created date, or the import time). Stats then count an imported interview or offer on that date.
+  - **Resume:** matched by name to a live resume (the newest of that name); otherwise only its name is kept, as the snapshot.
+  - Every row becomes a new application with a new `id`. Created and Updated are kept when valid.
 
-Since the data is local only, the UI should nudge users to export a backup now and then. A subtle "Last backup: N days ago" line in Settings is enough; this is not a reminder system.
+Since the data is local only, the UI should nudge users to export a backup now and then. A subtle "Last backup: N days ago" line in Settings, under Export backup, is enough; this is not a reminder system. It shows "never", "today", "yesterday" or "N days ago" in local calendar days, counts JSON backups only (a CSV isn't a full backup), follows exports from any window, and is kept by Delete all data and Reset settings.
 
 ## 7. Page extraction (generic)
 
@@ -335,7 +344,8 @@ lib/
   extract.ts             # injected page extractor (pure function)
   normalizeUrl.ts
   stats.ts               # pure stat calculations
-  exportImport.ts
+  backup.ts              # JSON backup: export, checks, merge/replace
+  csv.ts                 # CSV reading and writing
 components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, …
 ```
 
