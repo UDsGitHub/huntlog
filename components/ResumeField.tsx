@@ -4,7 +4,7 @@ import { Combobox } from './Combobox';
 import { PlusMinusIcon } from './icons';
 import { ResumeUpload } from './ResumeUpload';
 import { formatTimestampDate } from '@/lib/dates';
-import { formatLabel, listResumes } from '@/lib/resumes';
+import { formatLabel, isResumeOffered, listResumes } from '@/lib/resumes';
 import type { Resume } from '@/lib/types';
 
 /**
@@ -61,7 +61,7 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
   if (uploaded && listed.some((resume) => resume.id === uploaded.id)) setUploaded(undefined);
   const active = [
     ...(uploaded && !listed.some((resume) => resume.id === uploaded.id) ? [uploaded] : []),
-    ...listed.filter((resume) => !resume.archived),
+    ...listed.filter(isResumeOffered),
   ];
   const labels = resumeOptionLabels(active);
   // The selected resume isn't on offer: archived (or archived meanwhile in another window), or

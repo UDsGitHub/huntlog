@@ -1,4 +1,5 @@
-import { WORK_MODES } from './applicationInput';
+import { MAX_SOURCE_LENGTH, WORK_MODES } from './applicationInput';
+import { isResumeOffered } from './resumes';
 import type { Application, Resume, WorkMode } from './types';
 
 /** `chrome.storage.local` key (spec §4.2, §6: settings-like data lives there). */
@@ -19,10 +20,9 @@ export function parseFormDefaults(raw: unknown): FormDefaults {
   if (typeof raw !== 'object' || raw === null) return {};
   const { source, workMode, resumeId } = raw as Record<string, unknown>;
   const defaults: FormDefaults = {};
-  if (typeof source === 'string' && source.trim() && source.length <= 100) {
-    defaults.source = source.trim();
-  }
-  if (typeof resumeId === 'string' && resumeId.trim() && resumeId.length <= 100) {
+  const trimmed = typeof source === 'string' ? source.trim() : '';
+  if (trimmed && trimmed.length <= MAX_SOURCE_LENGTH) defaults.source = trimmed;
+  if (typeof resumeId === 'string' && resumeId && resumeId.length <= 100) {
     defaults.resumeId = resumeId;
   }
   if (typeof workMode === 'string' && (WORK_MODES as string[]).includes(workMode)) {
@@ -90,13 +90,11 @@ export function onFormDefaultsChanged(listener: (defaults: FormDefaults) => void
  */
 export function usableFormDefaults(
   defaults: FormDefaults,
-  resumes: readonly Pick<Resume, 'id' | 'archived' | 'deletedAt'>[],
+  /** The remembered resume as stored now; undefined if it no longer exists. */
+  resume: Pick<Resume, 'id' | 'archived' | 'deletedAt'> | undefined,
 ): FormDefaults {
   if (!defaults.resumeId) return defaults;
-  const offered = resumes.some(
-    (resume) => resume.id === defaults.resumeId && !resume.archived && !resume.deletedAt,
-  );
-  if (offered) return defaults;
+  if (resume?.id === defaults.resumeId && isResumeOffered(resume)) return defaults;
   const usable = { ...defaults };
   delete usable.resumeId;
   return usable;

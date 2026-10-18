@@ -119,19 +119,19 @@ describe('onFormDefaultsChanged', () => {
 });
 
 describe('usableFormDefaults', () => {
-  const resumes = [
-    { id: 'live', archived: false },
-    { id: 'old', archived: true },
-    { id: 'gone', archived: false, deletedAt: '2026-10-01T00:00:00Z' },
-  ];
+  const live = { id: 'r1', archived: false };
 
   it('keeps a remembered resume the picker still offers', () => {
-    const defaults = { source: 'LinkedIn', resumeId: 'live' };
-    expect(usableFormDefaults(defaults, resumes)).toEqual(defaults);
+    const defaults = { source: 'LinkedIn', resumeId: 'r1' };
+    expect(usableFormDefaults(defaults, live)).toEqual(defaults);
   });
 
-  it.each(['old', 'gone', 'missing'])('drops a resume that is %s, keeping the rest', (resumeId) => {
-    expect(usableFormDefaults({ source: 'LinkedIn', resumeId }, resumes)).toEqual({
+  it.each([
+    ['archived', { id: 'r1', archived: true }],
+    ['deleted', { id: 'r1', archived: false, deletedAt: '2026-10-01T00:00:00Z' }],
+    ['missing', undefined],
+  ])('drops a resume that is %s, keeping the rest', (_state, resume) => {
+    expect(usableFormDefaults({ source: 'LinkedIn', resumeId: 'r1' }, resume)).toEqual({
       source: 'LinkedIn',
     });
   });

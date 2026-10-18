@@ -36,7 +36,7 @@ import {
 import { STATUS_LABELS } from '@/lib/status';
 import type { StatusPick } from '@/components/StatusChip';
 import type { CaptureDraft } from '@/lib/captureDraft';
-import { listResumes, purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
+import { getResume, purgeDeletedResumeData, RESUME_STARTUP_PURGE_MS } from '@/lib/resumes';
 import { DEFAULT_QUERY, type ListQuery } from '@/lib/listQuery';
 import {
   onFormDefaultsChanged,
@@ -119,13 +119,21 @@ export default function App() {
   // Remembered source, work mode and resume for the next manual Add (spec §4.2).
   // undefined until loaded: the Add form reads them once, on mount, so it waits for them.
   const [formDefaults, setFormDefaults] = useState<FormDefaults | undefined>(undefined);
-  // The resumes the picker offers, so a remembered resume archived or deleted since is dropped.
-  const resumes = useLiveQuery(() => listResumes(), []);
-  // Waits for the resumes only when there's a remembered one to check.
+  // The remembered resume as stored now (null when none is remembered or it's gone), so one
+  // archived or deleted since isn't preselected. The Add form waits for it only when there's one.
+  const rememberedResumeId = formDefaults?.resumeId;
+  const rememberedResume = useLiveQuery(
+    async () => (rememberedResumeId ? ((await getResume(rememberedResumeId)) ?? null) : null),
+    [rememberedResumeId],
+  );
   const addDefaults = useMemo(
     () =>
-      !formDefaults?.resumeId ? formDefaults : resumes && usableFormDefaults(formDefaults, resumes),
-    [formDefaults, resumes],
+      !formDefaults?.resumeId
+        ? formDefaults
+        : rememberedResume === undefined
+          ? undefined
+          : usableFormDefaults(formDefaults, rememberedResume ?? undefined),
+    [formDefaults, rememberedResume],
   );
   // A file dropped outside a drop zone mustn't replace the panel with it.
   useEffect(() => guardFileDrops(), []);
