@@ -1,17 +1,21 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import {
+  addApplication,
+  animationsSettled,
   chooseOption,
   expect,
   panelUrl,
+  pickStatus,
   resumeAction,
   sheetsClosed,
   test,
   uploadResume,
 } from './fixtures';
 
-// Spec §10: every screen and sheet passes axe's WCAG 2.2 A/AA rules at 320px, in light and dark.
-// The one exception is the owner's: the destructive button's shadcn tint (v0.7.1), under 4.5:1.
+// Spec §10: every screen and sheet passes axe's WCAG 2.2 A/AA rules at 320px, in light and dark,
+// and so do the extension's other pages (resume viewer, notices, privacy). The one exception is
+// the owner's: the destructive button's shadcn tint (v0.7.1), under 4.5:1.
 
 const PDF = Buffer.from('%PDF-1.7\n' + ' '.repeat(200));
 const CSV = [
@@ -21,30 +25,9 @@ const CSV = [
   ',Designer,https://nocompany.example/1,Applied,2026-10-10',
 ].join('\r\n');
 
-async function settled(page: Page) {
-  // Let a slide that a click just started begin, then wait until nothing is moving or fading
-  // (a color measured mid-fade is too faint). Capped: an animation in a hidden section never runs.
-  await page.waitForTimeout(100);
-  await page.evaluate(async () => {
-    const deadline = performance.now() + 2000;
-    while (performance.now() < deadline) {
-      const running = document.getAnimations().filter((a) => a.playState === 'running');
-      const visible = running.filter((a) => {
-        const target = (a.effect as KeyframeEffect | null)?.target;
-        return target instanceof Element && target.checkVisibility();
-      });
-      if (visible.length === 0) return;
-      await Promise.race([
-        Promise.allSettled(visible.map((a) => a.finished)),
-        new Promise((resolve) => setTimeout(resolve, 200)),
-      ]);
-    }
-  });
-}
-
 /** Runs axe on what's on screen; collects violations by screen rather than stopping at one. */
 async function audit(page: Page, screen: string, found: string[]) {
-  await settled(page);
+  await animationsSettled(page);
   const { violations } = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'])
     .analyze();
@@ -70,28 +53,6 @@ async function setTheme(page: Page, theme: 'Light' | 'Dark') {
   await sheetsClosed(page);
 }
 
-async function pickStatus(page: Page, company: string, status: string) {
-  await page
-    .getByRole('listitem')
-    .filter({ hasText: company })
-    .getByRole('button', { name: /^Status: / })
-    .click();
-  await page
-    .getByRole('dialog', { name: /Change status|When did you apply/ })
-    .getByRole('button', { name: status, exact: true })
-    .click();
-}
-
-async function addJob(page: Page, company: string, title: string, applied: string) {
-  await page.getByRole('button', { name: 'Add application', exact: true }).click();
-  await page.getByLabel('Company').fill(company);
-  await page.getByLabel('Job title').fill(title);
-  await page.getByLabel('Job posting URL').fill(`https://jobs.example.com/${company.length}`);
-  await page.getByLabel('Date applied').fill(applied);
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await sheetsClosed(page);
-}
-
 test('every screen and sheet passes axe in both themes', async ({ session }) => {
   test.setTimeout(240_000);
   const page = await session.context.newPage();
@@ -114,9 +75,18 @@ test('every screen and sheet passes axe in both themes', async ({ session }) => 
   await uploadResume(page, { name: 'Frontend.pdf', mimeType: 'application/pdf', buffer: PDF });
   await resumeAction(page, 'Frontend', 'Archive');
   await page.getByRole('tab', { name: 'Applications' }).click();
-  await addJob(page, 'Acme', 'Frontend Engineer', '2026-10-12');
-  await addJob(page, 'Globex', 'Software Engineer II', '2026-10-13');
-  await addJob(page, 'Initech', 'Full-stack Developer', '2026-10-14');
+  for (const [company, title, applied] of [
+    ['Acme', 'Frontend Engineer', '2026-10-12'],
+    ['Globex', 'Software Engineer II', '2026-10-13'],
+    ['Initech', 'Full-stack Developer', '2026-10-14'],
+  ] as const) {
+    await addApplication(page, {
+      company,
+      title,
+      url: `https://jobs.example.com/${company}`,
+      applied,
+    });
+  }
   // Saved, with no Date applied, so a move to Interviewing asks for one.
   await page.getByRole('button', { name: 'Add application', exact: true }).click();
   await page.getByLabel('Company').fill('Hooli');
@@ -131,7 +101,17 @@ test('every screen and sheet passes axe in both themes', async ({ session }) => 
   await settings.getByLabel('Applications per week').press('Enter');
   await page.keyboard.press('Escape');
   await sheetsClosed(page);
-  await page.waitForTimeout(6_000);
+  // A backup to import, for the Replace confirmation.
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    settings.getByRole('button', { name: 'Export backup' }).click(),
+  ]);
+  const backup = await download.path();
+  await page.keyboard.press('Escape');
+  await sheetsClosed(page);
+  // The Undo toasts have gone, so they don't sit over every screen.
+  await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0, { timeout: 10_000 });
 
   for (const theme of ['Light', 'Dark'] as const) {
     await page.reload();
@@ -157,6 +137,17 @@ test('every screen and sheet passes axe in both themes', async ({ session }) => 
     await sheetsClosed(page);
     await page.getByRole('button', { name: 'Add application', exact: true }).click();
     const form = page.getByRole('dialog', { name: 'Add application' });
+    await form.getByRole('combobox', { name: 'Status' }).click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await at('form with a Select open');
+    await page.keyboard.press('Escape');
+    await form.getByRole('combobox', { name: 'Resume' }).click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await at('form with the resume list open');
+    await page.keyboard.press('Escape');
+    await form.getByRole('button', { name: 'Upload new resume' }).click();
+    await at('form with the inline upload');
+    await form.getByRole('button', { name: 'Close resume upload' }).click();
     await form.getByRole('button', { name: /^More details/ }).click();
     await form.getByRole('button', { name: 'Save', exact: true }).click();
     await at('add form with errors');
@@ -226,6 +217,13 @@ test('every screen and sheet passes axe in both themes', async ({ session }) => 
     });
     await expect(importing.getByText(/ready to import/)).toBeVisible();
     await at('import CSV preview');
+    await importing.getByLabel('File to import').setInputFiles(backup);
+    await importing.locator('label', { hasText: 'Replace all' }).click();
+    await at('import backup preview');
+    await importing.getByRole('button', { name: 'Replace all data…' }).click();
+    await at('replace confirmation');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Replace all data?' })).toBeHidden();
     await page.keyboard.press('Escape');
     await expect(importing).toBeHidden();
     await page.keyboard.press('Escape');
@@ -235,6 +233,28 @@ test('every screen and sheet passes axe in both themes', async ({ session }) => 
     await pickStatus(page, 'Globex', theme === 'Light' ? 'Screening' : 'Interviewing');
     await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
     await at('toast');
+    await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0, { timeout: 10_000 });
+
+    // The extension's other pages follow the theme setting.
+    const [viewer] = await Promise.all([
+      session.context.waitForEvent('page'),
+      page
+        .getByRole('tab', { name: 'Resumes' })
+        .click()
+        .then(() => page.getByRole('button', { name: 'Open Backend v3' }).click()),
+    ]);
+    await expect(viewer.locator('iframe')).toBeVisible();
+    await audit(viewer, `${theme} resume viewer`, found);
+    await viewer.close();
+    await page.getByRole('tab', { name: 'Applications' }).click();
+    for (const name of ['notices', 'privacy']) {
+      const other = await session.context.newPage();
+      await other.setViewportSize({ width: 320, height: 720 });
+      await other.goto(`chrome-extension://${session.extensionId}/${name}.html`);
+      await expect(other.locator('html')).toHaveAttribute('data-theme', theme.toLowerCase());
+      await audit(other, `${theme} ${name} page`, found);
+      await other.close();
+    }
   }
 
   expect(found, found.join('\n\n')).toEqual([]);

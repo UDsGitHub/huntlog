@@ -6,13 +6,10 @@ import { expect, panelUrl, test } from './fixtures';
 
 /** Presses Tab until `target` has focus, the way a keyboard user would get there. */
 async function tabTo(page: Page, target: Locator, { backwards = false, max = 40 } = {}) {
+  // The target must exist (a wrong locator fails here, plainly), but may not be reachable yet.
+  await expect(target).toHaveCount(1);
   for (let i = 0; i < max; i++) {
-    if (
-      await target.evaluate((element) => element === document.activeElement, null, {
-        timeout: 2000,
-      })
-    )
-      return;
+    if (await target.evaluate((element) => element === document.activeElement)) return;
     await page.keyboard.press(backwards ? 'Shift+Tab' : 'Tab');
   }
   const focused = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 150));

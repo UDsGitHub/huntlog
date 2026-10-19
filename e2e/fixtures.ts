@@ -112,16 +112,35 @@ export const expect = test.expect;
 
 export const panelUrl = (extensionId: string) => `chrome-extension://${extensionId}/sidepanel.html`;
 
+/**
+ * Waits until nothing visible is moving or fading, including animations that start meanwhile
+ * (a slide a click just started; a color measured mid-fade is too faint). Capped at 2 s, and
+ * animations in hidden sections are ignored: content-visibility stops them, so they never end.
+ */
+export async function animationsSettled(page: Page) {
+  await page.waitForTimeout(100);
+  await page.evaluate(async () => {
+    const deadline = performance.now() + 2000;
+    while (performance.now() < deadline) {
+      const moving = document.getAnimations().filter((animation) => {
+        const target = (animation.effect as KeyframeEffect | null)?.target;
+        return (
+          animation.playState === 'running' && target instanceof Element && target.checkVisibility()
+        );
+      });
+      if (moving.length === 0) return;
+      await Promise.race([
+        Promise.allSettled(moving.map((animation) => animation.finished)),
+        new Promise((resolve) => setTimeout(resolve, 200)),
+      ]);
+    }
+  });
+}
+
 /** The 320px rule (CLAUDE.md DoD #6): the panel never scrolls sideways. */
 export async function expectNoHorizontalScroll(page: Page) {
   // The settled layout: a page sliding in is briefly offset while it moves.
-  // (Capped: an animation in a section hidden by content-visibility doesn't run, so never ends.)
-  await page.evaluate(() =>
-    Promise.race([
-      Promise.allSettled(document.getAnimations().map((a) => a.finished)),
-      new Promise((resolve) => setTimeout(resolve, 1000)),
-    ]),
-  );
+  await animationsSettled(page);
   // The page, each tab section that scrolls on its own, and open sheets: none may scroll sideways.
   const overflows = await page.evaluate(() =>
     [
@@ -170,6 +189,39 @@ export async function uploadResume(
   await sheet.getByRole('button', { name: 'Upload', exact: true }).click();
   if (!expectError) await sheetsClosed(page);
   return sheet;
+}
+
+/** Adds an application through the + Add form and waits for its sheet to close. */
+export async function addApplication(
+  page: Page,
+  {
+    company,
+    title,
+    url,
+    applied,
+  }: { company: string; title?: string; url: string; applied?: string },
+) {
+  await page.getByRole('button', { name: 'Add application', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'Add application' });
+  await form.getByLabel('Company').fill(company);
+  if (title) await form.getByLabel('Job title').fill(title);
+  await form.getByLabel('Job posting URL').fill(url);
+  if (applied) await form.getByLabel('Date applied').fill(applied);
+  await form.getByRole('button', { name: 'Save', exact: true }).click();
+  await sheetsClosed(page);
+}
+
+/** Picks a status from a list row's chip (the status sheet, or its "When did you apply?" step). */
+export async function pickStatus(page: Page, company: string, status: string) {
+  await page
+    .getByRole('listitem')
+    .filter({ hasText: company })
+    .getByRole('button', { name: /^Status: / })
+    .click();
+  await page
+    .getByRole('dialog', { name: /Change status|When did you apply/ })
+    .getByRole('button', { name: status, exact: true })
+    .click();
 }
 
 /** Picks an action from a resume row's ⋯ menu. */

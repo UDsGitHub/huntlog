@@ -225,7 +225,7 @@ function Row({
   // Unique when several roles share a company.
   const linkLabel = `Open job posting for ${app.company}${app.title ? `: ${app.title}` : ''}`;
   return (
-    <div className="list-row-lazy relative -mx-2 flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 transition-colors hover:bg-accent/60 has-[.row-open:focus-visible]:outline-2 has-[.row-open:focus-visible]:outline-ring">
+    <div className="list-row-lazy row-card -mx-2 flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 transition-colors hover:bg-accent/60">
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
@@ -234,7 +234,7 @@ function Row({
           aria-label={name}
           // The full name on hover when it's cut off.
           title={app.company}
-          className="row-open min-w-0 flex-1 truncate text-left text-sm font-semibold outline-none after:absolute after:inset-0 after:rounded-lg after:content-['']"
+          className="row-open row-button min-w-0 flex-1 truncate text-left text-sm font-semibold"
         >
           {app.company}
         </button>

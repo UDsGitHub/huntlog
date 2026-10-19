@@ -337,7 +337,7 @@ function ResumeRow({
       {/* The whole card opens (a PDF) or downloads the file; ⋯ has the rest. The button holds
           just its name (WCAG 2.5.3: what's visible is in the name) and its ::after covers the
           card; the details are its description. */}
-      <div className="relative flex min-w-0 flex-1 items-start gap-3 rounded-md p-2 hover:bg-accent/50 has-[.resume-open:focus-visible]:outline-2 has-[.resume-open:focus-visible]:outline-offset-2 has-[.resume-open:focus-visible]:outline-ring">
+      <div className="row-card flex min-w-0 flex-1 items-start gap-3 rounded-md p-2 hover:bg-accent/50">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <FileTextIcon className="size-4" />
         </span>
@@ -346,7 +346,7 @@ function ResumeRow({
             type="button"
             onClick={() => void open()}
             aria-describedby={`${id}-details${resume.note ? ` ${id}-note` : ''}`}
-            className="resume-open text-left text-sm font-medium break-words outline-none after:absolute after:inset-0 after:rounded-md after:content-['']"
+            className="row-button text-left text-sm font-medium break-words"
           >
             <span className="sr-only">{verb} </span>
             {resume.name}

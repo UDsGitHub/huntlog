@@ -481,7 +481,7 @@ export function ApplicationForm({
             {/* The button holds just its name (WCAG 2.5.3: the visible label is the whole name)
                 and its ::after covers the row, so a tap anywhere on it toggles; the hint is its
                 description. */}
-            <div className="relative flex w-full items-start justify-between gap-2 rounded-sm px-1 py-3 has-[.details-toggle:focus-visible]:outline-2 has-[.details-toggle:focus-visible]:outline-offset-2 has-[.details-toggle:focus-visible]:outline-ring">
+            <div className="row-card flex w-full items-start justify-between gap-2 rounded-sm px-1 py-3">
               <span className="flex min-w-0 flex-col gap-0.5">
                 <button
                   type="button"
@@ -492,7 +492,7 @@ export function ApplicationForm({
                     setDetailsAnimate(true);
                     setDetailsOpen((open) => !open);
                   }}
-                  className="details-toggle text-left text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-sm after:content-['']"
+                  className="row-button text-left text-sm font-medium"
                 >
                   More details
                 </button>
