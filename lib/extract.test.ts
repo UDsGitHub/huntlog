@@ -114,7 +114,7 @@ describe('extractPage: JSON-LD', () => {
     );
     expect(extract()).toMatchObject({ title: 'Dev <Backend> & Ops – é', company: 'Acme' });
     load('<title>Engineer &lt;Remote&gt; at Acme</title>');
-    expect(extract()?.title).toBe('Engineer <Remote> at Acme');
+    expect(extract()).toMatchObject({ title: 'Engineer <Remote>', company: 'Acme' });
   });
 
   it('fills what the first posting lacks from later ones', () => {
@@ -167,10 +167,182 @@ describe('extractPage: microdata', () => {
   });
 });
 
+describe('extractPage: fallbacks (Open Graph, headings, title patterns, ATS addresses)', () => {
+  it.each([
+    [
+      'Greenhouse',
+      'greenhouse.html',
+      'https://boards.greenhouse.io/acmerobotics/jobs/4012',
+      { title: 'Robotics Engineer', company: 'Acme Robotics' },
+    ],
+    [
+      'Lever',
+      'lever.html',
+      'https://jobs.lever.co/globex/7f1c-22aa',
+      { title: 'Senior Backend Engineer', company: 'Globex Corporation' },
+    ],
+    [
+      'Workday',
+      'workday.html',
+      'https://umbrella-health.wd5.myworkdayjobs.com/en-US/External/job/Austin/Analyst_R123',
+      { title: 'Clinical Data Analyst', company: 'Umbrella Health' },
+    ],
+    [
+      'Ashby',
+      'ashby.html',
+      'https://jobs.ashbyhq.com/hooli/9d2e',
+      { title: 'Product Designer', company: 'Hooli' },
+    ],
+    [
+      'a job board’s title',
+      'job-board-title.html',
+      'https://www.linkedin.com/jobs/view/123',
+      { title: 'Frontend Developer', company: 'Initech', location: 'Austin, TX' },
+    ],
+    [
+      'a company site',
+      'company-site.html',
+      'https://umbrella.example/careers/42',
+      { title: 'Support Specialist – Customer Care', company: 'Umbrella Health' },
+    ],
+  ])('reads %s', (_label, file, url, expected) => {
+    load(fixture(file), url);
+    expect(extract()).toEqual({ url, ...expected });
+  });
+
+  it('names the company from the ATS address when the title doesn’t', () => {
+    load(
+      '<title>Robotics Engineer</title>',
+      'https://job-boards.greenhouse.io/acme_robotics/jobs/1',
+    );
+    expect(extract()).toMatchObject({ title: 'Robotics Engineer', company: 'Acme Robotics' });
+  });
+
+  it.each([
+    ['https://boards.greenhouse.io/embed/job_app?for=acme', undefined],
+    ['https://www.greenhouse.io/acme', undefined],
+    ['https://notlever.co/acme', undefined],
+    ['https://jobs.eu.lever.co/AcmeGmbH/1', 'AcmeGmbH'],
+  ])('reads the ATS address %s as company %j', (url, company) => {
+    load('<title>Engineer</title>', url);
+    expect(extract()?.company).toBe(company);
+  });
+
+  it('keeps "Title - Something" whole without a site after it', () => {
+    load('<title>Senior Engineer - Remote</title>', 'https://acme.example/jobs/1');
+    expect(extract()).toEqual({
+      url: 'https://acme.example/jobs/1',
+      title: 'Senior Engineer - Remote',
+    });
+  });
+
+  it.each([
+    [
+      'a dash with a site after it, off a job board',
+      '<title>Senior Engineer - Remote | Acme Careers</title>',
+      'https://acme.example/jobs/1',
+      { title: 'Senior Engineer - Remote | Acme Careers' },
+    ],
+    [
+      'a work arrangement after the dash on a job board',
+      '<title>Senior Engineer - Remote | Indeed.com</title>',
+      'https://www.indeed.com/viewjob?jk=1',
+      { title: 'Senior Engineer - Remote | Indeed.com' },
+    ],
+    [
+      'a board title with a place',
+      '<title>Data Engineer - Initech - Austin, TX | Indeed.com</title>',
+      'https://www.indeed.com/viewjob?jk=1',
+      { title: 'Data Engineer', company: 'Initech', location: 'Austin, TX' },
+    ],
+    [
+      '"is hiring a"',
+      '<title>Acme is hiring a Software Engineer</title>',
+      'https://acme.example/jobs/1',
+      { title: 'Software Engineer', company: 'Acme' },
+    ],
+    [
+      '"in" inside the job title',
+      '<title>Acme hiring Specialist in Machine Learning in Paris | LinkedIn</title>',
+      'https://www.linkedin.com/jobs/view/1',
+      { title: 'Specialist in Machine Learning', company: 'Acme', location: 'Paris' },
+    ],
+    [
+      '"at" inside the job title',
+      '<title>Head of Data at Scale at Acme</title>',
+      'https://acme.example/jobs/1',
+      { title: 'Head of Data at Scale', company: 'Acme' },
+    ],
+    [
+      'og:title before a heading that is the logo',
+      '<meta property="og:title" content="Support Specialist"><h1>Umbrella Health</h1>',
+      'https://umbrella.example/jobs/1',
+      { title: 'Support Specialist' },
+    ],
+    [
+      'a site name with Careers after it',
+      '<title>Support Specialist</title><meta property="og:site_name" content="Stripe Careers">',
+      'https://stripe.example/jobs/1',
+      { title: 'Support Specialist', company: 'Stripe' },
+    ],
+    [
+      'an employer whose name starts like a board',
+      '<title>Brand Manager</title><meta property="og:site_name" content="Monster Energy">',
+      'https://monsterenergy.example/jobs/1',
+      { title: 'Brand Manager', company: 'Monster Energy' },
+    ],
+    [
+      'a board’s own site name',
+      '<title>Brand Manager</title><meta property="og:site_name" content="Built In">',
+      'https://builtin.com/job/1',
+      { title: 'Brand Manager' },
+    ],
+    [
+      'a Workday host without a company',
+      '<title>Analyst</title>',
+      'https://wd5.myworkdayjobs.com/en-US/External/job/1',
+      { title: 'Analyst' },
+    ],
+    [
+      'a Lever page that isn’t a posting',
+      '<title>Login - Lever</title>',
+      'https://hire.lever.co/login',
+      { title: 'Login - Lever' },
+    ],
+  ])('reads %s carefully', (_label, html, url, expected) => {
+    load(html, url);
+    expect(extract()).toEqual({ url, ...expected });
+  });
+
+  it('keeps a long heading to the title’s full length', () => {
+    load(`<h1>${'Engineer '.repeat(30)}</h1>`, 'https://acme.example/jobs/1');
+    expect(Array.from(extract()!.title!).length).toBeGreaterThan(200);
+  });
+
+  it('reads "Title - Company | Site"', () => {
+    load(
+      '<title>Data Engineer - Initech | Indeed.com</title>',
+      'https://www.indeed.com/viewjob?jk=1',
+    );
+    expect(extract()).toMatchObject({ title: 'Data Engineer', company: 'Initech' });
+  });
+
+  it('never lets a fallback override structured data', () => {
+    load(fixture('jsonld-full.html') + '<meta property="og:site_name" content="Other Co">');
+    expect(extract()).toMatchObject({
+      title: 'Platform Engineer & Tech Lead',
+      company: 'Acme Robotics',
+    });
+  });
+});
+
 describe('extractPage: everything else', () => {
   it('falls back to the trimmed document title', () => {
-    load('<title>  Senior Engineer at Acme | LinkedIn  </title>');
-    expect(extract()).toEqual({ url: URL_, title: 'Senior Engineer at Acme | LinkedIn' });
+    // In no shape it knows, the title is kept whole: the job may be either side of the bar.
+    load('<title>  Acme Careers   |  Senior Backend Engineer  </title>');
+    expect(extract()).toEqual({ url: URL_, title: 'Acme Careers | Senior Backend Engineer' });
+    load('<title>  Backend role  </title>');
+    expect(extract()).toEqual({ url: URL_, title: 'Backend role' });
   });
 
   it('leaves a selection to the context menu: a stale one never replaces the title', () => {

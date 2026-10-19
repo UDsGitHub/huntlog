@@ -26,7 +26,11 @@ export interface ExtractedPage {
  * 1. JSON-LD `JobPosting` (also inside `@graph`, arrays and `mainEntity`; every posting on the
  *    page, in order).
  * 2. Microdata (`itemtype` …/JobPosting).
- * 3. The document title, for the title.
+ * 3. What `og:title` says, the first `<h1>`, then what the document title says ("Title at
+ *    Company", "Company hiring Title in Place", …).
+ * 4. The company an ATS address names (Greenhouse, Lever, Workday, Ashby), then `og:site_name`
+ *    unless the site is a job board.
+ * 5. The document title as it is, for the title.
  * `url` is the tab's, or its canonical URL when that's on the same site and keeps the job's
  * query parameters. Selected text is the background script's to use (the context menu's
  * `selectionText`), so a stale selection never replaces the title.
@@ -327,7 +331,111 @@ export function extractPage(): ExtractedPage | null {
       }
     });
 
-    // 3. The document title: already plain text, so never parsed as HTML.
+    // 3–4. Open Graph and meta tags, the first heading, title patterns and ATS addresses.
+    const meta = (property: string) =>
+      document
+        .querySelector(`meta[property="${property}"], meta[name="${property}"]`)
+        ?.getAttribute('content') ?? undefined;
+    const host = (() => {
+      try {
+        return new URL(href).hostname.toLowerCase().replace(/^www\./, '');
+      } catch {
+        return '';
+      }
+    })();
+    const isLeverPosting = /^jobs(\.eu)?\.lever\.co$/.test(host);
+    // Job boards list many employers' jobs, so their titles name the company after a dash:
+    // "Data Engineer - Initech - Austin, TX | Indeed.com".
+    const isJobBoard =
+      /(^|\.)(indeed|glassdoor|monster|ziprecruiter|dice|simplyhired|careerbuilder|seek|reed|totaljobs|stepstone)\.[a-z.]+$/.test(
+        host,
+      );
+    /** Words that follow a dash in a title without being a company. */
+    const NOT_A_COMPANY =
+      /^(remote|hybrid|on-?site|in office|full[- ]time|part[- ]time|contract|temporary|internship|permanent|freelance|new|urgent|apply now)$/i;
+
+    /**
+     * What a page title says, in the shapes job pages use: "Company (is) hiring (a) Title in
+     * Place | Site", "Job Application for Title at Company", "Title at Company", "Title @
+     * Company", on a job board "Title - Company - Place | Site", and on Lever "Company - Title".
+     * Nothing for a title in no such shape: it's then used as it is.
+     */
+    const parseTitle = (
+      raw: string | undefined,
+    ): { title?: string; company?: string; location?: string } => {
+      const text = clean(raw, 500);
+      if (!text) return {};
+      const segments = text.split(/ [|·] /);
+      const head = segments[0]!;
+      const hiring = /^(.+?)(?: is)? hiring (?:an? )?(.+)$/i.exec(head);
+      if (hiring) {
+        const rest = hiring[2]!;
+        const at = rest.lastIndexOf(' in ');
+        return at > 0
+          ? { company: hiring[1], title: rest.slice(0, at), location: rest.slice(at + 4) }
+          : { company: hiring[1], title: rest };
+      }
+      const application = head.replace(/^job application for /i, '');
+      // The last " at ": "Head of Data at Scale at Acme" is a Head of Data at Scale, at Acme.
+      const at = /^(.+) (?:at|@) (.+)$/.exec(application);
+      if (at) return { title: at[1], company: at[2] };
+      const dash = head.split(/ [-–—] /);
+      if (isLeverPosting && dash.length === 2) return { company: dash[0], title: dash[1] };
+      if (isJobBoard && dash.length >= 2 && !NOT_A_COMPANY.test(dash[1]!)) {
+        return { title: dash[0], company: dash[1], location: dash[2] };
+      }
+      return {};
+    };
+
+    /**
+     * The company an ATS address names: boards.greenhouse.io/{company},
+     * jobs.lever.co/{company}, {company}.wd5.myworkdayjobs.com, jobs.ashbyhq.com/{company}.
+     * Shown as words: "acme-robotics" → "Acme Robotics".
+     */
+    const atsCompany = (): string | undefined => {
+      const url = new URL(href);
+      const first = decodeURIComponent(url.pathname.split('/').filter(Boolean)[0] ?? '');
+      let slug: string | undefined;
+      if (/^(boards|job-boards)(\.[a-z]+)?\.greenhouse\.io$/.test(host)) slug = first;
+      else if (isLeverPosting || host === 'jobs.ashbyhq.com') slug = first;
+      else {
+        const workday = /^([a-z0-9-]+)\.(?:wd\d+\.)?myworkdayjobs\.com$/.exec(host);
+        if (workday && !/^(wd\d+|www)$/.test(workday[1]!)) slug = workday[1];
+      }
+      if (!slug || !/^[\w-]{2,80}$/.test(slug) || slug === 'embed') return undefined;
+      return slug
+        .split(/[-_]+/)
+        .filter(Boolean)
+        .map((word) =>
+          word === word.toLowerCase() ? word[0]!.toUpperCase() + word.slice(1) : word,
+        )
+        .join(' ');
+    };
+
+    attempt(() => {
+      // Attribute values and document.title are plain text: never parsed as HTML.
+      const og = meta('og:title');
+      const fromOg = parseTitle(og);
+      const fromDocument = parseTitle(document.title);
+      fill('title', clean(fromOg.title) ?? clean(og));
+      // After og:title: a page's first heading can be its logo or a banner.
+      fill('title', clean(document.querySelector('h1')?.textContent));
+      fill('title', clean(fromDocument.title));
+      fill('company', clean(fromOg.company, 200) ?? clean(fromDocument.company, 200));
+      fill('location', clean(fromOg.location, 200) ?? clean(fromDocument.location, 200));
+    });
+    attempt(() => fill('company', atsCompany()));
+    // A site's own name ("Acme Careers" as Acme), unless the site is a job board or ATS.
+    attempt(() => {
+      const site = clean(meta('og:site_name'), 200)?.replace(
+        /\s+(careers?|jobs|career site|job board)$/i,
+        '',
+      );
+      const board =
+        /^(linkedin|indeed|glassdoor|ziprecruiter|wellfound|angellist|dice|monster|simplyhired|careerbuilder|seek|reed|totaljobs|stepstone|handshake|otta|built ?in|welcome to the jungle|greenhouse|lever|workday|ashby|smartrecruiters|jobvite|icims|workable|bamboohr|recruitee|teamtailor|personio|careers?|jobs?)(\.[a-z.]+)?$/i;
+      if (site && !board.test(site)) fill('company', site);
+    });
+    // Last resort for the title: the document title as it is.
     attempt(() => fill('title', clean(document.title)));
 
     // The canonical URL, when it's on the same site, isn't just the home page, and keeps every
