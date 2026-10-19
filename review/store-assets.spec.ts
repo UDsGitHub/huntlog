@@ -1,8 +1,10 @@
 import type { Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createDraft, draftKey } from '../lib/captureDraft';
 import {
+  animationsSettled,
   expect,
   panelUrl,
   pickStatus,
@@ -41,25 +43,15 @@ const CSV = [
   'Vandelay,Frontend Engineer,https://jobs.example.com/vandelay/9,Applied,2026-10-06,Toronto,Hybrid,,,,,Wellfound,Frontend 2026',
 ].join('\r\n');
 
-async function settle(page: Page) {
-  await page.waitForTimeout(400);
-  await page.evaluate(() =>
-    Promise.race([
-      Promise.allSettled(document.getAnimations().map((a) => a.finished)),
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-    ]),
-  );
-}
-
 /** The panel as it is now, at its real size, for the composite. */
 async function panelShot(page: Page, name: string) {
-  await settle(page);
+  await animationsSettled(page);
   const file = path.join(WORK, `${name}-panel.png`);
   await page.screenshot({ path: file });
   return file;
 }
 
-const fontFace = `@font-face { font-family: Geist; src: url('file://${FONT}') format('woff2'); font-weight: 100 900; }`;
+const fontFace = `@font-face { font-family: Geist; src: url('${pathToFileURL(FONT).href}') format('woff2'); font-weight: 100 900; }`;
 
 /** A 1280×800 screenshot: a caption on the left, the panel docked on the right. */
 async function compose(
@@ -92,15 +84,25 @@ async function compose(
       <p>${caption.text}</p>
       ${aside}
     </div>
-    <div class="panel"><img src="file://${panel}"></div>
+    <div class="panel"><img src="${pathToFileURL(panel).href}"></div>
   </body></html>`;
-  const file = path.join(WORK, `${name}.html`);
+  await render(session, html, { width: 1280, height: 800 }, `screenshots/${name}.png`);
+}
+
+/** Renders a page of HTML at `size` into docs/store/`out`, once its fonts have loaded. */
+async function render(
+  session: ExtensionSession,
+  html: string,
+  size: { width: number; height: number },
+  out: string,
+) {
+  const file = path.join(WORK, `${path.basename(out, '.png')}.html`);
   fs.writeFileSync(file, html);
   const page = await session.context.newPage();
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto(`file://${file}`);
+  await page.setViewportSize(size);
+  await page.goto(pathToFileURL(file).href);
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: path.join(OUT, 'screenshots', `${name}.png`) });
+  await page.screenshot({ path: path.join(OUT, out) });
   await page.close();
 }
 
@@ -227,11 +229,8 @@ test('store screenshots and promo tile', async ({ session }) => {
   });
 
   // The small promo tile, 440×280.
-  const tile = await session.context.newPage();
-  await tile.setViewportSize({ width: 440, height: 280 });
-  const tileFile = path.join(WORK, 'promo-tile.html');
-  fs.writeFileSync(
-    tileFile,
+  await render(
+    session,
     `<!doctype html><html><head><meta charset="utf-8"><style>
       ${fontFace}
       body { margin: 0; width: 440px; height: 280px; overflow: hidden; font-family: Geist, system-ui;
@@ -244,8 +243,7 @@ test('store screenshots and promo tile', async ({ session }) => {
       <div class="brand">${ICON}<span>Huntlog</span></div>
       <p>Track your job applications, right beside the posting. Private: nothing leaves your device.</p>
     </body></html>`,
+    { width: 440, height: 280 },
+    'promo-tile.png',
   );
-  await tile.goto(`file://${tileFile}`);
-  await tile.evaluate(() => document.fonts.ready);
-  await tile.screenshot({ path: path.join(OUT, 'promo-tile.png') });
 });

@@ -27,8 +27,9 @@
     </style>
   </head>
   <body>
-    <!-- The same text is published at docs/privacy/index.html for the store listing;
-         tests/privacyPolicy.test.ts keeps the two in step. -->
+    <!-- docs/privacy/index.html, the public copy for the store listing, is generated from this
+         page: run `node scripts/build-privacy-page.ts` after editing (tests/privacyPolicy.test.ts
+         fails until you do). -->
     <main>
       <h1>Privacy policy</h1>
       <p class="meta">
@@ -46,18 +47,22 @@
       <p>
         Huntlog stores what you enter: the applications you log (company, job title, the job
         posting's address, status and its history, dates, location, work mode, salary, source and
-        notes), the resume files you upload with their names and notes, and your settings. It keeps
-        them in your browser's own storage on this device (IndexedDB and the extension's local
-        storage). Huntlog doesn't sync them anywhere, and nobody else can see them.
+        notes), the resume files you upload with their names and notes, your settings, and the
+        choices it remembers to make your next entry quicker (the source, work mode and resume you
+        used last). It keeps them in your browser's own storage on this device (IndexedDB and the
+        extension's local storage). A page you capture is handed to the side panel through the
+        browser's session storage, which is emptied when the browser closes. Huntlog doesn't sync
+        any of this anywhere, and nobody else can see it.
       </p>
 
       <h2>Reading web pages only when you ask</h2>
       <p>
         When you choose "Add job to Huntlog" from the right-click menu, or press its keyboard
-        shortcut, Huntlog reads the page in that one tab (its address, title, headings and any job
-        details the page publishes) to fill in the form for you. It shows you the result to check,
-        and saves nothing until you save. Huntlog can't read pages at any other time, and it never
-        sees your browsing history.
+        shortcut, Huntlog reads the page in that one tab (its address, title, headings, any job
+        details the page publishes, and the text you've selected, if any) to fill in the form for
+        you. "Add linked job to Huntlog" on a link takes only the link's address, without opening
+        it. Huntlog shows you the result to check, and saves nothing until you save. It can't read
+        pages at any other time, and it never sees your browsing history.
       </p>
 
       <h2>No network</h2>
@@ -80,7 +85,10 @@
           <strong>Storage</strong> and <strong>unlimited storage:</strong> your applications, resume
           files and settings are kept on your device.
         </li>
-        <li><strong>Context menus:</strong> the "Add job to Huntlog" right-click item.</li>
+        <li>
+          <strong>Context menus:</strong> the "Add job to Huntlog" and "Add linked job to Huntlog"
+          right-click items.
+        </li>
         <li>
           <strong>Active tab</strong> and <strong>scripting:</strong> reading the page you're on,
           only when you choose "Add job to Huntlog" or press its shortcut.

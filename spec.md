@@ -318,8 +318,8 @@ Each source fills only what the ones before it left empty; the document title is
 
 - **No host permissions, no** `tabs` **permission, no remote code, no network requests.**
 - **Minimum Chrome version: 116.** `chrome.sidePanel` arrived in 114 and `setPanelBehavior` in 116.
-- **Single purpose statement:** "Track the job applications you submit."
-- **Privacy policy:** required. It states that all data stays on the device, nothing is collected or transmitted, and no analytics are used; it lists what is stored, when a page is read, each permission, how to delete, and a contact (dingding8003@gmail.com). Bundled as `privacy.html` (Settings → About) and published at https://udsgithub.github.io/job-log/privacy/ (GitHub Pages from `docs/`; `tests/privacyPolicy.test.ts` keeps the two texts identical).
+- **Single purpose statement:** "Huntlog tracks the job applications you submit: you log each job (filled in from the posting when you ask), follow its status, link the resume you sent, and see your progress, all stored on your device."
+- **Privacy policy:** required. It states that all data stays on the device, nothing is collected or transmitted, and no analytics are used; it lists what is stored, when a page is read, each permission, how to delete, and a contact (dingding8003@gmail.com). Bundled as `privacy.html` (Settings → About) and published at https://udsgithub.github.io/job-log/privacy/ (GitHub Pages from `docs/`, generated from the bundled page by `scripts/build-privacy-page.ts`; `tests/privacyPolicy.test.ts` fails if it's out of date).
 - **Listing:** `docs/store/listing.md` holds everything the dashboard asks for: the summary (the manifest's `description`, at most 132 characters), description, category, single purpose, permission justifications, remote code (none) and data-usage answers (nothing collected). `tests/storeListing.test.ts` checks it against the manifest.
 - **Store assets:** five 1280×800 screenshots (the list, a capture filling the form, the detail timeline, stats, resumes), each the real panel beside a caption, and a 440×280 promo tile, made by `npm run store-assets` (`review/store-assets.spec.ts`) into `docs/store/`.
 

@@ -2,7 +2,7 @@
 
 Everything the developer dashboard asks for, ready to paste. Spec §8 is the source for the
 permissions and the privacy promises; `tests/storeListing.test.ts` keeps this file in step with
-the manifest.
+the manifest and spec §8.
 
 ## Store listing tab
 
@@ -22,7 +22,7 @@ the manifest.
 Huntlog keeps track of the jobs you apply to, right beside the posting, without an account and without sending anything anywhere.
 
 LOG A JOB IN SECONDS
-Right-click a job posting and choose "Add job to Huntlog", or press Alt+Shift+J. The side panel opens with the form filled in from the page: company, job title, location, work mode and salary when the posting lists them. Check it, pick the resume you sent, and save.
+Right-click a job posting and choose "Add job to Huntlog", or press Alt+Shift+J (Option+Shift+J on a Mac). The side panel opens with the form filled in from the page: company, job title, location, work mode and salary when the posting lists them. Check it, pick the resume you sent, and save.
 
 SEE WHERE EVERY APPLICATION STANDS
 Change a status with one tap (Applied, Screening, Interviewing, Offer, Rejected and more), with Undo. Each job keeps a timeline of its stages. Search, filter by status, date or source, and sort.
