@@ -173,6 +173,17 @@
 @utility card {
   @apply rounded-lg border bg-card text-card-foreground;
 }
+/*
+ * A row of a long list (the applications list, spec §10): off-screen rows skip layout and paint
+ * until they come near the view, so 1,000 rows open as fast as a few. A row's height is
+ * remembered once it has rendered (`auto`); before that it counts as a typical full row. Put it
+ * on the card itself: paint containment clips what's inside, never the element's own background
+ * and outline, so its hover tint and focus ring aren't cut off.
+ */
+@utility list-row-lazy {
+  content-visibility: auto;
+  contain-intrinsic-height: auto 96px;
+}
 @utility section-heading {
   @apply text-base font-semibold tracking-tight;
 }
