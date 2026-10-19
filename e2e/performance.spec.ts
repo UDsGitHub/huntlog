@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect, expectNoHorizontalScroll, panelUrl, test } from './fixtures';
 
 // Spec §10: with 1,000 applications the panel shows its list in under 300 ms.
@@ -21,22 +21,21 @@ async function seedApplications(page: Page, count: number) {
     const store = transaction.objectStore('applications');
     const statuses = ['saved', 'applied', 'interviewing', 'offer', 'rejected'];
     for (let i = 0; i < count; i++) {
-      // Six hours apart, newest last, so the default sort (Date applied, newest first) is stable.
       const at = new Date(Date.UTC(2025, 0, 1) + i * 6 * 3600_000).toISOString();
       const status = statuses[i % statuses.length]!;
+      // Every third row has only the required fields, so rows differ in height as in real use.
+      const full = i % 3 !== 0;
       store.add({
         id: crypto.randomUUID(),
         url: `https://jobs.example.com/${i}`,
         urlNormalized: `jobs.example.com/${i}`,
         company: `Company ${i}`,
-        title: `Software Engineer ${i}`,
-        companyTitleKey: `company ${i}\u001fsoftware engineer ${i}`,
+        title: full ? `Software Engineer ${i}` : '',
+        companyTitleKey: `company ${i}\u001f${full ? `software engineer ${i}` : ''}`,
         status,
         statusHistory: [{ status, at }],
         appliedAt: status === 'saved' ? undefined : at.slice(0, 10),
-        location: 'Berlin',
-        workMode: 'hybrid',
-        source: ['LinkedIn', 'Indeed', 'Referral'][i % 3],
+        ...(full && { location: 'Berlin', workMode: 'hybrid', source: 'LinkedIn' }),
         createdAt: at,
         updatedAt: at,
       });
@@ -49,22 +48,24 @@ async function seedApplications(page: Page, count: number) {
   }, count);
 }
 
-/** Opens the panel and returns the time from navigation to the first frame painted with rows. */
+/**
+ * Opens the panel and returns the time from navigation to the first frame painted with rows,
+ * observed inside the page, so Playwright's own round trips aren't counted.
+ */
 async function timeToList(page: Page, url: string) {
+  await page.addInitScript(() => {
+    const target = window as { listShownAt?: number };
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('ul[aria-label="Applications"] > li')) return;
+      observer.disconnect();
+      // Rows are in the DOM; the frame after next has laid them out and painted them.
+      requestAnimationFrame(() => setTimeout(() => (target.listShownAt = performance.now())));
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
   await page.goto(url);
-  return page.evaluate(
-    () =>
-      new Promise<number>((resolve) => {
-        const check = () => {
-          const list = document.querySelector('ul[aria-label="Applications"]');
-          // Rows are in the DOM; the frame after next has laid them out and painted them.
-          if (list?.firstElementChild)
-            requestAnimationFrame(() => setTimeout(() => resolve(performance.now())));
-          else requestAnimationFrame(check);
-        };
-        check();
-      }),
-  );
+  const shown = await page.waitForFunction(() => (window as { listShownAt?: number }).listShownAt);
+  return (await shown.jsonValue()) as number;
 }
 
 test.describe('1,000 applications', () => {
@@ -82,13 +83,22 @@ test.describe('1,000 applications', () => {
       const page = await session.context.newPage();
       await page.setViewportSize({ width: 360, height: 800 });
       times.push(await timeToList(page, panelUrl(session.extensionId)));
-      // Every row is there (nothing is left out), only off-screen ones skip rendering.
-      await expect(
-        page.getByRole('list', { name: 'Applications' }).getByRole('listitem'),
-      ).toHaveCount(COUNT);
+      // Every row is there (nothing is left out), only off-screen ones skip rendering: this
+      // holds however fast the machine is, where the timing alone could miss a regression.
+      const rows = page.getByRole('list', { name: 'Applications' }).getByRole('listitem');
+      await expect(rows).toHaveCount(COUNT);
+      // (The card's content is what it skips, not the card itself.)
+      const rendered = (row: Locator) =>
+        row
+          .locator('> div')
+          .evaluate((card) =>
+            card.firstElementChild!.checkVisibility({ contentVisibilityAuto: true }),
+          );
+      expect(await rendered(rows.first())).toBe(true);
+      expect(await rendered(rows.last())).toBe(false);
       await page.close();
     }
-    const median = times.sort((a, b) => a - b)[Math.floor(LOADS / 2)]!;
+    const median = [...times].sort((a, b) => a - b)[Math.floor(LOADS / 2)]!;
     console.log(`List shown in ${times.map((t) => Math.round(t)).join(', ')} ms`);
     expect(median).toBeLessThan(BUDGET_MS);
   });

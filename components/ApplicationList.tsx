@@ -182,7 +182,7 @@ export function ApplicationList({
       ) : (
         <ul aria-label="Applications" className="flex flex-col divide-y divide-border">
           {visible.map((app) => (
-            <li key={app.id} className="list-row-lazy py-1">
+            <li key={app.id} className="py-1">
               <Row
                 app={app}
                 buttonRef={(element) => {
@@ -225,7 +225,7 @@ function Row({
   // Unique when several roles share a company.
   const linkLabel = `Open job posting for ${app.company}${app.title ? `: ${app.title}` : ''}`;
   return (
-    <div className="relative -mx-2 flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 transition-colors hover:bg-accent/60 has-[.row-open:focus-visible]:outline-2 has-[.row-open:focus-visible]:outline-ring">
+    <div className="list-row-lazy relative -mx-2 flex min-w-0 flex-col gap-1 rounded-lg px-2 py-2 transition-colors hover:bg-accent/60 has-[.row-open:focus-visible]:outline-2 has-[.row-open:focus-visible]:outline-ring">
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
