@@ -2,6 +2,7 @@ import type { Browser } from 'wxt/browser';
 import {
   createDraft,
   draftKey,
+  sanitizeTitle,
   sanitizeUrl,
   type CaptureDraft,
   type CaptureGesture,
@@ -28,7 +29,13 @@ let captureSeq = 0;
  * user gesture is still active. The panel may therefore mount before the draft is written, so it
  * both reads the draft on mount and listens for `storage.session` changes.
  */
-export async function handleCapture(gesture: CaptureGesture, tab?: Tab, linkUrl?: string) {
+export async function handleCapture(
+  gesture: CaptureGesture,
+  tab?: Tab,
+  linkUrl?: string,
+  /** Text selected when the context menu opened, in any frame: the title the user chose. */
+  selectionText?: string,
+) {
   const windowId = tab?.windowId;
   if (windowId === undefined || windowId < 0) {
     console.warn('Capture ignored: no window for this tab');
@@ -39,7 +46,9 @@ export async function handleCapture(gesture: CaptureGesture, tab?: Tab, linkUrl?
   latestCapture.set(windowId, seq);
 
   const draft =
-    gesture === 'link' ? createDraft('link', { url: linkUrl }) : await readPage(gesture, tab!);
+    gesture === 'link'
+      ? createDraft('link', { url: linkUrl })
+      : await readPage(gesture, tab!, selectionText);
   if (latestCapture.get(windowId) !== seq) {
     await opened;
     return;
@@ -64,7 +73,11 @@ function openPanel(windowId: number): Promise<void> {
 }
 
 /** Runs the extractor in the tab. Restricted pages (chrome://, the Web Store) reject; fall back. */
-async function readPage(gesture: CaptureGesture, tab: Tab): Promise<CaptureDraft> {
+async function readPage(
+  gesture: CaptureGesture,
+  tab: Tab,
+  selectionText?: string,
+): Promise<CaptureDraft> {
   if (tab.id !== undefined && tab.id >= 0) {
     try {
       const results = await browser.scripting.executeScript({
@@ -73,14 +86,21 @@ async function readPage(gesture: CaptureGesture, tab: Tab): Promise<CaptureDraft
       });
       const page: unknown = results?.[0]?.result;
       if (page && typeof page === 'object') {
-        const { url, title } = page as Record<string, unknown>;
-        return createDraft(gesture, { url: sanitizeUrl(url) ?? tab.url, title });
+        const { url, title, company, location, workMode, salary } = page as Record<string, unknown>;
+        return createDraft(gesture, {
+          url: sanitizeUrl(url) ?? tab.url,
+          title: sanitizeTitle(selectionText) ?? title,
+          company,
+          location,
+          workMode,
+          salary,
+        });
       }
     } catch (error) {
       console.warn("Couldn't read the page; opening a blank form", error);
     }
   }
-  return createDraft(gesture, { url: tab.url, readFailed: true });
+  return createDraft(gesture, { url: tab.url, title: selectionText, readFailed: true });
 }
 
 function createMenus() {
@@ -125,8 +145,9 @@ export default defineBackground(() => {
 
   // Listeners are registered synchronously at top level so they fire after the worker wakes.
   browser.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === PAGE_MENU_ID) void handleCapture('page', tab);
-    else if (info.menuItemId === LINK_MENU_ID) void handleCapture('link', tab, info.linkUrl);
+    if (info.menuItemId === PAGE_MENU_ID) {
+      void handleCapture('page', tab, undefined, info.selectionText);
+    } else if (info.menuItemId === LINK_MENU_ID) void handleCapture('link', tab, info.linkUrl);
   });
 
   browser.commands.onCommand.addListener((command, tab) => {

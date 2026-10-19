@@ -90,3 +90,103 @@ describe('the source of a capture', () => {
     );
   });
 });
+
+describe('what the page said about the job (M8)', () => {
+  const capture = () =>
+    fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('page', {
+        url: 'https://acme.example/jobs/1',
+        title: 'Platform Engineer',
+        company: 'Acme Robotics',
+        location: 'Berlin, Germany',
+        workMode: 'hybrid',
+        salary: { min: 85000, max: 95000, currency: 'EUR', period: 'month' },
+      }),
+    });
+  const HINT = 'Auto-filled, please check';
+
+  it('fills company, location, work mode and salary, each marked, with More details open', async () => {
+    await capture();
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Add application' });
+    expect(screen.getByLabelText(/^Company/)).toHaveValue('Acme Robotics');
+    expect(screen.getByLabelText(/^Company/)).toHaveAccessibleDescription(HINT);
+    expect(screen.getByRole('button', { name: /More details/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByLabelText('Location')).toHaveValue('Berlin, Germany');
+    expect(screen.getByLabelText('Location')).toHaveAccessibleDescription(HINT);
+    const workMode = screen.getByRole('combobox', { name: 'Work mode' });
+    expect(workMode).toHaveAttribute('data-value', 'hybrid');
+    expect(workMode).toHaveAccessibleDescription(HINT);
+    expect(screen.getByLabelText('Minimum')).toHaveValue('85,000');
+    expect(screen.getByLabelText('Maximum')).toHaveValue('95,000');
+    expect(screen.getByRole('combobox', { name: 'Currency' })).toHaveAccessibleDescription(HINT);
+    expect(screen.getByRole('combobox', { name: 'Per' })).toHaveAttribute('data-value', 'month');
+  });
+
+  it('drops a hint once its field is changed, and saves what the form shows', async () => {
+    const user = userEvent.setup();
+    await capture();
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Add application' });
+    const location = screen.getByLabelText('Location');
+    await user.clear(location);
+    await user.type(location, 'Munich');
+    expect(location).not.toHaveAccessibleDescription(HINT);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect(await db.applications.toArray()).toEqual([
+        expect.objectContaining({
+          company: 'Acme Robotics',
+          title: 'Platform Engineer',
+          location: 'Munich',
+          workMode: 'hybrid',
+          salaryMin: 85000,
+          salaryMax: 95000,
+          salaryCurrency: 'EUR',
+          salaryPeriod: 'month',
+        }),
+      ]),
+    );
+  });
+
+  it('leaves Currency and Per at their defaults, unmarked, when the page didn’t say', async () => {
+    await fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('page', {
+        url: 'https://acme.example/jobs/1',
+        salary: { min: 50000, max: 50000 },
+      }),
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Add application' });
+    expect(screen.getByLabelText('Minimum')).toHaveAccessibleDescription(HINT);
+    expect(screen.getByRole('combobox', { name: 'Per' })).toHaveAttribute('data-value', 'year');
+    expect(screen.getByRole('combobox', { name: 'Per' })).not.toHaveAccessibleDescription(HINT);
+    expect(screen.getByRole('combobox', { name: 'Currency' })).not.toHaveAccessibleDescription(
+      HINT,
+    );
+  });
+
+  it('uses the page’s work mode over the remembered one, and none when the page says none', async () => {
+    await fakeBrowser.storage.local.set({ [FORM_DEFAULTS_KEY]: { workMode: 'remote' } });
+    await capture();
+    const { unmount } = render(<App />);
+    await screen.findByRole('heading', { name: 'Add application' });
+    expect(screen.getByRole('combobox', { name: 'Work mode', hidden: true })).toHaveAttribute(
+      'data-value',
+      'hybrid',
+    );
+    unmount();
+    await fakeBrowser.storage.session.set({
+      [draftKey(WINDOW_ID)]: createDraft('page', { url: 'https://acme.example/jobs/2' }),
+    });
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Add application' });
+    expect(screen.getByRole('combobox', { name: 'Work mode', hidden: true })).toHaveAttribute(
+      'data-value',
+      '',
+    );
+  });
+});

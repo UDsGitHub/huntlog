@@ -165,6 +165,55 @@ describe('capture gestures', () => {
     expect(await storedDraft(4)).toBeUndefined();
   });
 
+  it('stores what the page says about the job, cleaned like the rest of it', async () => {
+    api.scripting.executeScript.mockResolvedValue([
+      {
+        frameId: 0,
+        result: {
+          url: 'https://jobs.example.test/posting/1',
+          title: 'Engineer',
+          company: '  Acme   Robotics ',
+          location: 'Berlin, Germany',
+          workMode: 'remote',
+          salary: { min: 85000, max: 95000.555, currency: 'eur', period: 'year' },
+        },
+      },
+    ]);
+    api.contextMenus.onClicked.fire({ menuItemId: PAGE_MENU_ID }, tab());
+    await vi.waitFor(async () =>
+      expect(await storedDraft()).toEqual({
+        v: 2,
+        gesture: 'page',
+        url: 'https://jobs.example.test/posting/1',
+        title: 'Engineer',
+        company: 'Acme Robotics',
+        location: 'Berlin, Germany',
+        workMode: 'remote',
+        salaryMin: 85000,
+        salaryMax: 95000.56,
+        salaryCurrency: 'EUR',
+        salaryPeriod: 'year',
+        capturedAt: expect.any(String),
+      }),
+    );
+  });
+
+  it('takes the text selected in the menu click (any frame) as the title', async () => {
+    api.contextMenus.onClicked.fire(
+      { menuItemId: PAGE_MENU_ID, selectionText: '  Staff Engineer\n ' },
+      tab(),
+    );
+    await vi.waitFor(async () =>
+      expect(await storedDraft()).toMatchObject({ title: 'Staff Engineer' }),
+    );
+  });
+
+  it('keeps the selected title even when the page can’t be read', async () => {
+    api.scripting.executeScript.mockRejectedValue(new Error('Cannot access contents of the page'));
+    await handleCapture('page', tab(), undefined, 'Staff Engineer');
+    expect(await storedDraft()).toMatchObject({ title: 'Staff Engineer', readFailed: true });
+  });
+
   it('treats the keyboard command like a page click', async () => {
     api.commands.onCommand.fire(ADD_JOB_COMMAND, tab());
     expect(api.sidePanel.open).toHaveBeenCalledWith({ windowId: 3 });

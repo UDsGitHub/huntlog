@@ -163,3 +163,75 @@ describe('isFresh', () => {
     expect(isFresh(at(ageMs), now)).toBe(expected);
   });
 });
+
+describe('captured job details', () => {
+  it('keeps what a page gave, cleaned', () => {
+    expect(
+      createDraft(
+        'page',
+        {
+          company: ' Acme\n Robotics ',
+          location: 'Berlin',
+          workMode: 'hybrid',
+          salary: { min: 50.004, max: 60, currency: 'usd', period: 'hour' },
+        },
+        now,
+      ),
+    ).toEqual({
+      v: 2,
+      gesture: 'page',
+      capturedAt: now.toISOString(),
+      company: 'Acme Robotics',
+      location: 'Berlin',
+      workMode: 'hybrid',
+      salaryMin: 50,
+      salaryMax: 60,
+      salaryCurrency: 'USD',
+      salaryPeriod: 'hour',
+    });
+  });
+
+  it.each([
+    [{ workMode: 'moon' }],
+    [{ company: 42, location: {} }],
+    [{ salary: { min: -1 } }],
+    [{ salary: { min: Infinity, max: '90000' } }],
+    [{ salary: { min: 2_000_000_000 } }],
+    // Inverted: dropped, with its currency and period.
+    [{ salary: { min: 90, max: 80, currency: 'USD', period: 'year' } }],
+  ])('drops %j', (fields) => {
+    expect(createDraft('page', fields, now)).toEqual({
+      v: 2,
+      gesture: 'page',
+      capturedAt: now.toISOString(),
+    });
+  });
+
+  it('keeps an amount without an unknown currency or period', () => {
+    expect(
+      createDraft('page', { salary: { max: 90000, currency: 'ZZZ', period: 'week' } }, now),
+    ).toMatchObject({ salaryMax: 90000 });
+    expect(
+      createDraft('page', { salary: { max: 90000, currency: 'ZZZ', period: 'week' } }, now),
+    ).not.toHaveProperty('salaryCurrency');
+  });
+
+  it('caps a long company name', () => {
+    expect(createDraft('page', { company: 'x'.repeat(500) }, now).company).toHaveLength(200);
+  });
+
+  it('round-trips through storage', () => {
+    const draft = createDraft(
+      'page',
+      {
+        url: 'https://acme.com/1',
+        company: 'Acme',
+        location: 'Berlin',
+        workMode: 'remote',
+        salary: { min: 1, max: 2, currency: 'EUR', period: 'month' },
+      },
+      now,
+    );
+    expect(parseDraft(JSON.parse(JSON.stringify(draft)))).toEqual(draft);
+  });
+});

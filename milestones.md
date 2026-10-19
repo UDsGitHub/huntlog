@@ -132,6 +132,12 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 - Replace the M1 stub with the full self-contained `lib/extract.ts`, which tries sources in this order: JSON-LD → microdata → OG/meta → heuristics and ATS hostname patterns → selected text (§7). It also handles canonical URLs.
 - **Tests:** saved HTML fixtures for each source plus junk pages, checking that the extractor never throws, and one e2e test against a fixture page.
+- **Plan (2026-10-18):**
+  - **PR 1, structured data, end to end:** JSON-LD `JobPosting` (also inside `@graph`, arrays and `mainEntity`) and microdata, the canonical URL, and selected text. The capture draft carries company, location, work mode and salary; the form fills them with "Auto-filled, please check" hints and opens More details for the ones inside it.
+  - **PR 2, fallbacks:** Open Graph and meta tags, the first `<h1>`, `document.title` patterns ("Title at Company", "Title - Company | Site", "Company hiring Title in Place"), and company names from ATS addresses (Greenhouse, Lever, Workday, Ashby).
+  - **PR 3:** release v0.8.0.
+  - **Salary rule:** only what the posting states. A single figure fills both Minimum and Maximum. Currency and Per are set only when the page gives them, and a weekly or daily salary is left out, since Per has no such choice.
+  - **Selected text** at capture time becomes the title: selecting it is a deliberate choice.
 
 ## M9 — Store readiness
 **Slice:** Upload the zip to the Chrome Web Store and pass review.
