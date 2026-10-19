@@ -14,7 +14,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "postinstall": "wxt prepare",
-    "screenshots": "playwright test --config review/playwright.config.ts"
+    "screenshots": "playwright test --config review/playwright.config.ts screenshots.spec",
+    "store-assets": "playwright test --config review/playwright.config.ts store-assets.spec"
   },
   "dependencies": {
     "dexie": "^4.4.6",

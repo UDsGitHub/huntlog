@@ -10,6 +10,9 @@ export default defineConfig({
   }),
   manifest: {
     name: 'Huntlog',
+    // The store's summary (at most 132 characters; docs/store/listing.md).
+    description:
+      "Track your job applications in Chrome's side panel. Right-click a posting to log it. Private: nothing leaves your device.",
     // sidePanel API landed in 114, setPanelBehavior in 116.
     minimum_chrome_version: '116',
     permissions: [
