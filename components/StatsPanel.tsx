@@ -94,7 +94,8 @@ export function StatsPanel({ active }: { active: boolean }) {
         Stats
       </h2>
 
-      <div className="flex min-w-0 flex-col gap-1">
+      {/* Nothing logged: nothing to pick a range of. */}
+      <div hidden={apps.length === 0} className="flex min-w-0 flex-col gap-1">
         <RangeChips
           kind={kind}
           active={active}
@@ -155,7 +156,9 @@ export function StatsPanel({ active }: { active: boolean }) {
             </dl>
             {stats.applied === 0 && (
               <p className="text-sm text-muted-foreground">
-                Nothing applied in this range yet. The rates fill in as you apply.
+                {apps.some((app) => app.appliedAt)
+                  ? 'Nothing applied in this range. Pick a longer one to see the rest.'
+                  : 'Nothing applied yet. The rates fill in as you apply.'}
               </p>
             )}
             {stats.applied > 0 && (

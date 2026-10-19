@@ -77,8 +77,8 @@ test('add, open, change status, filter, switch tabs and open Settings by keyboar
   await page.keyboard.press('Control+Enter');
   await expect(sheet).toBeHidden();
   await expect(filters).toBeFocused();
-  await expect(page.getByText('No applications match.')).toBeVisible();
-  await tabTo(page, page.getByRole('button', { name: 'Clear search and filters' }));
+  await expect(page.getByText('No applications match these filters.')).toBeVisible();
+  await tabTo(page, page.getByRole('button', { name: 'Clear filters' }));
   await page.keyboard.press('Enter');
   await expect(row).toBeVisible();
 

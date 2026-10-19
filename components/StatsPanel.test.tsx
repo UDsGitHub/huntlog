@@ -44,7 +44,7 @@ async function openStats(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('tab', { name: 'Stats' }));
   const panel = screen.getByRole('tabpanel', { name: 'Stats' });
   // The panel renders once its live query has loaded.
-  await within(panel).findByRole('radiogroup', { name: 'Range' });
+  await within(panel).findByRole('heading', { name: 'Stats' });
   return panel;
 }
 
@@ -71,6 +71,20 @@ describe('Stats tab', () => {
     const panel = await openStats(user);
     expect(panel).toHaveTextContent('Your stats show up here once you log applications.');
     expect(within(panel).queryByText('Applied', { selector: 'dt' })).toBeNull();
+    // Nothing logged, so no range to pick.
+    expect(within(panel).queryByRole('radiogroup', { name: 'Range' })).toBeNull();
+  });
+
+  it('says nothing is applied yet when only saved jobs are logged', async () => {
+    await addApplication(
+      { url: 'https://acme.com/jobs/saved', company: 'Saved Co', status: 'saved' },
+      db,
+      new Date('2026-10-12T12:00:00'),
+    );
+    const user = userEvent.setup();
+    const panel = await openStats(user);
+    expect(within(panel).getByRole('radiogroup', { name: 'Range' })).toBeVisible();
+    expect(panel).toHaveTextContent('Nothing applied yet. The rates fill in as you apply.');
   });
 
   it("shows this week's numbers by default, then This month", async () => {
@@ -110,7 +124,10 @@ describe('Stats tab', () => {
     expect(response).toHaveTextContent('—');
     expect(response).not.toHaveTextContent('0%');
     expect(within(response).getByText('No rate yet')).toHaveClass('sr-only');
-    expect(panel).toHaveTextContent('Nothing applied in this range yet.');
+    // Applied before the range, so a longer one shows it.
+    expect(panel).toHaveTextContent(
+      'Nothing applied in this range. Pick a longer one to see the rest.',
+    );
     // One empty-state message, not a second one from an empty chart.
     expect(within(panel).queryByRole('region', { name: /^Applications per/ })).toBeNull();
     expect(within(panel).queryByRole('region', { name: 'Where they stand now' })).toBeNull();
@@ -253,6 +270,8 @@ describe('Stats tab', () => {
     vi.spyOn(fakeBrowser.windows, 'getCurrent').mockResolvedValue({
       id: 3,
     } satisfies Partial<Browser.windows.Window> as never);
+    // Something logged, so there's a range to pick.
+    await applied('2026-10-13');
     const user = userEvent.setup();
     const panel = await openStats(user);
     await user.click(chip(panel, 'This month'));

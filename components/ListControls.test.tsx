@@ -374,9 +374,9 @@ describe('List controls', () => {
     const user = userEvent.setup();
     await renderList();
     await filterBy(user, 'Offer');
-    expect(screen.getByText('No applications match.')).toBeInTheDocument();
+    expect(screen.getByText('No applications match these filters.')).toBeInTheDocument();
     expect(screen.queryByText(/No applications yet/)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(rows()).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   });
@@ -457,13 +457,29 @@ describe('List controls', () => {
     expect(rows()).toEqual(['beta', 'Société Générale']);
   });
 
-  it('keeps focus in the controls after Clear search and filters', async () => {
+  it('keeps focus in the controls after Clear search', async () => {
     await seed();
     const user = userEvent.setup();
     await renderList();
     await user.type(screen.getByLabelText('Search'), 'nothing matches this');
-    await user.click(await screen.findByRole('button', { name: 'Clear search and filters' }));
+    expect(
+      await screen.findByText('No applications match “nothing matches this”.'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
     expect(screen.getByLabelText('Search')).toHaveFocus();
+  });
+
+  it('names both the search and the filters when both hide everything', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    await filterBy(user, 'Saved');
+    await user.type(screen.getByLabelText('Search'), 'acme');
+    expect(
+      await screen.findByText('No applications match “acme” with these filters.'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+    expect(rows()).toHaveLength(4);
   });
 
   it("doesn't leave focus waiting for a restored row the search hides", async () => {

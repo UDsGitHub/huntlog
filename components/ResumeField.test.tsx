@@ -94,6 +94,9 @@ describe('Resume field', () => {
     const user = userEvent.setup();
     await openAdd(user, 'Old');
     expect(optionLabels()).toEqual(['No resume', 'New', 'Old']);
+    expect(resumeSelect()).toHaveAccessibleDescription(
+      'Tip: pick the resume you sent, so you can find it later.',
+    );
     expect(screen.getByRole('button', { name: 'Upload new resume' })).toHaveAttribute(
       'aria-expanded',
       'false',
@@ -104,8 +107,11 @@ describe('Resume field', () => {
   it('shows a gentle tip while none is picked, and never blocks saving', async () => {
     const user = userEvent.setup();
     await openAdd(user);
-    expect(resumeSelect()).toHaveAccessibleDescription(
-      'Tip: pick the resume you sent, so you can find it later.',
+    // Nothing uploaded yet: the tip points at the + to add one (once the library has loaded).
+    await waitFor(() =>
+      expect(resumeSelect()).toHaveAccessibleDescription(
+        'Tip: add the resume you sent with +, so you can find it later.',
+      ),
     );
     await user.type(screen.getByLabelText('Job posting URL'), 'https://acme.com/1');
     await user.type(screen.getByLabelText('Company'), 'Acme{Enter}');

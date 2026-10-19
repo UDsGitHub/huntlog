@@ -12,6 +12,7 @@ import {
 } from '@/lib/listQuery';
 import { effectiveWeekStart } from '@/lib/settings';
 import type { Application } from '@/lib/types';
+import { CaptureTip } from './CaptureTip';
 import { ExternalLinkIcon, PlusIcon } from './icons';
 import { ListControls } from './ListControls';
 import { StatusChip, type StatusPick } from './StatusChip';
@@ -139,14 +140,14 @@ export function ApplicationList({
           <PlusIcon />
           Add your first application
         </button>
-        <p className="text-xs text-muted-foreground">
-          Tip: right-click any job posting and choose Add job to Huntlog to fill it in for you.
-        </p>
+        <CaptureTip />
       </div>
     );
   }
 
-  const narrowed = filter.search.trim() !== '' || activeFilterCount(filter, context) > 0;
+  const searched = filter.search.trim();
+  const filtered = activeFilterCount(filter, context) > 0;
+  const narrowed = searched !== '' || filtered;
   function clear() {
     onQueryChange({ ...withoutFilters(query), search: '' });
     // The button may disappear with the line; keep focus in the controls.
@@ -174,9 +175,14 @@ export function ApplicationList({
       )}
       {visible.length === 0 ? (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-sm text-muted-foreground">No applications match.</p>
+          {/* Says what's hiding them, so the way back is plain. */}
+          <p className="text-sm break-words text-muted-foreground">
+            {!searched
+              ? 'No applications match these filters.'
+              : `No applications match “${searched}”${filtered ? ' with these filters' : ''}.`}
+          </p>
           <button type="button" onClick={clear} className="btn btn-outline">
-            Clear search and filters
+            {!searched ? 'Clear filters' : filtered ? 'Clear search and filters' : 'Clear search'}
           </button>
         </div>
       ) : (

@@ -81,8 +81,8 @@ test('filter, search and sort a set of jobs', async ({ session }) => {
   await page.getByRole('button', { name: 'Filters' }).click();
   await filters(page).getByRole('button', { name: 'Offer' }).click();
   await filters(page).getByRole('button', { name: 'Apply' }).click();
-  await expect(page.getByText('No applications match.')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear search and filters' }).click();
+  await expect(page.getByText('No applications match these filters.')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters' }).click();
   await expect(companies(page)).toHaveCount(4);
 });
 
