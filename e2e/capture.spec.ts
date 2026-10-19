@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { createDraft, draftKey, type CaptureDraft } from '../lib/captureDraft';
 import {
+  addApplication,
   expect,
   expectNoHorizontalScroll,
   type ExtensionSession,
@@ -171,6 +172,8 @@ test("a capture closes another tab's open sheet, so it can't block the panel aft
   session,
 }) => {
   const { panel, windowId } = await openPanel(session);
+  // Something logged, so Stats has a range (and its Custom sheet) to open.
+  await addApplication(panel, { company: 'Logged', url: 'https://logged.example/1' });
   for (const [tab, opener, sheet] of [
     ['Resumes', 'Upload resume', 'Upload a resume'],
     ['Stats', 'Custom…', 'Custom range'],

@@ -70,7 +70,12 @@ export function StatsPanel({ active }: { active: boolean }) {
     // Noon on today's date: a "now" that stays on that day.
     const now = new Date(`${today}T12:00:00`);
     const range = resolveRange(kind, { now, weekStartsOn, apps, custom });
-    return { now, range, stats: range && computeStats(apps, range, weekStartsOn) };
+    const stats = range && computeStats(apps, range, weekStartsOn);
+    // Nothing applied in the range: is anything applied at all, by the same counting rules?
+    const allTime =
+      stats?.applied === 0 ? resolveRange('all-time', { now, weekStartsOn, apps }) : undefined;
+    const appliedEver = allTime ? computeStats(apps, allTime, weekStartsOn).applied > 0 : true;
+    return { now, range, stats, appliedEver };
   }, [apps, kind, custom, weekStartsOn, today]);
 
   const goal = settings?.weeklyGoal;
@@ -86,7 +91,9 @@ export function StatsPanel({ active }: { active: boolean }) {
   );
 
   if (!apps || !result) return null;
-  const { range, stats } = result;
+  const { range, stats, appliedEver } = result;
+  // Nothing logged: no range to pick, except while its Custom sheet is open (its opener).
+  const showRange = apps.length > 0 || customOpen;
 
   return (
     <section aria-labelledby="stats-heading" className="flex min-w-0 flex-col gap-4">
@@ -94,10 +101,11 @@ export function StatsPanel({ active }: { active: boolean }) {
         Stats
       </h2>
 
-      <div className="flex min-w-0 flex-col gap-1">
+      <div hidden={!showRange} className="flex min-w-0 flex-col gap-1">
         <RangeChips
           kind={kind}
-          active={active}
+          // Shown again (data logged meanwhile) counts as shown: the chosen chip scrolls back.
+          active={active && showRange}
           onPick={setKind}
           onCustom={() => setCustomOpen(true)}
         />
@@ -155,7 +163,9 @@ export function StatsPanel({ active }: { active: boolean }) {
             </dl>
             {stats.applied === 0 && (
               <p className="text-sm text-muted-foreground">
-                Nothing applied in this range yet. The rates fill in as you apply.
+                {appliedEver
+                  ? 'Nothing applied in this range. Pick another to see the rest.'
+                  : 'Nothing applied yet. The rates fill in as you apply.'}
               </p>
             )}
             {stats.applied > 0 && (

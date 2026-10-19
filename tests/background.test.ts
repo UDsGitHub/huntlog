@@ -1,7 +1,6 @@
 import type { Browser } from 'wxt/browser';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import background, {
-  ADD_JOB_COMMAND,
   handleCapture,
   LINK_MENU_ID,
   MENU_TITLE,
@@ -9,6 +8,7 @@ import background, {
 } from '../entrypoints/background';
 import { draftKey } from '@/lib/captureDraft';
 import { extractPage } from '@/lib/extract';
+import { ADD_JOB_COMMAND } from '@/lib/commands';
 
 type Listener = (...args: never[]) => unknown;
 
