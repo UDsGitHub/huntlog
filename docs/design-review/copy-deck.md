@@ -446,15 +446,35 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | lucide.dev | `entrypoints/notices/index.html:137` |
 | ), version 0.460.0. Licensed under the ISC License. | `entrypoints/notices/index.html:1` |
 | Huntlog: privacy policy | `entrypoints/privacy/index.html:6` |
-| Draft. This page is a placeholder; the final policy is written before Huntlog is published on the Chrome Web Store. | `entrypoints/privacy/index.html:29` |
-| Your data stays on this device | `entrypoints/privacy/index.html:32` |
-| Huntlog stores the applications you log, the resumes you upload and your settings only in this browser, on this device. It has no account and no server, and it never sends your data anywhere. | `entrypoints/privacy/index.html:34` |
-| Nothing is collected | `entrypoints/privacy/index.html:38` |
-| Huntlog doesn't collect, sell or share any information, and it uses no analytics or tracking. | `entrypoints/privacy/index.html:40` |
-| Reading pages only when you ask | `entrypoints/privacy/index.html:43` |
-| Huntlog reads a web page only when you choose "Add job to Huntlog" or press its shortcut, to fill in the form for you. It can't read pages otherwise. | `entrypoints/privacy/index.html:45` |
-| Deleting your data | `entrypoints/privacy/index.html:48` |
-| Settings → Your data → Delete all data removes everything. Removing the extension removes it too. | `entrypoints/privacy/index.html:50` |
+| Huntlog, a Chrome extension for tracking job applications. Effective October 18, 2026. | `entrypoints/privacy/index.html:36` |
+| In short | `entrypoints/privacy/index.html:39` |
+| Everything you put in Huntlog stays in your browser, on your device. Huntlog has no account and no server, makes no network requests, and collects, sells or shares nothing. It uses no analytics or tracking. | `entrypoints/privacy/index.html:41` |
+| What Huntlog stores, and where | `entrypoints/privacy/index.html:46` |
+| Huntlog stores what you enter: the applications you log (company, job title, the job posting's address, status and its history, dates, location, work mode, salary, source and notes), the resume files you upload with their names and notes, your settings, and the choices it remembers to make your next entry quicker (the source, work mode and resume you used last). It keeps them in your browser's own storage on this device (IndexedDB and the extension's local storage). A page you capture is handed to the side panel through the browser's session storage, which is emptied when the browser closes. Huntlog doesn't sync any of this anywhere, and nobody else can see it. | `entrypoints/privacy/index.html:48` |
+| Reading web pages only when you ask | `entrypoints/privacy/index.html:58` |
+| When you choose "Add job to Huntlog" from the right-click menu, or press its keyboard shortcut, Huntlog reads the page in that one tab (its address, title, headings, any job details the page publishes, and the text you've selected, if any) to fill in the form for you. "Add linked job to Huntlog" on a link takes only the link's address, without opening it. Huntlog shows you the result to check, and saves nothing until you save. It can't read pages at any other time, and it never sees your browsing history. | `entrypoints/privacy/index.html:60` |
+| No network | `entrypoints/privacy/index.html:68` |
+| Huntlog never sends anything over the network: it has no server to send to. Opening a job posting from Huntlog opens it in a tab, like any link. | `entrypoints/privacy/index.html:70` |
+| Backups and exports | `entrypoints/privacy/index.html:74` |
+| If you export a backup or a spreadsheet, the file is saved where your browser saves downloads, and what happens to it after that is up to you. Importing reads only the file you pick. | `entrypoints/privacy/index.html:76` |
+| Permissions | `entrypoints/privacy/index.html:81` |
+| Side panel: | `entrypoints/privacy/index.html:83` |
+| Huntlog's window opens beside the job posting. | `entrypoints/privacy/index.html:83` |
+| Storage | `entrypoints/privacy/index.html:85` |
+| unlimited storage: | `entrypoints/privacy/index.html:85` |
+| your applications, resume files and settings are kept on your device. | `entrypoints/privacy/index.html:1` |
+| Context menus: | `entrypoints/privacy/index.html:89` |
+| the "Add job to Huntlog" and "Add linked job to Huntlog" right-click items. | `entrypoints/privacy/index.html:89` |
+| Active tab | `entrypoints/privacy/index.html:93` |
+| scripting: | `entrypoints/privacy/index.html:93` |
+| reading the page you're on, only when you choose "Add job to Huntlog" or press its shortcut. | `entrypoints/privacy/index.html:1` |
+| Deleting your data | `entrypoints/privacy/index.html:98` |
+| You can delete any application or resume in Huntlog, or everything at once with Settings → Your data → Delete all data. Removing the extension from Chrome deletes everything too. | `entrypoints/privacy/index.html:100` |
+| Changes | `entrypoints/privacy/index.html:104` |
+| If this policy changes, the new version is published here with a new date. Since your data never leaves your device, a change can't affect what you've already stored. | `entrypoints/privacy/index.html:106` |
+| Contact | `entrypoints/privacy/index.html:110` |
+| Questions about privacy: | `entrypoints/privacy/index.html:112` |
+| dingding8003@gmail.com | `entrypoints/privacy/index.html:112` |
 
 ## Shared (sheets, toasts, tabs)
 
