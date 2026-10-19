@@ -8,13 +8,13 @@ import {
   type CaptureGesture,
 } from '@/lib/captureDraft';
 import { extractPage } from '@/lib/extract';
+import { ADD_JOB_COMMAND } from '@/lib/commands';
 
 export const MENU_TITLE = 'Add job to Huntlog';
 // Distinct from the page item: right-clicking a link inside selected text shows both.
 export const LINK_MENU_TITLE = 'Add linked job to Huntlog';
 export const PAGE_MENU_ID = 'add-job-page';
 export const LINK_MENU_ID = 'add-job-link';
-export const ADD_JOB_COMMAND = 'add-job';
 
 type Tab = Browser.tabs.Tab;
 

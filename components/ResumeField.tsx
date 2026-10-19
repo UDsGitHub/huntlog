@@ -114,10 +114,12 @@ export function ResumeField({ id, value, onChange, linked, error, inputRef }: Pr
       </div>
       {!value && (
         <p id={hintId} className="text-xs text-muted-foreground">
-          {/* With nothing to pick yet, the tip points at the + instead. */}
-          {resumes && active.length === 0
-            ? 'Tip: add the resume you sent with +, so you can find it later.'
-            : 'Tip: pick the resume you sent, so you can find it later.'}
+          {/* With nothing to pick, the tip points at the + instead (or at an archived one). */}
+          {!resumes || active.length > 0
+            ? 'Tip: pick the resume you sent, so you can find it later.'
+            : listed.length === 0
+              ? 'Tip: add the resume you sent with +, so you can find it later.'
+              : 'Tip: add the resume you sent with +, or unarchive it in Resumes.'}
         </p>
       )}
       {error && (

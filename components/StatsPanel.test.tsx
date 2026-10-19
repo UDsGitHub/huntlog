@@ -125,9 +125,7 @@ describe('Stats tab', () => {
     expect(response).not.toHaveTextContent('0%');
     expect(within(response).getByText('No rate yet')).toHaveClass('sr-only');
     // Applied before the range, so a longer one shows it.
-    expect(panel).toHaveTextContent(
-      'Nothing applied in this range. Pick a longer one to see the rest.',
-    );
+    expect(panel).toHaveTextContent('Nothing applied in this range. Pick another to see the rest.');
     // One empty-state message, not a second one from an empty chart.
     expect(within(panel).queryByRole('region', { name: /^Applications per/ })).toBeNull();
     expect(within(panel).queryByRole('region', { name: 'Where they stand now' })).toBeNull();

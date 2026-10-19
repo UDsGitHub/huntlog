@@ -19,11 +19,15 @@ test('the empty list names the real capture shortcut', async ({ session }) => {
   await expect(tip.locator('kbd')).toHaveText(shortcut!);
 });
 
-test("the panel can open Chrome's shortcuts page", async ({ session }) => {
-  // Shown only when no shortcut is set, which tests can't arrange: check the call it makes.
+test("with no shortcut set, the tip opens Chrome's shortcuts page", async ({ session }) => {
+  // Tests can't unset a shortcut, so the panel is told none is set, as Chrome reports it.
   const page = await session.context.newPage();
+  await page.addInitScript(() => {
+    chrome.commands.getAll = async () => [{ name: 'add-job', shortcut: '' }];
+  });
   await page.goto(panelUrl(session.extensionId));
+  await expect(page.getByText(/^Tip: right-click any job posting/)).toBeVisible();
   const opened = session.context.waitForEvent('page');
-  await page.evaluate(() => chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }));
+  await page.getByRole('button', { name: 'Set a keyboard shortcut' }).click();
   await expect(await opened).toHaveURL('chrome://extensions/shortcuts');
 });

@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
+import { ADD_JOB_COMMAND } from '@/lib/commands';
 
-/** The keyboard command that captures the current tab (wxt.config.ts `commands`). */
-export const CAPTURE_COMMAND = 'add-job';
 const SHORTCUTS_PAGE = 'chrome://extensions/shortcuts';
 
 /**
  * The capture shortcut as Chrome shows it (e.g. "⌥⇧J" on a Mac, "Alt+Shift+J" elsewhere), read
  * with `commands.getAll`, which needs no permission. '' when none is set (the user removed it,
  * or another extension took the key), undefined while unknown or if it can't be read. Read again
- * when the panel regains focus, since it's changed on Chrome's own page.
+ * when the panel regains focus or is shown again, since it's changed on Chrome's own page.
  */
 export function useCaptureShortcut(): string | undefined {
   const [shortcut, setShortcut] = useState<string>();
@@ -19,15 +18,20 @@ export function useCaptureShortcut(): string | undefined {
       Promise.resolve()
         .then(() => browser.commands.getAll())
         .then((commands) => {
-          const command = commands.find((c) => c.name === CAPTURE_COMMAND);
+          const command = commands.find((c) => c.name === ADD_JOB_COMMAND);
           if (live) setShortcut(command?.shortcut ?? '');
         })
         .catch(() => {});
+    // The panel stays visible while the user is on Chrome's shortcuts page and comes back to a
+    // tab without focusing it, so its own focus isn't enough: also when it's shown again.
+    const onVisible = () => document.visibilityState === 'visible' && void read();
     void read();
     window.addEventListener('focus', read);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       live = false;
       window.removeEventListener('focus', read);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
   return shortcut;

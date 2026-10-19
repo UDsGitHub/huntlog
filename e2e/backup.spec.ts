@@ -127,6 +127,8 @@ test('a backup restores everything after Delete all data, resume files included'
     page.getByRole('button', { name: 'Open resume Backend v3' }).click(),
   ]);
   await expect(viewer).toHaveURL(/\/resume-viewer\.html\?id=/);
+  // The viewer adds its iframe once it has read the file.
+  await expect(viewer.locator('iframe')).toBeAttached();
   const shown = await viewer.evaluate(async () => {
     const src = document.querySelector('iframe')!.src;
     return Array.from(new Uint8Array(await (await fetch(src)).arrayBuffer()));

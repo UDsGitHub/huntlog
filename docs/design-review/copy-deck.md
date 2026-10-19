@@ -134,8 +134,9 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${snapshot ?? 'Resume'} (file not available) | `components/ResumeField.tsx:75` |
 | Resume | `components/ResumeField.tsx:84` |
 | No resume | `components/ResumeField.tsx:96` |
-| Tip: add the resume you sent with +, so you can find it later. | `components/ResumeField.tsx:119` |
-| Tip: pick the resume you sent, so you can find it later. | `components/ResumeField.tsx:120` |
+| Tip: pick the resume you sent, so you can find it later. | `components/ResumeField.tsx:119` |
+| Tip: add the resume you sent with +, so you can find it later. | `components/ResumeField.tsx:121` |
+| Tip: add the resume you sent with +, or unarchive it in Resumes. | `components/ResumeField.tsx:122` |
 | Source | `components/SourceField.tsx:79` |
 | Other | `components/SourceField.tsx:94` |
 | Other source | `components/SourceField.tsx:100` |
@@ -222,27 +223,27 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | You&apos;ve reached your goal! | `components/StatsCharts.tsx:219` |
 | ${count} of ${applications(goal)} this week | `components/StatsCharts.tsx:237` |
 | ${formatLocalDate(from)} – ${formatLocalDate(to)} | `components/StatsPanel.tsx:41` |
-| Stats | `components/StatsPanel.tsx:94` |
-| Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:124` |
-| Headline numbers | `components/StatsPanel.tsx:131` |
-| Applied | `components/StatsPanel.tsx:138` |
-| Interviews | `components/StatsPanel.tsx:139` |
-| Offers | `components/StatsPanel.tsx:140` |
-| Rates | `components/StatsPanel.tsx:153` |
-| Response rate | `components/StatsPanel.tsx:154` |
-| Interview rate | `components/StatsPanel.tsx:155` |
-| Nothing applied in this range. Pick a longer one to see the rest. | `components/StatsPanel.tsx:160` |
-| Nothing applied yet. The rates fill in as you apply. | `components/StatsPanel.tsx:161` |
-| Range | `components/StatsPanel.tsx:235` |
-| Custom… | `components/StatsPanel.tsx:262` |
-| Custom range | `components/StatsPanel.tsx:292` |
-| Both dates are included. | `components/StatsPanel.tsx:293` |
-| Apply | `components/StatsPanel.tsx:296` |
-| Set a weekly goal in Settings to track how each week is going. | `components/StatsPanel.tsx:364` |
-| submitted | `components/StatsPanel.tsx:390` |
-| None applied in range | `components/StatsPanel.tsx:404` |
-| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:404` |
-| No rate yet | `components/StatsPanel.tsx:417` |
+| Stats | `components/StatsPanel.tsx:101` |
+| Your stats show up here once you log applications. Every one you send counts. | `components/StatsPanel.tsx:131` |
+| Headline numbers | `components/StatsPanel.tsx:138` |
+| Applied | `components/StatsPanel.tsx:145` |
+| Interviews | `components/StatsPanel.tsx:146` |
+| Offers | `components/StatsPanel.tsx:147` |
+| Rates | `components/StatsPanel.tsx:160` |
+| Response rate | `components/StatsPanel.tsx:161` |
+| Interview rate | `components/StatsPanel.tsx:162` |
+| Nothing applied in this range. Pick another to see the rest. | `components/StatsPanel.tsx:167` |
+| Nothing applied yet. The rates fill in as you apply. | `components/StatsPanel.tsx:168` |
+| Range | `components/StatsPanel.tsx:242` |
+| Custom… | `components/StatsPanel.tsx:269` |
+| Custom range | `components/StatsPanel.tsx:299` |
+| Both dates are included. | `components/StatsPanel.tsx:300` |
+| Apply | `components/StatsPanel.tsx:303` |
+| Set a weekly goal in Settings to track how each week is going. | `components/StatsPanel.tsx:371` |
+| submitted | `components/StatsPanel.tsx:397` |
+| None applied in range | `components/StatsPanel.tsx:411` |
+| ${rate.count} of ${rate.total} ${outcome} | `components/StatsPanel.tsx:411` |
+| No rate yet | `components/StatsPanel.tsx:424` |
 | this-week | `lib/stats.ts:31` |
 | This week | `lib/stats.ts:31` |
 | last-7-days | `lib/stats.ts:32` |
@@ -460,10 +461,10 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Text | Where |
 | --- | --- |
 | ${className} field-sizing-content max-h-[18rem] min-h-[4.75rem] resize-none | `components/AutoGrowTextarea.tsx:59` |
-| Tip: on any job posting, press | `components/CaptureTip.tsx:47` |
-| or right-click and choose Add job to Huntlog to fill it in for you. | `components/CaptureTip.tsx:51` |
-| Tip: right-click any job posting and choose Add job to Huntlog to fill it in for you. | `components/CaptureTip.tsx:55` |
-| Set a keyboard shortcut | `components/CaptureTip.tsx:64` |
+| Tip: on any job posting, press | `components/CaptureTip.tsx:51` |
+| or right-click and choose Add job to Huntlog to fill it in for you. | `components/CaptureTip.tsx:55` |
+| Tip: right-click any job posting and choose Add job to Huntlog to fill it in for you. | `components/CaptureTip.tsx:59` |
+| Set a keyboard shortcut | `components/CaptureTip.tsx:68` |
 | Drop one file at a time. | `components/FileDropZone.tsx:52` |
 | Change file | `components/FileDropZone.tsx:112` |
 | Drop it here | `components/FileDropZone.tsx:119` |
@@ -479,8 +480,8 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${index * 100}% 0 | `components/TabBar.tsx:95` |
 | Dismiss | `components/Toast.tsx:191` |
 | Meta+Enter Control+Enter | `components/submitShortcut.tsx:17` |
-| Add job to Huntlog | `entrypoints/background.ts:12` |
-| Add linked job to Huntlog | `entrypoints/background.ts:14` |
+| Add job to Huntlog | `entrypoints/background.ts:13` |
+| Add linked job to Huntlog | `entrypoints/background.ts:15` |
 | This date can't be in the future. | `lib/dates.ts:43` |
 | Enter a valid date. | `lib/dates.ts:46` |
 | year | `lib/format.ts:4` |

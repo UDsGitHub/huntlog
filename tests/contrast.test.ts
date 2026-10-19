@@ -41,6 +41,8 @@ const TEXT: [string, string][] = [
   ['card-foreground', 'card'],
   ['muted-foreground', 'card'],
   ['muted-foreground', 'muted'],
+  // The onboarding tip's key cap.
+  ['foreground', 'muted'],
   ['popover-foreground', 'popover'],
   ['muted-foreground', 'popover'],
   ['primary-foreground', 'primary'],
