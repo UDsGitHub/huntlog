@@ -86,8 +86,11 @@ describe('Resumes tab', () => {
     // The upload date has its own line, so it never wraps mid-date.
     expect(list).toHaveTextContent(/PDF · 108 bytes/);
     const row = within(list).getByRole('button', { name: 'Open Backend v3' });
+    expect(row).toHaveAccessibleDescription(/^PDF · 108 bytes · Uploaded .+ For SRE roles$/);
     expect(
-      [...row.querySelectorAll(`[id$="-details"] > span`)].map((line) => line.textContent),
+      [...row.closest('li')!.querySelectorAll(`[id$="-details"] > span`)].map(
+        (line) => line.textContent,
+      ),
     ).toEqual(['PDF · 108 bytes · ', expect.stringMatching(/^Uploaded /)]);
     expect(list).toHaveTextContent('For SRE roles');
     expect(screen.queryByRole('dialog')).toBeNull();

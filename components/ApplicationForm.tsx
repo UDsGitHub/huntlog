@@ -478,22 +478,24 @@ export function ApplicationForm({
               hidden, not unmounted, so values and field refs survive collapsing. The panel
               grows and shrinks in height (instantly under reduced motion). */}
           <div className="-mx-1 flex min-w-0 flex-col border-t">
-            <button
-              type="button"
-              aria-expanded={detailsOpen}
-              aria-controls={`${id}-details`}
-              aria-labelledby={`${id}-details-label`}
-              aria-describedby={`${id}-details-hint`}
-              onClick={() => {
-                setDetailsAnimate(true);
-                setDetailsOpen((open) => !open);
-              }}
-              className="focus-ring flex w-full items-start justify-between gap-2 rounded-sm px-1 py-3 text-left"
-            >
+            {/* The button holds just its name (WCAG 2.5.3: the visible label is the whole name)
+                and its ::after covers the row, so a tap anywhere on it toggles; the hint is its
+                description. */}
+            <div className="relative flex w-full items-start justify-between gap-2 rounded-sm px-1 py-3 has-[.details-toggle:focus-visible]:outline-2 has-[.details-toggle:focus-visible]:outline-offset-2 has-[.details-toggle:focus-visible]:outline-ring">
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span id={`${id}-details-label`} className="text-sm font-medium">
+                <button
+                  type="button"
+                  aria-expanded={detailsOpen}
+                  aria-controls={`${id}-details`}
+                  aria-describedby={`${id}-details-hint`}
+                  onClick={() => {
+                    setDetailsAnimate(true);
+                    setDetailsOpen((open) => !open);
+                  }}
+                  className="details-toggle text-left text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-sm after:content-['']"
+                >
                   More details
-                </span>
+                </button>
                 <span
                   id={`${id}-details-hint`}
                   className="text-xs break-words text-muted-foreground"
@@ -504,7 +506,7 @@ export function ApplicationForm({
               <ChevronDownIcon
                 className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${detailsOpen ? 'rotate-180' : ''}`}
               />
-            </button>
+            </div>
             <div
               id={`${id}-details`}
               hidden={!detailsOpen && !detailsClosing}
