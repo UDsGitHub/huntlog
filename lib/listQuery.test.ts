@@ -5,7 +5,11 @@ import {
   DEFAULT_QUERY,
   foldText,
   groupState,
+  NO_SOURCE,
   queryApplications,
+  sourceKey,
+  sourceOptions,
+  toggleSource,
   rankOf,
   toggleGroup,
   toggleStatus,
@@ -365,5 +369,73 @@ describe('sameFiltersAndSort', () => {
     expect(
       sameFiltersAndSort(custom, { ...custom, dates: { ...custom.dates, to: '2026-10-01' } }),
     ).toBe(false);
+  });
+});
+
+describe('source filter', () => {
+  it('offers only used sources: built-ins in the form’s order, others A–Z, then Not set', () => {
+    expect(
+      sourceOptions([
+        'Recruiter',
+        'glassdoor',
+        undefined,
+        'Glassdoor ',
+        'LinkedIn',
+        'Wellfound',
+        '  ',
+        'Ángel list',
+        'linkedin',
+      ]),
+    ).toEqual(['LinkedIn', 'Recruiter', 'Ángel list', 'glassdoor', 'Wellfound', NO_SOURCE]);
+  });
+
+  it('names a built-in by its own name however it was typed', () => {
+    expect(sourceOptions(['company SITE'])).toEqual(['Company site']);
+  });
+
+  it('keeps a chosen source no one uses any more, so it can be turned off', () => {
+    expect(sourceOptions(['LinkedIn'], ['Dice', NO_SOURCE])).toEqual([
+      'LinkedIn',
+      'Dice',
+      NO_SOURCE,
+    ]);
+    expect(sourceOptions([])).toEqual([]);
+  });
+
+  it('toggles by folded key', () => {
+    expect(toggleSource([], 'Glassdoor')).toEqual(['Glassdoor']);
+    expect(toggleSource(['glassdoor'], 'Glassdoor')).toEqual([]);
+    expect(toggleSource(['Glassdoor'], NO_SOURCE)).toEqual(['Glassdoor', NO_SOURCE]);
+    expect(sourceKey(' Société  Générale ')).toBe('societe generale');
+  });
+
+  it('shows any of the chosen sources, Not set for none, and combines with other filters', () => {
+    const linkedIn = app({ source: 'LinkedIn' });
+    const glassdoor = app({ source: 'glassdoor' });
+    const none = app();
+    const savedLinkedIn = app({ source: 'linkedin', status: 'saved' });
+    const all = [linkedIn, glassdoor, none, savedLinkedIn];
+    const ids = (query: ListQuery) =>
+      run(all, query)
+        .map((a) => a.id)
+        .sort();
+    expect(ids(q({ sources: ['LinkedIn'] }))).toEqual([linkedIn.id, savedLinkedIn.id].sort());
+    expect(ids(q({ sources: ['Glassdoor', NO_SOURCE] }))).toEqual([glassdoor.id, none.id].sort());
+    expect(ids(q({ sources: ['LinkedIn'], statuses: ['saved'] }))).toEqual([savedLinkedIn.id]);
+    expect(ids(q())).toHaveLength(4);
+  });
+
+  it('counts as one filter, is cleared with the others, and compares by key', () => {
+    expect(activeFilterCount(q({ sources: ['LinkedIn', 'Dice'] }), context)).toBe(1);
+    expect(activeFilterCount(q({ sources: ['Dice'], statuses: ['applied'] }), context)).toBe(2);
+    expect(withoutFilters(q({ sources: ['Dice'] })).sources).toEqual([]);
+    expect(
+      sameFiltersAndSort(
+        q({ sources: ['Dice', 'LinkedIn'] }),
+        q({ sources: ['linkedin', 'DICE'] }),
+      ),
+    ).toBe(true);
+    expect(sameFiltersAndSort(q({ sources: ['Dice'] }), q())).toBe(false);
+    expect(sameFiltersAndSort(q({ sources: [NO_SOURCE] }), q())).toBe(false);
   });
 });

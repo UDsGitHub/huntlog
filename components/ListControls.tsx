@@ -5,7 +5,11 @@ import {
   sameFiltersAndSort,
   DEFAULT_QUERY,
   groupState,
+  NO_SOURCE,
+  sourceKey,
+  sourceOptions,
   toggleGroup,
+  toggleSource,
   toggleStatus,
   withoutFilters,
   type DateFilterKind,
@@ -45,6 +49,7 @@ const GROUP_LABELS: Record<StatusGroup, string> = { active: 'Active', closed: 'C
 export function ListControls({
   query,
   context,
+  usedSources = [],
   onChange,
   searchRef,
   active = true,
@@ -52,6 +57,8 @@ export function ListControls({
   /** False while a form sheet takes over (a capture): the filter sheet closes, its draft gone. */
   active?: boolean;
   query: ListQuery;
+  /** Every application's source (undefined for none), for the source chips. */
+  usedSources?: readonly (string | undefined)[];
   /** Today and the first day of the week, as the list filters with them. */
   context: QueryContext;
   onChange: (query: ListQuery) => void;
@@ -100,6 +107,7 @@ export function ListControls({
         open={open}
         query={query}
         context={context}
+        usedSources={usedSources}
         onChange={onChange}
         onClose={() => setOpen(false)}
       />
@@ -108,7 +116,7 @@ export function ListControls({
 }
 
 /**
- * Sort, Date applied and Status (spec §4.4), chosen as a draft: only Apply changes the list, and
+ * Sort, Date applied, Status and Source (spec §4.4), chosen as a draft: only Apply changes the list, and
  * closing the sheet any other way (Escape, ×, a click outside) discards the draft. Reset clears
  * the draft's filters and sort (still to be applied); the search isn't part of the sheet.
  */
@@ -116,12 +124,14 @@ function FilterSheet({
   open,
   query,
   context,
+  usedSources,
   onChange,
   onClose,
 }: {
   open: boolean;
   query: ListQuery;
   context: QueryContext;
+  usedSources: readonly (string | undefined)[];
   onChange: (query: ListQuery) => void;
   onClose: () => void;
 }) {
@@ -189,6 +199,7 @@ function FilterSheet({
       <div ref={sheet} className="contents">
         <DateFilterField query={draft} context={context} onChange={setDraft} />
         <StatusChips query={draft} onChange={setDraft} />
+        <SourceChips query={draft} usedSources={usedSources} onChange={setDraft} />
       </div>
     </Sheet>
   );
@@ -337,6 +348,47 @@ function StatusChips({
       </div>
       <p className="field-hint">
         {statuses.length === 0 ? 'None chosen: every status shows.' : `${statuses.length} chosen.`}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Source chips (spec §4.4): one per source the applications use, plus Not set; any number can be
+ * on, none means every source. Left out while there's nothing to choose between.
+ */
+function SourceChips({
+  query,
+  usedSources,
+  onChange,
+}: {
+  query: ListQuery;
+  usedSources: readonly (string | undefined)[];
+  onChange: (query: ListQuery) => void;
+}) {
+  const id = useId();
+  const { sources } = query;
+  const options = sourceOptions(usedSources, sources);
+  if (options.length < 2 && sources.length === 0) return null;
+  const chosen = new Set(sources.map(sourceKey));
+  return (
+    <div role="group" aria-labelledby={`${id}-label`} className="flex min-w-0 flex-col gap-1.5">
+      <p id={`${id}-label`} className="field-label mb-1.5">
+        Source
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((source) => (
+          <Chip
+            key={sourceKey(source) || 'not-set'}
+            pressed={chosen.has(sourceKey(source))}
+            onClick={() => onChange({ ...query, sources: toggleSource(sources, source) })}
+          >
+            {source === NO_SOURCE ? 'Not set' : source}
+          </Chip>
+        ))}
+      </div>
+      <p className="field-hint">
+        {sources.length === 0 ? 'None chosen: every source shows.' : `${sources.length} chosen.`}
       </p>
     </div>
   );

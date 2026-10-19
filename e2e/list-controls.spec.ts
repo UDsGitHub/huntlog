@@ -132,3 +132,41 @@ test('the whole row opens the job; its chip and link do their own thing', async 
   await page.mouse.click(box.x + 40, box.y + box.height - 12);
   await expect(page.getByRole('heading', { level: 2, name: 'Acme' })).toBeVisible();
 });
+
+test('filter by source at 320px', async ({ session }) => {
+  const page = await session.context.newPage();
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto(panelUrl(session.extensionId));
+  /** Adds a job with a source: a chip, a typed Other source, or none. */
+  async function addWithSource(company: string, source: string | null, other = false) {
+    await page.getByRole('button', { name: 'Add application', exact: true }).click();
+    await page.getByLabel('Job posting URL').fill(`https://${company.toLowerCase()}.com/1`);
+    await page.getByLabel('Company').fill(company);
+    await page.getByRole('button', { name: /More details/ }).click();
+    const group = page.getByRole('group', { name: /^Source/ });
+    if (other) {
+      await group.getByRole('button', { name: 'Other', exact: true }).click();
+      await page.getByLabel('Other source').fill(source!);
+    } else if (source) {
+      await group.getByRole('button', { name: source, exact: true }).click();
+    }
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: new RegExp(`^${company}`) })).toBeVisible();
+    await sheetsClosed(page);
+  }
+  await addWithSource('Nosource', null);
+  await addWithSource('Acme', 'LinkedIn');
+  await addWithSource('Globex', 'Glassdoor', true);
+
+  await page.getByRole('button', { name: 'Filters' }).click();
+  const source = filters(page).getByRole('group', { name: 'Source' });
+  await expect(source.getByRole('button')).toHaveText(['LinkedIn', 'Glassdoor', 'Not set']);
+  await source.getByRole('button', { name: 'LinkedIn' }).click();
+  await source.getByRole('button', { name: 'Not set' }).click();
+  await expectNoHorizontalScroll(page);
+  await filters(page).getByRole('button', { name: 'Apply' }).click();
+  await expect(filters(page)).toBeHidden();
+  await expect(companies(page)).toHaveText(['Acme', 'Nosource']);
+  await expect(page.getByRole('button', { name: 'Filters, 1 on' })).toBeVisible();
+  await expect(page.getByText('Showing 2 of 3')).toBeVisible();
+});

@@ -115,10 +115,11 @@ The side panel is roughly 320–400 px wide, so every screen is designed mobile-
 ### 4.4 Browse & find
 
 - **Search** sits above the list, with a filter button beside it. It matches company, title, location, and notes, ignoring case and accents; every word typed must appear (in any of those fields). Characters such as `C++` or `.NET` match literally. The list filters once typing pauses (a quarter of a second), not on every keystroke, so it isn't re-sorted and re-frozen per character; clearing the search applies at once. The same goes for the Resumes search.
-- **The filter button** opens a sheet with sort, a date range and status filters. Changes apply only when the user taps **Apply**; closing the sheet any other way discards them, and **Reset** clears the sheet's choices (still to be applied). The button is a ghost icon button. The button shows a count of active filters: one for a date range other than Any time, plus one for a status filter (whatever chips are on). Sort is never counted. Whenever search or filters hide rows, the list shows "Showing N of M" with a way to clear them.
+- **The filter button** opens a sheet with sort, a date range, status filters and source filters. Changes apply only when the user taps **Apply**; closing the sheet any other way discards them, and **Reset** clears the sheet's choices (still to be applied). The button is a ghost icon button. The button shows a count of active filters: one for a date range other than Any time, plus one for a status filter and one for a source filter (whatever chips are on). Sort is never counted. Whenever search or filters hide rows, the list shows "Showing N of M" with a way to clear them.
   - **Sort:** last activity (default, newest first), date applied, or company, as a segmented choice whose selection marker slides between options.
   - **Date applied:** Any time (default), This week, This month, Last 30 days, or Custom, with the same boundaries as the Stats ranges (§4.7). A job without a Date applied is hidden while a date range is set.
   - **Status:** a wrapping list of chips, one per status, any number of which can be on. **Active** (Saved, Applied, Screening, Interviewing, Offer) and **Closed** (Accepted, Rejected, Withdrawn, Ghosted) chips turn on their whole group. With no status chip on, every status shows.
+  - **Source** (added in M9, the owner's request): a wrapping list of plain chips (no counts, to fit 320px), only for sources applications actually use: the form's own (LinkedIn, Indeed, Company site, Referral, Recruiter) first in the form's order, then any other typed source A–Z, then **Not set** for applications without one. Sources match ignoring case, accents and extra spaces, so "glassdoor" and "Glassdoor" are one chip. Any number can be on, and with several on, an application with any of them shows; with none on, every source shows. A chosen source no application uses any more keeps its chip, so it can be turned off. The section is left out while there's nothing to choose between (no sources, or only Not set).
 - Search, filters and sort are kept while the user opens an application and comes back. While the list is on screen, a row whose status changes keeps its place and stays visible, even if it no longer matches the status filter, so it never jumps or vanishes from under the pointer. Order and membership refresh when the search, filters or sort change or the list is shown again; new applications appear at the top, newest first.
 - **Row layout:**
   - **Header line:** the company and the status chip. A long company name is cut off with an ellipsis, and hovering shows it in full.
@@ -372,7 +373,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 11. Future (post-v1) roadmap
 
-1. **Follow-up reminders:** a "needs follow-up" badge or filter, then opt-in Chrome notifications (`alarms` + `notifications`).
+1. **Follow-up reminders:** a "needs follow-up" badge or filter, then opt-in Chrome notifications (`alarms` + `notifications`). Related: suggesting "Ghosted" for an application with no news for a while.
 2. **Paid tier:** cloud sync and multi-device support. The UUIDs, timestamps, and soft deletes are already in place for this.
 3. Site-specific extractors for the biggest boards, if generic extraction proves too weak.
 4. Contacts per application (recruiter, interviewer), and interview scheduling.
@@ -384,6 +385,5 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 ## 12. Open questions
 
 - **Product name and icon:** decided in the post-M6 review: **Huntlog** (it replaced the working name Job Log in v0.6.1). The Chrome Web Store's own search (`chromewebstore.google.com/search/Huntlog`) returned no results on 2026-10-17 (Huntr is a near neighbour); M9 repeats the check before submitting. The icon is a white crosshair around a check on the blue chart color, so it shows on light and dark toolbars (`assets/icon.svg`; a simpler `assets/icon-16.svg` for the 16px toolbar size; the 128px store size keeps 16px of transparent padding; rendered to `public/icon/` by `scripts/render-icons.ts`).
-- **"Ghosted" status:** whether it should ever be suggested automatically, which is related to reminders and deferred.
-- **Saved jobs and stats:** whether jobs saved but never applied to should appear in stats (currently excluded from "Applied").
+- **Closed in M9 (owner, 2026-10-19):** jobs saved but never applied to stay out of Applied and the rates, since they aren't applications. Suggesting "Ghosted" automatically moved to the post-v1 roadmap (§11), with reminders.
 
