@@ -438,13 +438,9 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Huntlog: third-party notices | `entrypoints/notices/index.html:6` |
 | Huntlog bundles the following open-source work. Nothing is loaded from the internet. | `entrypoints/notices/index.html:32` |
 | Geist font | `entrypoints/notices/index.html:34` |
-| Geist Sans, a Latin subset, by Vercel in collaboration with basement.studio ( | `entrypoints/notices/index.html:36` |
-| vercel.com/font | `entrypoints/notices/index.html:37` |
-| ). Licensed under the SIL Open Font License 1.1. | `entrypoints/notices/index.html:39` |
+| Geist Sans, a Latin subset, by Vercel in collaboration with basement.studio ( vercel.com/font ). Licensed under the SIL Open Font License 1.1. | `entrypoints/notices/index.html:36` |
 | Lucide icons | `entrypoints/notices/index.html:135` |
-| Icons from Lucide ( | `entrypoints/notices/index.html:137` |
-| lucide.dev | `entrypoints/notices/index.html:137` |
-| ), version 0.460.0. Licensed under the ISC License. | `entrypoints/notices/index.html:1` |
+| Icons from Lucide (lucide.dev), version 0.460.0. Licensed under the ISC License. | `entrypoints/notices/index.html:137` |
 | Huntlog: privacy policy | `entrypoints/privacy/index.html:6` |
 | Huntlog, a Chrome extension for tracking job applications. Effective October 18, 2026. | `entrypoints/privacy/index.html:36` |
 | In short | `entrypoints/privacy/index.html:39` |
@@ -458,23 +454,16 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Backups and exports | `entrypoints/privacy/index.html:74` |
 | If you export a backup or a spreadsheet, the file is saved where your browser saves downloads, and what happens to it after that is up to you. Importing reads only the file you pick. | `entrypoints/privacy/index.html:76` |
 | Permissions | `entrypoints/privacy/index.html:81` |
-| Side panel: | `entrypoints/privacy/index.html:83` |
-| Huntlog's window opens beside the job posting. | `entrypoints/privacy/index.html:83` |
-| Storage | `entrypoints/privacy/index.html:85` |
-| unlimited storage: | `entrypoints/privacy/index.html:85` |
-| your applications, resume files and settings are kept on your device. | `entrypoints/privacy/index.html:1` |
-| Context menus: | `entrypoints/privacy/index.html:89` |
-| the "Add job to Huntlog" and "Add linked job to Huntlog" right-click items. | `entrypoints/privacy/index.html:89` |
-| Active tab | `entrypoints/privacy/index.html:93` |
-| scripting: | `entrypoints/privacy/index.html:93` |
-| reading the page you're on, only when you choose "Add job to Huntlog" or press its shortcut. | `entrypoints/privacy/index.html:1` |
+| Side panel: Huntlog's window opens beside the job posting. | `entrypoints/privacy/index.html:83` |
+| Storage and unlimited storage: your applications, resume files and settings are kept on your device. | `entrypoints/privacy/index.html:85` |
+| Context menus: the "Add job to Huntlog" and "Add linked job to Huntlog" right-click items. | `entrypoints/privacy/index.html:89` |
+| Active tab and scripting: reading the page you're on, only when you choose "Add job to Huntlog" or press its shortcut. | `entrypoints/privacy/index.html:93` |
 | Deleting your data | `entrypoints/privacy/index.html:98` |
 | You can delete any application or resume in Huntlog, or everything at once with Settings → Your data → Delete all data. Removing the extension from Chrome deletes everything too. | `entrypoints/privacy/index.html:100` |
 | Changes | `entrypoints/privacy/index.html:104` |
 | If this policy changes, the new version is published here with a new date. Since your data never leaves your device, a change can't affect what you've already stored. | `entrypoints/privacy/index.html:106` |
 | Contact | `entrypoints/privacy/index.html:110` |
-| Questions about privacy: | `entrypoints/privacy/index.html:112` |
-| dingding8003@gmail.com | `entrypoints/privacy/index.html:112` |
+| Questions about privacy: dingding8003@gmail.com. | `entrypoints/privacy/index.html:112` |
 
 ## Shared (sheets, toasts, tabs)
 

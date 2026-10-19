@@ -54,5 +54,16 @@ published. Everything to paste is in [`listing.md`](listing.md); the images are 
 - [ ] Install it from the store in a clean Chrome profile: right-click a job posting, add it,
       change its status, open Stats.
 - [ ] Note the store URL, then have it recorded in spec §8.
-- [ ] Later releases: bump the version (`npm version <x.y.z> --no-git-tag-version`), `npm run
-      zip`, and upload the new zip to the same item. The store refuses a version it has seen.
+
+## Later releases
+
+Each one goes through the repo's usual loop (a branch, a PR, green CI), then:
+
+- [ ] If what Huntlog stores, reads or asks permission for changed, update the privacy policy
+      (`entrypoints/privacy/index.html`, with a new effective date), run
+      `node scripts/build-privacy-page.ts`, and update `listing.md`.
+- [ ] Bump the version: `npm version <x.y.z> --no-git-tag-version` (the store refuses a version
+      it has seen).
+- [ ] After merging, tag the release with `gh release create v<x.y.z>` and attach the zip from
+      `npm run zip`.
+- [ ] Upload that zip to the same item in the dashboard and submit it for review.
