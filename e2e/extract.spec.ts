@@ -77,3 +77,33 @@ test('a posting with JSON-LD prefills title, company, location and salary', asyn
   await expect(row).toContainText('Platform Engineer & Tech Lead');
   await expect(row).toContainText('Berlin, Germany');
 });
+
+test('a Greenhouse posting without JSON-LD names its title and company', async ({
+  session,
+  userDataDir,
+}) => {
+  const url = 'https://boards.greenhouse.io/acmerobotics/jobs/4012';
+  const page = fs.readFileSync(
+    path.resolve(import.meta.dirname, '../tests/fixtures/pages/greenhouse.html'),
+    'utf8',
+  );
+  await session.context.route('https://boards.greenhouse.io/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: page }),
+  );
+  const job = await session.context.newPage();
+  await job.goto(url);
+  await job.bringToFront();
+  await session.serviceWorker.evaluate(() =>
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }),
+  );
+  await clickToolbarIcon(userDataDir, session.extensionId, url);
+  const result = await session.serviceWorker.evaluate(`(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    const [frame] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: ${extractPage.toString()},
+    });
+    return frame.result;
+  })()`);
+  expect(result).toEqual({ url, title: 'Robotics Engineer', company: 'Acme Robotics' });
+});

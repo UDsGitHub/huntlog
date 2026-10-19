@@ -120,7 +120,8 @@ test('after a gesture grants activeTab, the serialized extractor reads the page'
 
   expect(await runExtractor(session.serviceWorker)).toEqual({
     ok: true,
-    value: { url: JOB_URL, title: 'Senior Engineer at Acme' },
+    // The heading is the title, and "Title at Company" in the page title names the company.
+    value: { url: JOB_URL, title: 'Senior Engineer', company: 'Acme' },
   });
 });
 
