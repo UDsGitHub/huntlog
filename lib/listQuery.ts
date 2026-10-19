@@ -1,3 +1,4 @@
+import { SOURCE_SUGGESTIONS } from './applicationInput';
 import type { WeekStart } from './locale';
 import { inRange, resolveRange, type DateRange } from './stats';
 import { ACTIVE_STATUSES, CLOSED_STATUSES, STATUSES } from './status';
@@ -23,6 +24,11 @@ export interface ListQuery {
   sort: SortKey;
   /** The statuses to show; none means every status (spec §4.4). */
   statuses: readonly Status[];
+  /**
+   * The sources to show, as their chips name them (`NO_SOURCE` for applications without one);
+   * none means every source. Compared by `sourceKey`, so case and accents don't matter.
+   */
+  sources: readonly string[];
   dates: DateFilter;
 }
 
@@ -30,6 +36,7 @@ export const DEFAULT_QUERY: ListQuery = {
   search: '',
   sort: 'activity',
   statuses: [],
+  sources: [],
   dates: { kind: 'any' },
 };
 
@@ -60,9 +67,77 @@ export function sameFiltersAndSort(a: ListQuery, b: ListQuery): boolean {
     a.sort === b.sort &&
     a.statuses.length === b.statuses.length &&
     a.statuses.every((status, index) => status === b.statuses[index]) &&
+    sameSources(a.sources, b.sources) &&
     a.dates.kind === b.dates.kind &&
     (a.dates.kind !== 'custom' || (a.dates.from === b.dates.from && a.dates.to === b.dates.to))
   );
+}
+
+/** The source filter's "Not set" choice: applications without a source. */
+export const NO_SOURCE = '';
+
+/**
+ * A source as the filter compares it: case, accents and spaces folded, so "glassdoor" and
+ * "Glassdoor " are one choice. Empty for no source.
+ */
+export function sourceKey(source: string | undefined): string {
+  return foldText(source ?? '');
+}
+
+function sameSources(a: readonly string[], b: readonly string[]): boolean {
+  const keys = (sources: readonly string[]) => [...new Set(sources.map(sourceKey))].sort();
+  const [x, y] = [keys(a), keys(b)];
+  // By length too: "Not set" alone is the key '', which joins like no choice at all.
+  return x.length === y.length && x.join('\n') === y.join('\n');
+}
+
+/** The source chips the form offers (spec §4.2), "Other" aside: they come first, in its order. */
+const BUILT_IN_SOURCES = SOURCE_SUGGESTIONS.filter((source) => source !== 'Other');
+const BUILT_IN_KEYS = new Set(BUILT_IN_SOURCES.map((source) => sourceKey(source)));
+
+/**
+ * The source filter's chips (spec §4.4): only sources that applications use, so the row stays
+ * short. The form's built-in sources first in the form's order, then the others A–Z, then
+ * `NO_SOURCE` when an application has none. A chosen source no one uses any more stays, so it
+ * can be turned off. Each is named as first written (a built-in by its own name).
+ */
+export function sourceOptions(
+  used: readonly (string | undefined)[],
+  chosen: readonly string[] = [],
+): string[] {
+  // Each source's spellings and how often each is used: the commonest names its chip, so the
+  // name doesn't change with the list's order ("glassdoor" ×1, "Glassdoor" ×3 → Glassdoor).
+  const spellings = new Map<string, Map<string, number>>();
+  let unset = false;
+  for (const source of [...used, ...chosen]) {
+    const key = sourceKey(source);
+    if (!key || source === undefined) {
+      unset = true;
+      continue;
+    }
+    const label = collapseSpaces(source);
+    const counts = spellings.get(key) ?? new Map<string, number>();
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    spellings.set(key, counts);
+  }
+  const named = (counts: Map<string, number>) =>
+    [...counts].sort(
+      ([a, x], [b, y]) => y - x || companyCollator.compare(a, b) || (a < b ? -1 : 1),
+    )[0]![0];
+  const builtIns = BUILT_IN_SOURCES.filter((source) => spellings.has(sourceKey(source)));
+  const others = [...spellings]
+    .filter(([key]) => !BUILT_IN_KEYS.has(key))
+    .map(([, counts]) => named(counts))
+    .sort((a, b) => companyCollator.compare(a, b));
+  return [...builtIns, ...others, ...(unset ? [NO_SOURCE] : [])];
+}
+
+/** One source chip pressed: on if it was off, off if it was on (by `sourceKey`). */
+export function toggleSource(sources: readonly string[], source: string): string[] {
+  const key = sourceKey(source);
+  return sources.some((chosen) => sourceKey(chosen) === key)
+    ? sources.filter((chosen) => sourceKey(chosen) !== key)
+    : [...sources, source];
 }
 
 /** One status chip pressed: on if it was off, off if it was on. */
@@ -104,16 +179,20 @@ export function dateFilterRange(dates: DateFilter, context: QueryContext): DateR
 
 /**
  * How many filters are on, for the filter button's badge (spec §4.4): one for a date range that
- * filters (not Any time, nor a Custom range that isn't valid yet), one for a status filter. Sort
- * is never counted.
+ * filters (not Any time, nor a Custom range that isn't valid yet), one for a status filter, one
+ * for a source filter. Sort is never counted.
  */
 export function activeFilterCount(query: ListQuery, context: QueryContext): number {
-  return (dateFilterRange(query.dates, context) ? 1 : 0) + (query.statuses.length > 0 ? 1 : 0);
+  return (
+    (dateFilterRange(query.dates, context) ? 1 : 0) +
+    (query.statuses.length > 0 ? 1 : 0) +
+    (query.sources.length > 0 ? 1 : 0)
+  );
 }
 
 /** The query with its filters cleared; search and sort stay. */
 export function withoutFilters(query: ListQuery): ListQuery {
-  return { ...query, statuses: [], dates: { kind: 'any' } };
+  return { ...query, statuses: [], sources: [], dates: { kind: 'any' } };
 }
 
 /**
@@ -122,16 +201,25 @@ export function withoutFilters(query: ListQuery): ListQuery {
  * by a dakuten) and symbols like ^ stay literal.
  */
 export function foldText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
+  return collapseSpaces(
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase(),
+  );
+}
+
+/** Runs of whitespace as one space, and none at the ends. */
+export function collapseSpaces(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 function matchesStatuses(app: Application, statuses: readonly Status[]): boolean {
   return statuses.length === 0 || statuses.includes(app.status);
+}
+
+function matchesSources(app: Application, sources: ReadonlySet<string>): boolean {
+  return sources.size === 0 || sources.has(sourceKey(app.source));
 }
 
 /**
@@ -188,9 +276,11 @@ export function queryApplications(
 ): Application[] {
   const words = foldText(query.search).split(' ').filter(Boolean);
   const range = dateFilterRange(query.dates, context);
+  const sources = new Set(query.sources.map(sourceKey));
   const kept = apps.filter(
     (app) =>
       (matchesStatuses(app, query.statuses) &&
+        matchesSources(app, sources) &&
         matchesDates(app, range) &&
         matchesSearch(app, words)) ||
       keep?.has(app.id),

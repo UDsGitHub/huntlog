@@ -111,6 +111,7 @@ export function ApplicationList({
       queryApplications(applications, filter, context, current?.ranks, current?.shown),
     [applications, filter, context, current],
   );
+  const usedSources = useMemo(() => applications?.map((app) => app.source) ?? [], [applications]);
   const search = useRef<HTMLInputElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
 
@@ -156,6 +157,7 @@ export function ApplicationList({
       <ListControls
         query={query}
         context={context}
+        usedSources={usedSources}
         onChange={onQueryChange}
         searchRef={search}
         active={active}

@@ -118,6 +118,63 @@ describe('List controls', () => {
     expect(rows()).toEqual(['Gamma', 'beta']);
   });
 
+  it('filters by source chips, only for sources in use, with Not set', async () => {
+    await seed();
+    const all = await db.applications.toArray();
+    const by = (company: string) => all.find((a) => a.company === company)!.id;
+    await db.applications.update(by('Acme'), { source: 'LinkedIn' });
+    await db.applications.update(by('Gamma'), { source: 'glassdoor' });
+    await db.applications.update(by('beta'), { source: 'Glassdoor' });
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    const group = within(sheet).getByRole('group', { name: 'Source' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((chip) => chip.textContent),
+    ).toEqual(['LinkedIn', 'Glassdoor', 'Not set']);
+    await user.click(within(group).getByRole('button', { name: 'Glassdoor' }));
+    await user.click(within(group).getByRole('button', { name: 'Not set' }));
+    expect(within(group).getByText('2 chosen.')).toBeInTheDocument();
+    await apply(user, sheet);
+    expect(rows()).toEqual(['Gamma', 'beta', 'Société Générale']);
+    expect(screen.getByRole('button', { name: 'Filters, 1 on' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(rows()).toHaveLength(4);
+  });
+
+  it('resets a source filter on its own, and tells a typed "Not set" from none', async () => {
+    await seed();
+    const all = await db.applications.toArray();
+    await db.applications.update(all.find((a) => a.company === 'Acme')!.id, { source: 'LinkedIn' });
+    await db.applications.update(all.find((a) => a.company === 'Gamma')!.id, { source: 'not set' });
+    const user = userEvent.setup();
+    await renderList();
+    await filterBy(user, 'LinkedIn');
+    expect(rows()).toEqual(['Acme']);
+    const sheet = await openFilters(user);
+    const group = within(sheet).getByRole('group', { name: 'Source' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((chip) => chip.textContent),
+    ).toEqual(['LinkedIn', '“not set”', 'Not set']);
+    const reset = within(sheet).getByRole('button', { name: 'Reset' });
+    expect(reset).toBeEnabled();
+    await user.click(reset);
+    await apply(user, sheet);
+    expect(rows()).toHaveLength(4);
+  });
+
+  it('leaves the Source section out while there’s nothing to choose between', async () => {
+    await seed();
+    const user = userEvent.setup();
+    await renderList();
+    const sheet = await openFilters(user);
+    expect(within(sheet).queryByRole('group', { name: 'Source' })).toBeNull();
+  });
+
   it('shows a group as mixed when only part of it is on', async () => {
     await seed();
     const user = userEvent.setup();
