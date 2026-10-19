@@ -182,7 +182,7 @@ export function ApplicationList({
       ) : (
         <ul aria-label="Applications" className="flex flex-col divide-y divide-border">
           {visible.map((app) => (
-            <li key={app.id} className="py-1">
+            <li key={app.id} className="list-row-lazy py-1">
               <Row
                 app={app}
                 buttonRef={(element) => {

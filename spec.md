@@ -363,7 +363,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 ## 10. Quality bar & acceptance criteria
 
 - **Speed:** adding a prefilled application takes 3 interactions or fewer after the right-click (review, pick resume, save). Save is reachable without scrolling at 320px.
-- **Performance:** the side panel loads in under 300 ms with 1,000 applications, and the list is virtualized past about 200 rows.
+- **Performance:** with 1,000 applications the side panel shows its list in under 300 ms (production build, `e2e/performance.spec.ts`). Every row is in the page, so find-in-page, screen readers and focus return work as for a short list; rows off screen skip layout and painting (`content-visibility: auto`) until they're scrolled near. Measured in M9: about 100 ms, against about 150 ms without it; on a CPU slowed four times, about 315 ms against 520 ms, the rest being React building the rows. Virtualizing stays the fallback if lists grow far past this.
 - **Accessibility:** fully usable by keyboard, chips, sheets and the resume dropdown have ARIA roles, contrast meets WCAG AA in both themes, and focus returns to the list after the form closes.
 - **Data safety:** a status change can be undone, an application delete can be undone (soft delete), and every destructive bulk action asks for confirmation.
 - **Round trip:** exporting JSON, then importing with Replace on a fresh profile, yields identical data, including resume files that open correctly.

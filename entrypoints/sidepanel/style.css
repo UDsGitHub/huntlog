@@ -173,6 +173,17 @@
 @utility card {
   @apply rounded-lg border bg-card text-card-foreground;
 }
+/*
+ * A row of a long list (the applications list, spec §10): off-screen rows skip layout and paint
+ * until they come near the view, so 1,000 rows open as fast as a few. A row's size is remembered
+ * once it has rendered (`auto`); before that it counts as a typical full row. Rows paint up to
+ * 12px outside their box, room for a card that overhangs it (-mx-2) and its 2px focus ring.
+ */
+@utility list-row-lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 104px;
+  overflow-clip-margin: 12px;
+}
 @utility section-heading {
   @apply text-base font-semibold tracking-tight;
 }
