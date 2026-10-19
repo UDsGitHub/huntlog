@@ -318,9 +318,10 @@ Each source fills only what the ones before it left empty; the document title is
 
 - **No host permissions, no** `tabs` **permission, no remote code, no network requests.**
 - **Minimum Chrome version: 116.** `chrome.sidePanel` arrived in 114 and `setPanelBehavior` in 116.
-- **Single purpose statement:** "Track the job applications you submit."
-- **Privacy policy:** required. It states that all data stays on the device, nothing is collected or transmitted, and no analytics are used.
-- **Store assets:** screenshots of the list, add form, stats, and resumes, plus a 440×280 promo tile.
+- **Single purpose statement:** "Huntlog tracks the job applications you submit: you log each job (filled in from the posting when you ask), follow its status, link the resume you sent, and see your progress, all stored on your device."
+- **Privacy policy:** required. It states that all data stays on the device, nothing is collected or transmitted, and no analytics are used; it lists what is stored, when a page is read, each permission, how to delete, and a contact (dingding8003@gmail.com). Bundled as `privacy.html` (Settings → About) and published at https://udsgithub.github.io/job-log/privacy/ (GitHub Pages from `docs/`, generated from the bundled page by `scripts/build-privacy-page.ts`; `tests/privacyPolicy.test.ts` fails if it's out of date).
+- **Listing:** `docs/store/listing.md` holds everything the dashboard asks for: the summary (the manifest's `description`, at most 132 characters), description, category, single purpose, permission justifications, remote code (none) and data-usage answers (nothing collected). `tests/storeListing.test.ts` checks it against the manifest.
+- **Store assets:** five 1280×800 screenshots (the list, a capture filling the form, the detail timeline, stats, resumes), each the real panel beside a caption, and a 440×280 promo tile, made by `npm run store-assets` (`review/store-assets.spec.ts`) into `docs/store/`.
 
 **Verified Chrome behavior** (M1, Chrome for Testing via Playwright with the production build; see `e2e/page-access.spec.ts`):
 
@@ -387,6 +388,6 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 ## 12. Open questions
 
-- **Product name and icon:** decided in the post-M6 review: **Huntlog** (it replaced the working name Job Log in v0.6.1). The Chrome Web Store's own search (`chromewebstore.google.com/search/Huntlog`) returned no results on 2026-10-17 (Huntr is a near neighbour); M9 repeats the check before submitting. The icon is a white crosshair around a check on the blue chart color, so it shows on light and dark toolbars (`assets/icon.svg`; a simpler `assets/icon-16.svg` for the 16px toolbar size; the 128px store size keeps 16px of transparent padding; rendered to `public/icon/` by `scripts/render-icons.ts`).
+- **Product name and icon:** decided in the post-M6 review: **Huntlog** (it replaced the working name Job Log in v0.6.1). The Chrome Web Store's own search (`chromewebstore.google.com/search/Huntlog`) returned no results on 2026-10-17 (Huntr is a near neighbour); Repeated in M9 (2026-10-18): still no results, and a web search finds no product by that name (`docs/store/listing.md`). The icon is a white crosshair around a check on the blue chart color, so it shows on light and dark toolbars (`assets/icon.svg`; a simpler `assets/icon-16.svg` for the 16px toolbar size; the 128px store size keeps 16px of transparent padding; rendered to `public/icon/` by `scripts/render-icons.ts`).
 - **Closed in M9 (owner, 2026-10-18):** jobs saved but never applied to stay out of Applied and the rates, since they aren't applications. Suggesting "Ghosted" automatically moved to the post-v1 roadmap (§11), with reminders.
 
