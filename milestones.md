@@ -142,7 +142,7 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 ## M9 — Store readiness
 **Slice:** Upload the zip to the Chrome Web Store and pass review.
 
-**Plan (owner, 2026-10-19):**
+**Plan (owner, 2026-10-18):**
 1. **Source filter** in the filter sheet (spec §4.4): plain chips for sources in use, Not set, any of the chosen ones. Stats by source stays out of v1.
 2. **Performance:** 1,000 seeded applications, panel open to list shown in under 300 ms in the production build, with a regression test. Measure first: if `content-visibility: auto` on rows meets the target, use it instead of hand-built virtualization and change spec §10's wording; virtualize only if it doesn't.
 3. **Accessibility pass:** `axe-core` as a test-only dependency on every screen and sheet at 320px in both themes; focus return (spec §10); keyboard-only walk of the main flows. The destructive button's contrast stays the owner's exception (v0.7.1).

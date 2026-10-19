@@ -386,7 +386,16 @@ describe('source filter', () => {
         'Ángel list',
         'linkedin',
       ]),
-    ).toEqual(['LinkedIn', 'Recruiter', 'Ángel list', 'glassdoor', 'Wellfound', NO_SOURCE]);
+    ).toEqual(['LinkedIn', 'Recruiter', 'Ángel list', 'Glassdoor', 'Wellfound', NO_SOURCE]);
+  });
+
+  it('names a typed source by its commonest spelling, whatever the order', () => {
+    expect(sourceOptions(['glassdoor', 'Glassdoor', 'Glassdoor'])).toEqual(['Glassdoor']);
+    expect(sourceOptions(['Glassdoor', 'glassdoor', 'glassdoor'])).toEqual(['glassdoor']);
+    // A tie is settled the same way every time.
+    expect(sourceOptions(['glassdoor', 'Glassdoor'])).toEqual(
+      sourceOptions(['Glassdoor', 'glassdoor']),
+    );
   });
 
   it('names a built-in by its own name however it was typed', () => {

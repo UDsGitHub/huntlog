@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useId, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { todayLocal } from '@/lib/dates';
 import {
   activeFilterCount,
@@ -159,7 +159,10 @@ function FilterSheet({
     onClose();
   }
   const resettable =
-    draft.statuses.length > 0 || draft.dates.kind !== 'any' || draft.sort !== DEFAULT_QUERY.sort;
+    draft.statuses.length > 0 ||
+    draft.sources.length > 0 ||
+    draft.dates.kind !== 'any' ||
+    draft.sort !== DEFAULT_QUERY.sort;
   return (
     <Sheet
       open={open}
@@ -368,7 +371,8 @@ function SourceChips({
 }) {
   const id = useId();
   const { sources } = query;
-  const options = sourceOptions(usedSources, sources);
+  // Folding every application's source is worth doing once per change, not per tap.
+  const options = useMemo(() => sourceOptions(usedSources, sources), [usedSources, sources]);
   if (options.length < 2 && sources.length === 0) return null;
   const chosen = new Set(sources.map(sourceKey));
   return (
@@ -379,11 +383,16 @@ function SourceChips({
       <div className="flex flex-wrap gap-1.5">
         {options.map((source) => (
           <Chip
-            key={sourceKey(source) || 'not-set'}
+            key={source === NO_SOURCE ? 'none' : `source:${sourceKey(source)}`}
             pressed={chosen.has(sourceKey(source))}
             onClick={() => onChange({ ...query, sources: toggleSource(sources, source) })}
           >
-            {source === NO_SOURCE ? 'Not set' : source}
+            {source === NO_SOURCE
+              ? 'Not set'
+              : // A source typed as "Not set" mustn't look like the chip for none.
+                sourceKey(source) === 'not set'
+                ? `“${source}”`
+                : source}
           </Chip>
         ))}
       </div>

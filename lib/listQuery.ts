@@ -93,6 +93,7 @@ function sameSources(a: readonly string[], b: readonly string[]): boolean {
 
 /** The source chips the form offers (spec §4.2), "Other" aside: they come first, in its order. */
 const BUILT_IN_SOURCES = SOURCE_SUGGESTIONS.filter((source) => source !== 'Other');
+const BUILT_IN_KEYS = new Set(BUILT_IN_SOURCES.map((source) => sourceKey(source)));
 
 /**
  * The source filter's chips (spec §4.4): only sources that applications use, so the row stays
@@ -104,18 +105,29 @@ export function sourceOptions(
   used: readonly (string | undefined)[],
   chosen: readonly string[] = [],
 ): string[] {
-  const named = new Map<string, string>();
+  // Each source's spellings and how often each is used: the commonest names its chip, so the
+  // name doesn't change with the list's order ("glassdoor" ×1, "Glassdoor" ×3 → Glassdoor).
+  const spellings = new Map<string, Map<string, number>>();
   let unset = false;
   for (const source of [...used, ...chosen]) {
     const key = sourceKey(source);
-    if (!key) unset = true;
-    else if (!named.has(key)) named.set(key, source!.replace(/\s+/g, ' ').trim());
+    if (!key || source === undefined) {
+      unset = true;
+      continue;
+    }
+    const label = collapseSpaces(source);
+    const counts = spellings.get(key) ?? new Map<string, number>();
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    spellings.set(key, counts);
   }
-  const builtInKeys = new Set(BUILT_IN_SOURCES.map(sourceKey));
-  const builtIns = BUILT_IN_SOURCES.filter((source) => named.has(sourceKey(source)));
-  const others = [...named]
-    .filter(([key]) => !builtInKeys.has(key))
-    .map(([, label]) => label)
+  const named = (counts: Map<string, number>) =>
+    [...counts].sort(
+      ([a, x], [b, y]) => y - x || companyCollator.compare(a, b) || (a < b ? -1 : 1),
+    )[0]![0];
+  const builtIns = BUILT_IN_SOURCES.filter((source) => spellings.has(sourceKey(source)));
+  const others = [...spellings]
+    .filter(([key]) => !BUILT_IN_KEYS.has(key))
+    .map(([, counts]) => named(counts))
     .sort((a, b) => companyCollator.compare(a, b));
   return [...builtIns, ...others, ...(unset ? [NO_SOURCE] : [])];
 }
@@ -189,12 +201,17 @@ export function withoutFilters(query: ListQuery): ListQuery {
  * by a dakuten) and symbols like ^ stay literal.
  */
 export function foldText(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
+  return collapseSpaces(
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase(),
+  );
+}
+
+/** Runs of whitespace as one space, and none at the ends. */
+export function collapseSpaces(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 function matchesStatuses(app: Application, statuses: readonly Status[]): boolean {
