@@ -127,7 +127,7 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
 
 **Follow-up (v0.7.1):** at the owner's request, destructive buttons use shadcn's red tint with red text (kept although the text is under 4.5:1, so the contrast test no longer checks that pair); exports, imports and file checks show a turning loader; and Settings' Import button lost its ellipsis.
 
-## M8 — Real page extraction
+## M8 — Real page extraction ✅ (v0.8.0)
 **Slice:** Right-click a Greenhouse, Lever, Workday or Ashby posting, or any page with JSON-LD → title, company, location, work mode and salary arrive prefilled.
 
 - Replace the M1 stub with the full self-contained `lib/extract.ts`, which tries sources in this order: JSON-LD → microdata → OG/meta → heuristics and ATS hostname patterns → selected text (§7). It also handles canonical URLs.

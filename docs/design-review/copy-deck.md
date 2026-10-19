@@ -91,30 +91,30 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| This application was deleted, so the changes can't be saved. | `components/ApplicationForm.tsx:267` |
-| Couldn't save. Please try again. | `components/ApplicationForm.tsx:271` |
-| Saving… | `components/ApplicationForm.tsx:347` |
-| Fields marked * are required. | `components/ApplicationForm.tsx:370` |
-| Company | `components/ApplicationForm.tsx:373` |
-| Job title | `components/ApplicationForm.tsx:385` |
-| Job posting URL | `components/ApplicationForm.tsx:399` |
-| Status | `components/ApplicationForm.tsx:414` |
-| Date applied | `components/ApplicationForm.tsx:430` |
-| More details | `components/ApplicationForm.tsx:475` |
-| Location, work mode, salary, source, notes | `components/ApplicationForm.tsx:481` |
-| Location | `components/ApplicationForm.tsx:499` |
-| Work mode | `components/ApplicationForm.tsx:510` |
-| Work modes | `components/ApplicationForm.tsx:513` |
-| Not set | `components/ApplicationForm.tsx:517` |
-| Salary | `components/ApplicationForm.tsx:528` |
-| Minimum | `components/ApplicationForm.tsx:531` |
-| Maximum | `components/ApplicationForm.tsx:543` |
-| Currency | `components/ApplicationForm.tsx:554` |
-| Per | `components/ApplicationForm.tsx:569` |
-| Notes | `components/ApplicationForm.tsx:595` |
-| Couldn't read this page, so only its address was filled in. | `components/ApplicationForm.tsx:659` |
-| Couldn't read this page, so fill in the details below. | `components/ApplicationForm.tsx:660` |
-| Auto-filled, please check | `components/ApplicationForm.tsx:666` |
+| This application was deleted, so the changes can't be saved. | `components/ApplicationForm.tsx:287` |
+| Couldn't save. Please try again. | `components/ApplicationForm.tsx:291` |
+| Saving… | `components/ApplicationForm.tsx:367` |
+| Fields marked * are required. | `components/ApplicationForm.tsx:390` |
+| Company | `components/ApplicationForm.tsx:393` |
+| Job title | `components/ApplicationForm.tsx:405` |
+| Job posting URL | `components/ApplicationForm.tsx:419` |
+| Status | `components/ApplicationForm.tsx:434` |
+| Date applied | `components/ApplicationForm.tsx:450` |
+| More details | `components/ApplicationForm.tsx:495` |
+| Location, work mode, salary, source, notes | `components/ApplicationForm.tsx:501` |
+| Location | `components/ApplicationForm.tsx:519` |
+| Work mode | `components/ApplicationForm.tsx:530` |
+| Work modes | `components/ApplicationForm.tsx:533` |
+| Not set | `components/ApplicationForm.tsx:537` |
+| Salary | `components/ApplicationForm.tsx:548` |
+| Minimum | `components/ApplicationForm.tsx:551` |
+| Maximum | `components/ApplicationForm.tsx:563` |
+| Currency | `components/ApplicationForm.tsx:574` |
+| Per | `components/ApplicationForm.tsx:594` |
+| Notes | `components/ApplicationForm.tsx:620` |
+| Couldn't read this page, so only its address was filled in. | `components/ApplicationForm.tsx:684` |
+| Couldn't read this page, so fill in the details below. | `components/ApplicationForm.tsx:685` |
+| Auto-filled, please check | `components/ApplicationForm.tsx:691` |
 | Show ${listLabel.toLowerCase()} | `components/Combobox.tsx:155` |
 | No matches | `components/Combobox.tsx:202` |
 | You may have logged this already | `components/DuplicateWarning.tsx:43` |
@@ -312,47 +312,47 @@ Suggested changes for the review are in [README.md](README.md#copy).
 
 | Text | Where |
 | --- | --- |
-| This file is too large to import. | `components/ImportSheet.tsx:59` |
-| Couldn't read this file. Check that it opens, then try again. | `components/ImportSheet.tsx:65` |
-| Couldn't check this file. Try again. | `components/ImportSheet.tsx:77` |
-| Imported ${applications(added)}. | `components/ImportSheet.tsx:138` |
-| Couldn't import the file. Nothing was added. Try again. | `components/ImportSheet.tsx:141` |
-| Everything in the backup was already here. | `components/ImportSheet.tsx:164` |
-| Backup merged: ${applications(counts.applications)} and ${resumes(counts.resumes)} added or updated. | `components/ImportSheet.tsx:165` |
-| Couldn't import the backup. Nothing was changed. Try again. | `components/ImportSheet.tsx:169` |
-| Backup restored: ${applications(backup.applications.length)} and ${resumes(backup.resumes.length)}. | `components/ImportSheet.tsx:186` |
-| Your data was replaced, but the settings couldn't be restored. Check them in Settings. | `components/ImportSheet.tsx:192` |
-| Import | `components/ImportSheet.tsx:214` |
-| Restore a Huntlog backup (.json), or add applications from a spreadsheet (.csv). | `components/ImportSheet.tsx:215` |
-| Importing… | `components/ImportSheet.tsx:229` |
-| Import ${applications(csvCount)} | `components/ImportSheet.tsx:231` |
-| Replace all data… | `components/ImportSheet.tsx:233` |
-| File to import | `components/ImportSheet.tsx:242` |
-| A spreadsheet needs the template’s columns. | `components/ImportSheet.tsx:266` |
-| Download the CSV template | `components/ImportSheet.tsx:268` |
-| Checking the file… | `components/ImportSheet.tsx:275` |
-| Backup from ${formatTimestampDate(backup.exportedAt)}: | `components/ImportSheet.tsx:283` |
-| This backup holds | `components/ImportSheet.tsx:284` |
-| and | `components/ImportSheet.tsx:285` |
-| How to import | `components/ImportSheet.tsx:288` |
-| Replace all | `components/ImportSheet.tsx:291` |
-| Adds what’s new and updates what changed since. Nothing here is deleted, and your settings stay. | `components/ImportSheet.tsx:298` |
-| Deletes everything here, then restores the backup, settings included. | `components/ImportSheet.tsx:299` |
-| Replace all data? | `components/ImportSheet.tsx:320` |
-| Replacing… | `components/ImportSheet.tsx:339` |
-| Replace all data | `components/ImportSheet.tsx:339` |
-| …and | `components/ImportSheet.tsx:359` |
-| more. | `components/ImportSheet.tsx:359` |
-| Row ${formatNumber(row)}: ${text} | `components/ImportSheet.tsx:364` |
-| Nothing to import. | `components/ImportSheet.tsx:394` |
-| ${applications(count)} ready to import. | `components/ImportSheet.tsx:394` |
-| already logged (the same job posting URL, or company and title), so | `components/ImportSheet.tsx:399` |
-| left out. | `components/ImportSheet.tsx:400` |
-| Import them anyway | `components/ImportSheet.tsx:410` |
-| Imported with a note | `components/ImportSheet.tsx:416` |
-| skipped | `components/ImportSheet.tsx:425` |
-| Not imported: | `components/ImportSheet.tsx:432` |
-| This backup can’t be imported: | `components/ImportSheet.tsx:448` |
+| This file is too large to import. | `components/ImportSheet.tsx:72` |
+| Couldn't read this file. Check that it opens, then try again. | `components/ImportSheet.tsx:78` |
+| Couldn't check this file. Try again. | `components/ImportSheet.tsx:89` |
+| Imported ${applications(added)}. | `components/ImportSheet.tsx:150` |
+| Couldn't import the file. Nothing was added. Try again. | `components/ImportSheet.tsx:153` |
+| Everything in the backup was already here. | `components/ImportSheet.tsx:176` |
+| Backup merged: ${applications(counts.applications)} and ${resumes(counts.resumes)} added or updated. | `components/ImportSheet.tsx:177` |
+| Couldn't import the backup. Nothing was changed. Try again. | `components/ImportSheet.tsx:181` |
+| Backup restored: ${applications(backup.applications.length)} and ${resumes(backup.resumes.length)}. | `components/ImportSheet.tsx:198` |
+| Your data was replaced, but the settings couldn't be restored. Check them in Settings. | `components/ImportSheet.tsx:204` |
+| Import | `components/ImportSheet.tsx:226` |
+| Restore a Huntlog backup (.json), or add applications from a spreadsheet (.csv). | `components/ImportSheet.tsx:227` |
+| Replacing… | `components/ImportSheet.tsx:242` |
+| Importing… | `components/ImportSheet.tsx:243` |
+| Import ${applications(csvCount)} | `components/ImportSheet.tsx:245` |
+| Replace all data… | `components/ImportSheet.tsx:247` |
+| File to import | `components/ImportSheet.tsx:256` |
+| A spreadsheet needs the template’s columns. | `components/ImportSheet.tsx:280` |
+| Download the CSV template | `components/ImportSheet.tsx:282` |
+| Checking the file… | `components/ImportSheet.tsx:289` |
+| Backup from ${formatTimestampDate(backup.exportedAt)}: | `components/ImportSheet.tsx:297` |
+| This backup holds | `components/ImportSheet.tsx:298` |
+| and | `components/ImportSheet.tsx:299` |
+| How to import | `components/ImportSheet.tsx:302` |
+| Replace all | `components/ImportSheet.tsx:305` |
+| Adds what’s new and updates what changed since. Nothing here is deleted, and your settings stay. | `components/ImportSheet.tsx:312` |
+| Deletes everything here, then restores the backup, settings included. | `components/ImportSheet.tsx:313` |
+| Replace all data? | `components/ImportSheet.tsx:334` |
+| Replace all data | `components/ImportSheet.tsx:353` |
+| …and | `components/ImportSheet.tsx:373` |
+| more. | `components/ImportSheet.tsx:373` |
+| Row ${formatNumber(row)}: ${text} | `components/ImportSheet.tsx:378` |
+| Nothing to import. | `components/ImportSheet.tsx:408` |
+| ${applications(count)} ready to import. | `components/ImportSheet.tsx:408` |
+| already logged (the same job posting URL, or company and title), so | `components/ImportSheet.tsx:413` |
+| left out. | `components/ImportSheet.tsx:414` |
+| Import them anyway | `components/ImportSheet.tsx:424` |
+| Imported with a note | `components/ImportSheet.tsx:430` |
+| skipped | `components/ImportSheet.tsx:439` |
+| Not imported: | `components/ImportSheet.tsx:446` |
+| This backup can’t be imported: | `components/ImportSheet.tsx:462` |
 | Couldn't save that setting. Please try again. | `components/SettingsPanel.tsx:85` |
 | Enter a whole number from ${MIN_WEEKLY_GOAL} to ${MAX_WEEKLY_GOAL}. | `components/SettingsPanel.tsx:156` |
 | Weekly goal | `components/SettingsPanel.tsx:190` |
@@ -387,17 +387,17 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | Couldn't delete your data. Nothing was deleted. Try again. | `components/SettingsPanel.tsx:490` |
 | Delete all data? | `components/SettingsPanel.tsx:538` |
 | This permanently deletes every application and resume, including the files. Your settings stay. It can't be undone. | `components/SettingsPanel.tsx:539` |
-| Deleting… | `components/SettingsPanel.tsx:555` |
-| Reset settings? | `components/SettingsPanel.tsx:596` |
-| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:597` |
-| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:619` |
-| Resetting… | `components/SettingsPanel.tsx:628` |
-| Reset and delete everything | `components/SettingsPanel.tsx:630` |
-| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:647` |
-| About | `components/SettingsPanel.tsx:675` |
-| Privacy policy | `components/SettingsPanel.tsx:679` |
-| Third-party notices | `components/SettingsPanel.tsx:685` |
-| Huntlog | `components/SettingsPanel.tsx:690` |
+| Deleting… | `components/SettingsPanel.tsx:556` |
+| Reset settings? | `components/SettingsPanel.tsx:597` |
+| The weekly goal, first day of the week and theme go back to their defaults. | `components/SettingsPanel.tsx:598` |
+| Couldn't reset the settings. Try again. | `components/SettingsPanel.tsx:620` |
+| Resetting… | `components/SettingsPanel.tsx:630` |
+| Reset and delete everything | `components/SettingsPanel.tsx:632` |
+| Also delete all my data (applications and resumes) | `components/SettingsPanel.tsx:649` |
+| About | `components/SettingsPanel.tsx:677` |
+| Privacy policy | `components/SettingsPanel.tsx:681` |
+| Third-party notices | `components/SettingsPanel.tsx:687` |
+| Huntlog | `components/SettingsPanel.tsx:692` |
 | Job title | `lib/applicationsCsv.ts:16` |
 | Date applied | `lib/applicationsCsv.ts:19` |
 | Work mode | `lib/applicationsCsv.ts:21` |
@@ -468,8 +468,8 @@ Suggested changes for the review are in [README.md](README.md#copy).
 | ${index * 100}% 0 | `components/TabBar.tsx:95` |
 | Dismiss | `components/Toast.tsx:191` |
 | Meta+Enter Control+Enter | `components/submitShortcut.tsx:17` |
-| Add job to Huntlog | `entrypoints/background.ts:11` |
-| Add linked job to Huntlog | `entrypoints/background.ts:13` |
+| Add job to Huntlog | `entrypoints/background.ts:12` |
+| Add linked job to Huntlog | `entrypoints/background.ts:14` |
 | This date can't be in the future. | `lib/dates.ts:43` |
 | Enter a valid date. | `lib/dates.ts:46` |
 | year | `lib/format.ts:4` |
