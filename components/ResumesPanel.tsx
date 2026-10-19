@@ -334,19 +334,23 @@ function ResumeRow({
 
   return (
     <li ref={item} className="card flex min-w-0 items-start gap-1 p-1">
-      {/* The whole card opens (a PDF) or downloads the file; ⋯ has the rest. */}
-      <button
-        type="button"
-        onClick={() => void open()}
-        aria-label={`${verb} ${resume.name}`}
-        aria-describedby={`${id}-details${resume.note ? ` ${id}-note` : ''}`}
-        className="focus-ring flex min-w-0 flex-1 items-start gap-3 rounded-md p-2 text-left hover:bg-accent/50"
-      >
+      {/* The whole card opens (a PDF) or downloads the file; ⋯ has the rest. The button holds
+          just its name (WCAG 2.5.3: what's visible is in the name) and its ::after covers the
+          card; the details are its description. */}
+      <div className="row-card flex min-w-0 flex-1 items-start gap-3 rounded-md p-2 hover:bg-accent/50">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <FileTextIcon className="size-4" />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm font-medium break-words">{resume.name}</span>
+          <button
+            type="button"
+            onClick={() => void open()}
+            aria-describedby={`${id}-details${resume.note ? ` ${id}-note` : ''}`}
+            className="row-button text-left text-sm font-medium break-words"
+          >
+            <span className="sr-only">{verb} </span>
+            {resume.name}
+          </button>
           {/* The upload date on its own line, so it never breaks mid-date at 320px. */}
           <span id={`${id}-details`} className="flex flex-col text-xs text-muted-foreground">
             {/* A separator for screen readers, which would otherwise run the lines together. */}
@@ -362,7 +366,7 @@ function ResumeRow({
             </span>
           )}
         </span>
-      </button>
+      </div>
       <MoreMenu
         vertical
         label={`More actions for ${resume.name}`}

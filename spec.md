@@ -364,7 +364,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 
 - **Speed:** adding a prefilled application takes 3 interactions or fewer after the right-click (review, pick resume, save). Save is reachable without scrolling at 320px.
 - **Performance:** with 1,000 applications the side panel shows its list in under 300 ms (production build, `e2e/performance.spec.ts`). Every row is in the page, so find-in-page, screen readers and focus return work as for a short list; rows off screen skip layout and painting (`content-visibility: auto`) until they're scrolled near. Measured in M9: about 100 ms, against about 150 ms without it; on a CPU slowed four times, about 315 ms against 520 ms, the rest being React building the rows. Virtualizing stays the fallback if lists grow far past this.
-- **Accessibility:** fully usable by keyboard, chips, sheets and the resume dropdown have ARIA roles, contrast meets WCAG AA in both themes, and focus returns to the list after the form closes.
+- **Accessibility:** fully usable by keyboard, chips, sheets and the resume dropdown have ARIA roles, contrast meets WCAG AA in both themes (except the tinted destructive button, the owner's choice in v0.7.1), and focus returns to the list after the form closes. Every screen and sheet passes axe's WCAG 2.2 A/AA rules at 320px in both themes (`e2e/a11y.spec.ts`), and a keyboard-only walk covers adding, opening, changing status, filtering, the tabs and Settings (`e2e/keyboard.spec.ts`). A button's visible text is its whole name (WCAG 2.5.3); a row's details are its description, outside the button, whose `::after` covers the row.
 - **Data safety:** a status change can be undone, an application delete can be undone (soft delete), and every destructive bulk action asks for confirmation.
 - **Round trip:** exporting JSON, then importing with Replace on a fresh profile, yields identical data, including resume files that open correctly.
 - **Tests:** unit tests cover `extract.ts` (JSON-LD, meta, ATS URL patterns, and garbage pages), `normalizeUrl.ts`, and `stats.ts` (range boundaries, week start, "first entered" semantics).
@@ -379,6 +379,7 @@ components/              # StatusChip, ApplicationForm, ResumePicker, StatCard, 
 4. Contacts per application (recruiter, interviewer), and interview scheduling.
 5. Kanban board in a full-page dashboard tab.
 6. Firefox/Edge builds (WXT supports both).
+7. Virtualizing the applications list, once users report a slow list or keep several thousand applications. Until then, off-screen rows skip rendering (§10), which keeps every row in the page for find-in-page and screen readers.
 
 
 

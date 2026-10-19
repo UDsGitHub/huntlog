@@ -170,6 +170,26 @@
   @apply border-primary bg-accent;
 }
 
+/*
+ * A row that opens as a whole through one button (a list row, a resume, More details): the
+ * button holds just its name, so its visible text is its whole name (WCAG 2.5.3), and its ::after
+ * stretches over the `row-card`, so a tap anywhere on the row presses it. Controls of their own
+ * on the row sit above it (`relative z-10`). The row draws the button's focus ring.
+ */
+@utility row-card {
+  position: relative;
+  &:has(.row-button:focus-visible) {
+    outline: 2px solid var(--color-ring);
+  }
+}
+@utility row-button {
+  outline: none;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+}
 @utility card {
   @apply rounded-lg border bg-card text-card-foreground;
 }
