@@ -236,6 +236,89 @@ describe('extractPage: fallbacks (Open Graph, headings, title patterns, ATS addr
     });
   });
 
+  it.each([
+    [
+      'a dash with a site after it, off a job board',
+      '<title>Senior Engineer - Remote | Acme Careers</title>',
+      'https://acme.example/jobs/1',
+      { title: 'Senior Engineer - Remote | Acme Careers' },
+    ],
+    [
+      'a work arrangement after the dash on a job board',
+      '<title>Senior Engineer - Remote | Indeed.com</title>',
+      'https://www.indeed.com/viewjob?jk=1',
+      { title: 'Senior Engineer - Remote | Indeed.com' },
+    ],
+    [
+      'a board title with a place',
+      '<title>Data Engineer - Initech - Austin, TX | Indeed.com</title>',
+      'https://www.indeed.com/viewjob?jk=1',
+      { title: 'Data Engineer', company: 'Initech', location: 'Austin, TX' },
+    ],
+    [
+      '"is hiring a"',
+      '<title>Acme is hiring a Software Engineer</title>',
+      'https://acme.example/jobs/1',
+      { title: 'Software Engineer', company: 'Acme' },
+    ],
+    [
+      '"in" inside the job title',
+      '<title>Acme hiring Specialist in Machine Learning in Paris | LinkedIn</title>',
+      'https://www.linkedin.com/jobs/view/1',
+      { title: 'Specialist in Machine Learning', company: 'Acme', location: 'Paris' },
+    ],
+    [
+      '"at" inside the job title',
+      '<title>Head of Data at Scale at Acme</title>',
+      'https://acme.example/jobs/1',
+      { title: 'Head of Data at Scale', company: 'Acme' },
+    ],
+    [
+      'og:title before a heading that is the logo',
+      '<meta property="og:title" content="Support Specialist"><h1>Umbrella Health</h1>',
+      'https://umbrella.example/jobs/1',
+      { title: 'Support Specialist' },
+    ],
+    [
+      'a site name with Careers after it',
+      '<title>Support Specialist</title><meta property="og:site_name" content="Stripe Careers">',
+      'https://stripe.example/jobs/1',
+      { title: 'Support Specialist', company: 'Stripe' },
+    ],
+    [
+      'an employer whose name starts like a board',
+      '<title>Brand Manager</title><meta property="og:site_name" content="Monster Energy">',
+      'https://monsterenergy.example/jobs/1',
+      { title: 'Brand Manager', company: 'Monster Energy' },
+    ],
+    [
+      'a board’s own site name',
+      '<title>Brand Manager</title><meta property="og:site_name" content="Built In">',
+      'https://builtin.com/job/1',
+      { title: 'Brand Manager' },
+    ],
+    [
+      'a Workday host without a company',
+      '<title>Analyst</title>',
+      'https://wd5.myworkdayjobs.com/en-US/External/job/1',
+      { title: 'Analyst' },
+    ],
+    [
+      'a Lever page that isn’t a posting',
+      '<title>Login - Lever</title>',
+      'https://hire.lever.co/login',
+      { title: 'Login - Lever' },
+    ],
+  ])('reads %s carefully', (_label, html, url, expected) => {
+    load(html, url);
+    expect(extract()).toEqual({ url, ...expected });
+  });
+
+  it('keeps a long heading to the title’s full length', () => {
+    load(`<h1>${'Engineer '.repeat(30)}</h1>`, 'https://acme.example/jobs/1');
+    expect(Array.from(extract()!.title!).length).toBeGreaterThan(200);
+  });
+
   it('reads "Title - Company | Site"', () => {
     load(
       '<title>Data Engineer - Initech | Indeed.com</title>',
@@ -255,8 +338,9 @@ describe('extractPage: fallbacks (Open Graph, headings, title patterns, ATS addr
 
 describe('extractPage: everything else', () => {
   it('falls back to the trimmed document title', () => {
-    load('<title>  Opening   ·  Backend role  </title>');
-    expect(extract()).toEqual({ url: URL_, title: 'Opening' });
+    // In no shape it knows, the title is kept whole: the job may be either side of the bar.
+    load('<title>  Acme Careers   |  Senior Backend Engineer  </title>');
+    expect(extract()).toEqual({ url: URL_, title: 'Acme Careers | Senior Backend Engineer' });
     load('<title>  Backend role  </title>');
     expect(extract()).toEqual({ url: URL_, title: 'Backend role' });
   });
