@@ -129,15 +129,21 @@ for (const dir of fs.readdirSync(path.join(ROOT, 'entrypoints'))) {
   const file = path.join('entrypoints', dir, 'index.html');
   if (!fs.existsSync(path.join(ROOT, file))) continue;
   const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  const lines = html.split('\n');
   const list = found.get(screenOf(file)) ?? [];
-  // License texts (in <pre>) are quoted, not copy.
-  const markup = html.replace(/<(script|style|pre)[\s\S]*?<\/\1>/g, '');
+  // Blanked out rather than removed, so every offset (and line) stays the source's: license texts
+  // (in <pre>) are quoted, not copy, and inline tags (<strong>, <a>, …) are part of the sentence
+  // around them, not separate strings.
+  const blank = (part: string) => part.replace(/[^\n]/g, '\0');
+  const markup = html
+    .replace(/<(script|style|pre)[\s\S]*?<\/\1>/g, blank)
+    .replace(/<\/?(strong|em|b|i|a|code|kbd|span)\b[^>]*>/g, blank);
   for (const match of markup.matchAll(/>([^<>]+)</g)) {
-    const text = match[1]!.replace(/\s+/g, ' ').trim();
+    const text = match[1]!.replace(/\0/g, '').replace(/\s+/g, ' ').trim();
     if (!/[A-Za-z]/.test(text) || list.some((entry) => entry.text === text)) continue;
-    const line = lines.findIndex((l) => l.includes(text.slice(0, 30))) + 1;
-    list.push({ text, where: `${file}:${line || 1}` });
+    // The line where the text itself starts, past the leading whitespace.
+    const start = match.index! + 1 + match[1]!.search(/[^\s\0]/);
+    const line = markup.slice(0, start).split('\n').length;
+    list.push({ text, where: `${file}:${line}` });
   }
   found.set(screenOf(file), list);
 }
