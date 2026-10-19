@@ -23,11 +23,13 @@ export interface ExtractedPage {
  * throw. Each source that fails is skipped, and whatever was found is returned.
  *
  * Sources, each filling only what the ones before it left empty:
- * 1. JSON-LD `JobPosting` (also inside `@graph`, arrays and `mainEntity`).
+ * 1. JSON-LD `JobPosting` (also inside `@graph`, arrays and `mainEntity`; every posting on the
+ *    page, in order).
  * 2. Microdata (`itemtype` …/JobPosting).
  * 3. The document title, for the title.
- * Selected text, when there is some, becomes the title: selecting it was the user's choice.
- * `url` is the tab's, or its canonical URL when that's on the same site.
+ * `url` is the tab's, or its canonical URL when that's on the same site and keeps the job's
+ * query parameters. Selected text is the background script's to use (the context menu's
+ * `selectionText`), so a stale selection never replaces the title.
  */
 export function extractPage(): ExtractedPage | null {
   try {
@@ -43,19 +45,60 @@ export function extractPage(): ExtractedPage | null {
       }
     };
 
-    /** Text as shown: entities decoded, tags dropped, whitespace collapsed. Too long isn't a field. */
+    /** Whitespace collapsed, and cut (by character) to `max`, like the draft's own cleaning. */
     const clean = (value: unknown, max = 300): string | undefined => {
       if (typeof value !== 'string') return undefined;
-      let text = value;
-      if (/[&<]/.test(text)) {
+      const text = value.replace(/\s+/g, ' ').trim();
+      if (!text) return undefined;
+      const chars = Array.from(text);
+      return chars.length > max ? chars.slice(0, max).join('').trimEnd() : text;
+    };
+
+    /**
+     * A JSON-LD string, which may carry HTML: formatting tags dropped and entities decoded. Text
+     * that only looks like a tag ("Dev <Backend>") is kept.
+     */
+    const cleanHtml = (value: unknown, max = 300): string | undefined => {
+      if (typeof value !== 'string') return undefined;
+      let text = value.replace(
+        /<\/?(p|br|b|strong|em|i|u|span|div|a|li|ul|ol|h[1-6])(\s[^>]*)?\/?>/gi,
+        ' ',
+      );
+      const named: Record<string, string> = {
+        amp: '&',
+        lt: '<',
+        gt: '>',
+        quot: '"',
+        apos: "'",
+        nbsp: ' ',
+        ndash: '–',
+        mdash: '—',
+        lsquo: '‘',
+        rsquo: '’',
+        ldquo: '“',
+        rdquo: '”',
+        hellip: '…',
+      };
+      text = text.replace(/&(#\d+|#x[\da-f]+|[a-z][a-z\d]*);/gi, (entity, name: string) => {
         try {
-          text = new DOMParser().parseFromString(text, 'text/html').body.textContent ?? text;
+          if (name[0] === '#') {
+            const code =
+              name[1] === 'x' || name[1] === 'X'
+                ? parseInt(name.slice(2), 16)
+                : parseInt(name.slice(1), 10);
+            return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : entity;
+          }
+          // A rarer name: the entity alone through the parser, where no tag can form.
+          return (
+            named[name.toLowerCase()] ??
+            new DOMParser().parseFromString(entity, 'text/html').body.textContent ??
+            entity
+          );
         } catch {
-          // Kept as it was.
+          return entity;
         }
-      }
-      text = text.replace(/\s+/g, ' ').trim();
-      return text && text.length <= max ? text : undefined;
+      });
+      return clean(text, max);
     };
 
     const fill = <K extends Exclude<keyof ExtractedPage, 'url'>>(
@@ -74,15 +117,28 @@ export function extractPage(): ExtractedPage | null {
         : undefined;
 
     /**
-     * An amount as a page writes it: 85000, "85000", "85,000", "$85,000.00". A string holding
+     * An amount as a page writes it: 85000, "85000", "85,000", "$85,000.00", "€85.000",
+     * "85 000 €", "$85k". A separator followed by exactly three digits groups thousands (as the
+     * form reads salaries, spec §5); one or two digits after it are decimals. A string holding
      * more than one number ("85000-95000") isn't one amount.
      */
     const amount = (value: unknown): number | undefined => {
       let number = NaN;
       if (typeof value === 'number') number = value;
       else if (typeof value === 'string') {
-        const match = /^\D*?(\d{1,3}(?:[,\s]\d{3})+|\d+)(\.\d+)?\D*$/.exec(value.trim());
-        if (match) number = Number(match[1]!.replace(/\D/g, '') + (match[2] ?? ''));
+        const match = /^[^\d]*?(\d[\d.,\s\u00a0\u202f']*?)\s*(k(?![a-z]))?(?!\d)[^\d]*$/i.exec(
+          value.trim(),
+        );
+        if (match) {
+          const digits = match[1]!.replace(/[\s\u00a0\u202f']/g, '');
+          if (/^\d{1,3}([.,]\d{3})+$/.test(digits)) number = Number(digits.replace(/[.,]/g, ''));
+          else if (/^\d{1,3}(,\d{3})+\.\d{1,2}$/.test(digits)) {
+            number = Number(digits.replace(/,/g, ''));
+          } else if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(digits)) {
+            number = Number(digits.replace(/\./g, '').replace(',', '.'));
+          } else if (/^\d+([.,]\d{1,2})?$/.test(digits)) number = Number(digits.replace(',', '.'));
+          if (match[2]) number *= 1000;
+        }
       }
       return Number.isFinite(number) && number > 0 && number <= 1_000_000_000 ? number : undefined;
     };
@@ -130,12 +186,16 @@ export function extractPage(): ExtractedPage | null {
     const placeOf = (parts: { locality?: unknown; region?: unknown; country?: unknown }) => {
       const country = asObject(parts.country)?.name ?? parts.country;
       const names = [parts.locality, parts.region || country]
-        .map((part) => clean(part, 100))
+        .map((part) => cleanHtml(part, 100))
         .filter((part): part is string => Boolean(part));
       return names.length ? clean([...new Set(names)].join(', '), 200) : undefined;
     };
 
-    // 1. JSON-LD.
+    // Control characters (raw line breaks, tabs) inside JSON-LD strings make it invalid JSON;
+    // as spaces they're harmless. Built from char codes, so no control character sits in source.
+    const CONTROL = new RegExp(`[${String.fromCharCode(0)}-${String.fromCharCode(31)}]+`, 'g');
+
+    // 1. JSON-LD: every posting, in order, each filling what the ones before it left empty.
     attempt(() => {
       const postings: Record<string, unknown>[] = [];
       const visit = (node: unknown, depth: number) => {
@@ -154,60 +214,58 @@ export function extractPage(): ExtractedPage | null {
       };
       document.querySelectorAll('script[type="application/ld+json"]').forEach((script) =>
         attempt(() => {
-          // Comment wrappers, and raw line breaks inside strings (invalid JSON some sites write).
-          const unwrapped = (script.textContent ?? '')
+          const text = (script.textContent ?? '')
             .replace(/^\s*(<!--|\/\*\s*<!\[CDATA\[\s*\*\/)/, '')
-            .replace(/(-->|\/\*\s*\]\]>\s*\*\/)\s*$/, '');
-          // Control characters (raw line breaks, tabs) become spaces: harmless between tokens.
-          const text = Array.from(unwrapped, (char) => (char < ' ' ? ' ' : char)).join('');
+            .replace(/(-->|\/\*\s*\]\]>\s*\*\/)\s*$/, '')
+            .replace(CONTROL, ' ');
           visit(JSON.parse(text), 0);
         }),
       );
-      const posting = postings[0];
-      if (!posting) return;
-      fill('title', clean(posting.title) ?? clean(posting.name));
-      const organization = list(posting.hiringOrganization)[0];
-      fill('company', clean(asObject(organization)?.name ?? organization, 200));
+      for (const posting of postings) {
+        fill('title', cleanHtml(posting.title) ?? cleanHtml(posting.name));
+        const organization = list(posting.hiringOrganization)[0];
+        fill('company', cleanHtml(asObject(organization)?.name ?? organization, 200));
 
-      const remote = list(posting.jobLocationType).some(
-        (type) => typeof type === 'string' && /telecommute/i.test(type),
-      );
-      if (remote) fill('workMode', 'remote');
-      for (const location of list(posting.jobLocation)) {
-        const address = asObject(location)?.address ?? location;
-        const fields = asObject(address);
-        const place = fields
-          ? placeOf({
-              locality: fields.addressLocality,
-              region: fields.addressRegion,
-              country: fields.addressCountry,
-            })
-          : clean(address, 200);
-        if (place) {
-          fill('location', place);
-          break;
+        const remote = list(posting.jobLocationType).some(
+          (type) => typeof type === 'string' && /telecommute/i.test(type),
+        );
+        if (remote) fill('workMode', 'remote');
+        for (const location of list(posting.jobLocation)) {
+          if (page.location) break;
+          const address = asObject(location)?.address ?? location;
+          const fields = asObject(address);
+          fill(
+            'location',
+            fields
+              ? placeOf({
+                  locality: fields.addressLocality,
+                  region: fields.addressRegion,
+                  country: fields.addressCountry,
+                })
+              : cleanHtml(address, 200),
+          );
         }
-      }
-      if (remote && !page.location) {
-        const required = list(posting.applicantLocationRequirements)[0];
-        fill('location', clean(asObject(required)?.name ?? required, 200));
-      }
+        if (remote && !page.location) {
+          const required = list(posting.applicantLocationRequirements)[0];
+          fill('location', cleanHtml(asObject(required)?.name ?? required, 200));
+        }
 
-      for (const pay of [...list(posting.baseSalary), ...list(posting.estimatedSalary)]) {
-        const money = asObject(pay);
-        const value = asObject(money?.value);
-        const salary = money
-          ? salaryOf({
-              value: value ? value.value : money.value,
-              min: value?.minValue ?? money.minValue,
-              max: value?.maxValue ?? money.maxValue,
-              currency: money.currency ?? posting.salaryCurrency,
-              unit: value?.unitText ?? money.unitText,
-            })
-          : salaryOf({ value: pay, currency: posting.salaryCurrency });
-        if (salary) {
-          fill('salary', salary);
-          break;
+        for (const pay of [...list(posting.baseSalary), ...list(posting.estimatedSalary)]) {
+          if (page.salary) break;
+          const money = asObject(pay);
+          const value = asObject(money?.value);
+          fill(
+            'salary',
+            money
+              ? salaryOf({
+                  value: value ? value.value : money.value,
+                  min: value?.minValue ?? money.minValue,
+                  max: value?.maxValue ?? money.maxValue,
+                  currency: money.currency ?? posting.salaryCurrency,
+                  unit: value?.unitText ?? money.unitText,
+                })
+              : salaryOf({ value: pay, currency: posting.salaryCurrency }),
+          );
         }
       }
     });
@@ -218,8 +276,15 @@ export function extractPage(): ExtractedPage | null {
         /JobPosting\s*$/i.test(element.getAttribute('itemtype') ?? ''),
       );
       if (!scope) return;
+      /** The item an element's property belongs to: the nearest itemscope above it. */
+      const owner = (element: Element) => element.parentElement?.closest('[itemscope]');
+      /** A property of `root` itself, never one of an item nested inside it. */
       const prop = (root: Element | undefined, name: string) =>
-        root?.querySelector(`[itemprop~="${name}"]`) ?? undefined;
+        root
+          ? Array.from(root.querySelectorAll(`[itemprop~="${name}"]`)).find(
+              (element) => owner(element) === root,
+            )
+          : undefined;
       const valueOf = (element: Element | undefined) =>
         element
           ? (element.getAttribute('content') ??
@@ -233,51 +298,56 @@ export function extractPage(): ExtractedPage | null {
       const locationType = valueOf(prop(scope, 'jobLocationType'));
       if (locationType && /telecommute/i.test(locationType)) fill('workMode', 'remote');
       const place = prop(scope, 'jobLocation');
-      if (place) {
+      const address = prop(place, 'address') ?? place;
+      if (address) {
         fill(
           'location',
           placeOf({
-            locality: valueOf(prop(place, 'addressLocality')),
-            region: valueOf(prop(place, 'addressRegion')),
-            country: valueOf(prop(place, 'addressCountry')),
+            locality: valueOf(prop(address, 'addressLocality')),
+            region: valueOf(prop(address, 'addressRegion')),
+            country: valueOf(prop(address, 'addressCountry')),
           }),
         );
       }
       const pay = prop(scope, 'baseSalary');
       if (pay) {
+        // The amount is the salary's own `value`, or a QuantitativeValue item under that name.
+        const value = prop(pay, 'value');
+        const quantity = value?.hasAttribute('itemscope') ? value : undefined;
         fill(
           'salary',
           salaryOf({
-            value: valueOf(prop(pay, 'value')),
-            min: valueOf(prop(pay, 'minValue')),
-            max: valueOf(prop(pay, 'maxValue')),
+            value: valueOf(quantity ? prop(quantity, 'value') : value),
+            min: valueOf(prop(quantity ?? pay, 'minValue')),
+            max: valueOf(prop(quantity ?? pay, 'maxValue')),
             currency: valueOf(prop(pay, 'currency')),
-            unit: valueOf(prop(pay, 'unitText')),
+            unit: valueOf(prop(quantity ?? pay, 'unitText') ?? prop(pay, 'unitText')),
           }),
         );
       }
     });
 
-    // 3. The document title.
+    // 3. The document title: already plain text, so never parsed as HTML.
     attempt(() => fill('title', clean(document.title)));
 
-    // Selected text is the title the user chose.
-    attempt(() => {
-      const selected = clean(window.getSelection()?.toString(), 200);
-      if (selected) page.title = selected;
-    });
-
-    // The canonical URL, when it's on the same site and not just the home page.
+    // The canonical URL, when it's on the same site, isn't just the home page, and keeps every
+    // query parameter of the tab's that isn't tracking: some boards' canonical leaves out the
+    // job's id (`currentJobId`, `vjk`, `gh_jid`), and that URL would name no job.
     attempt(() => {
       const link = document.querySelector('link[rel~="canonical"][href]');
       if (!link) return;
       const current = new URL(href);
       const canonical = new URL(link.getAttribute('href') ?? '', href);
       const host = (url: URL) => url.hostname.replace(/^www\./, '');
+      const tracking = /^(utm_.*|ref|refid|trk|trackingid|gh_src|fbclid|gclid|mc_[a-z]+)$/i;
+      const keepsJob = Array.from(current.searchParams.keys()).every(
+        (key) => tracking.test(key) || canonical.searchParams.has(key),
+      );
       if (
         (canonical.protocol === 'https:' || canonical.protocol === 'http:') &&
         host(canonical) === host(current) &&
-        !(canonical.pathname === '/' && current.pathname !== '/')
+        !(canonical.pathname === '/' && current.pathname !== '/') &&
+        keepsJob
       ) {
         page.url = canonical.href;
       }

@@ -1,3 +1,6 @@
+// A cycle (applicationInput uses sanitizeTitle), safe because these are read only inside
+// functions, never while the modules load.
+import { MAX_LOCATION_LENGTH, MAX_SALARY, SALARY_PERIODS, WORK_MODES } from './applicationInput';
 import { isKnownCurrency } from './locale';
 import type { SalaryPeriod, WorkMode } from './types';
 
@@ -34,11 +37,6 @@ export const DRAFT_MAX_AGE_MS = 5 * 60 * 1000;
 export const MAX_URL_LENGTH = 2048;
 export const MAX_TITLE_LENGTH = 300;
 export const MAX_COMPANY_LENGTH = 200;
-/** As the form's Location field (MAX_LOCATION_LENGTH in applicationInput). */
-const MAX_CAPTURED_LOCATION_LENGTH = 200;
-const MAX_CAPTURED_SALARY = 1_000_000_000;
-const WORK_MODES: readonly string[] = ['remote', 'hybrid', 'onsite'];
-const SALARY_PERIODS: readonly string[] = ['year', 'month', 'hour'];
 
 const GESTURES: readonly CaptureGesture[] = ['page', 'link', 'command'];
 
@@ -75,7 +73,7 @@ export function sanitizeTitle(raw: unknown, max = MAX_TITLE_LENGTH): string | un
 /** An amount a page gave: a finite, positive number within the form's limit, to 2 decimals. */
 function sanitizeAmount(raw: unknown): number | undefined {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return undefined;
-  if (raw > MAX_CAPTURED_SALARY) return undefined;
+  if (raw > MAX_SALARY) return undefined;
   return Math.round(raw * 100) / 100;
 }
 
@@ -90,10 +88,10 @@ export interface CapturedDetails {
 function sanitizeDetails(fields: CapturedDetails): Partial<CaptureDraft> {
   const details: Partial<CaptureDraft> = {};
   const company = sanitizeTitle(fields.company, MAX_COMPANY_LENGTH);
-  const location = sanitizeTitle(fields.location, MAX_CAPTURED_LOCATION_LENGTH);
+  const location = sanitizeTitle(fields.location, MAX_LOCATION_LENGTH);
   if (company) details.company = company;
   if (location) details.location = location;
-  if (typeof fields.workMode === 'string' && WORK_MODES.includes(fields.workMode)) {
+  if (typeof fields.workMode === 'string' && (WORK_MODES as string[]).includes(fields.workMode)) {
     details.workMode = fields.workMode as WorkMode;
   }
   const salary =
@@ -111,7 +109,7 @@ function sanitizeDetails(fields: CapturedDetails): Partial<CaptureDraft> {
     if (max !== undefined) details.salaryMax = max;
     const currency = typeof salary.currency === 'string' ? salary.currency.toUpperCase() : '';
     if (/^[A-Z]{3}$/.test(currency) && isKnownCurrency(currency)) details.salaryCurrency = currency;
-    if (typeof salary.period === 'string' && SALARY_PERIODS.includes(salary.period)) {
+    if (typeof salary.period === 'string' && (SALARY_PERIODS as string[]).includes(salary.period)) {
       details.salaryPeriod = salary.period as SalaryPeriod;
     }
   }
