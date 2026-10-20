@@ -26,7 +26,7 @@ published. Everything to paste is in [`listing.md`](listing.md); the images are 
 
 - [ ] Description, category (Workflow & Planning) and language (English) from `listing.md`.
       The name and summary come from the manifest.
-- [ ] Upload the 128×128 icon if it's asked for: `public/icon/128.png`.
+- [ ] Store icon (128×128 PNG): `icon-128.png`.
 - [ ] Screenshots, in order: `screenshots/1-list.png` to `screenshots/5-resumes.png`.
 - [ ] Small promo tile: `promo-tile.png`.
 - [ ] Homepage and support URLs from `listing.md` (both optional).

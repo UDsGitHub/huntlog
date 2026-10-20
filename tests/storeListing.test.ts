@@ -64,4 +64,13 @@ describe('store listing', () => {
       expect(listing, name).toContain(name.replace('screenshots/', ''));
     }
   });
+
+  it("has the store icon as a 128×128 PNG, the extension's own", () => {
+    const root = path.resolve(import.meta.dirname, '..');
+    const icon = fs.readFileSync(path.join(root, 'docs/store/icon-128.png'));
+    expect([icon.readUInt32BE(16), icon.readUInt32BE(20)]).toEqual([128, 128]);
+    // scripts/render-icons.ts writes both.
+    expect(icon.equals(fs.readFileSync(path.join(root, 'public/icon/128.png')))).toBe(true);
+    expect(listing).toContain('icon-128.png');
+  });
 });
