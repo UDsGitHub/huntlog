@@ -28,6 +28,10 @@ try {
       omitBackground: true,
     });
   }
+  // The store's icon field (it takes no SVG) and the published privacy page use the 128px one.
+  const store = path.join(ROOT, 'public/icon/128.png');
+  fs.copyFileSync(store, path.join(ROOT, 'docs/store/icon-128.png'));
+  fs.copyFileSync(store, path.join(ROOT, 'docs/privacy/icon.png'));
 } finally {
   await browser.close();
 }

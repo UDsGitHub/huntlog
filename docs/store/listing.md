@@ -53,6 +53,10 @@ order:
 4. `4-stats.png`: your week, your rates, your goal
 5. `5-resumes.png`: know which resume you sent
 
+**Store icon** (128×128 PNG; the store doesn't take SVG): `docs/store/icon-128.png`, a copy of
+the extension's own `public/icon/128.png` that `scripts/render-icons.ts` writes (96px of artwork in 16px of transparent padding, as
+the store asks).
+
 **Small promo tile** (440×280): `docs/store/promo-tile.png`
 
 **Official URL:** none. **Homepage URL:** https://github.com/UDsGitHub/job-log
@@ -86,7 +90,7 @@ collects nothing. Tick all three certifications:
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** https://udsgithub.github.io/job-log/privacy/ (GitHub Pages, from
+**Privacy policy URL:** [https://usgithub.github.io/job-log/privacy/](https://udsgithub.github.io/job-log/privacy/) (GitHub Pages, from  
 `docs/privacy/index.html`; the same text ships in the extension as `privacy.html`).
 
 ## Account tab
