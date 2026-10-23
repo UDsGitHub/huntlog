@@ -9,13 +9,13 @@ published. Everything to paste is in [`listing.md`](listing.md); the images are 
       https://chrome.google.com/webstore/devconsole.
 - [ ] In the dashboard's **Account** tab, set the contact email to dingding8003@gmail.com and
       verify it. Publishing is blocked until it's verified.
-- [ ] The privacy policy is live at https://udsgithub.github.io/job-log/privacy/ (GitHub Pages
+- [ ] The privacy policy is live at https://udsgithub.github.io/huntlog/privacy/ (GitHub Pages
       from `main`, `/docs`; enabled 2026-10-19).
 
 ## The package
 
-- [ ] Download `job-log-1.0.0-chrome.zip` from the
-      [v1.0.0 release](https://github.com/UDsGitHub/job-log/releases/tag/v1.0.0), or build it:
+- [ ] Download `job-log-1.0.0-chrome.zip` (later releases are `huntlog-<version>-chrome.zip`) from the
+      [v1.0.0 release](https://github.com/UDsGitHub/huntlog/releases/tag/v1.0.0), or build it:
       `npm ci && npm run zip` (it lands in `.output/`).
 - [ ] Optional check: unzip it and look at `manifest.json`. The version is `1.0.0` and the
       permissions are exactly `sidePanel`, `storage`, `unlimitedStorage`, `contextMenus`,
@@ -36,7 +36,7 @@ published. Everything to paste is in [`listing.md`](listing.md); the images are 
 - [ ] Single purpose, each permission's justification, and "No" to remote code, from
       `listing.md`.
 - [ ] Data usage: tick none of the data types, and tick the three certifications.
-- [ ] Privacy policy URL: https://udsgithub.github.io/job-log/privacy/
+- [ ] Privacy policy URL: https://udsgithub.github.io/huntlog/privacy/
 
 ## Distribution tab
 
@@ -53,7 +53,7 @@ published. Everything to paste is in [`listing.md`](listing.md); the images are 
 
 - [ ] Install it from the store in a clean Chrome profile: right-click a job posting, add it,
       change its status, open Stats.
-- [ ] Note the store URL, then have it recorded in spec §8.
+- [x] Note the store URL, then have it recorded in spec §8: https://chromewebstore.google.com/detail/huntlog/pfnkcogijmmaiajobancjgkeflokkhjc
 
 ## Later releases
 

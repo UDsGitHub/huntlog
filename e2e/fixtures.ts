@@ -97,7 +97,7 @@ export async function clickToolbarIcon(userDataDir: string, extensionId: string,
 export const test = base.extend<{ userDataDir: string; session: ExtensionSession }>({
   // eslint-disable-next-line no-empty-pattern
   userDataDir: async ({}, use) => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'job-log-e2e-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'huntlog-e2e-'));
     await use(dir);
     fs.rmSync(dir, { recursive: true, force: true });
   },

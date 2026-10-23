@@ -39,7 +39,7 @@ describe('store listing', () => {
   });
 
   it('points at the published privacy policy and the contact email', () => {
-    expect(listing).toContain('https://udsgithub.github.io/job-log/privacy/');
+    expect(listing).toContain('https://udsgithub.github.io/huntlog/privacy/');
     expect(listing).toContain('dingding8003@gmail.com');
   });
 

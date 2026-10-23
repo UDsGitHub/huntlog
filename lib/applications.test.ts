@@ -558,7 +558,13 @@ describe('saving with a status', () => {
   });
 
   it('an edit that changes the status appends one history entry', async () => {
-    const app = await addApplication({ url: 'https://acme.com/1', company: 'Acme' }, db);
+    // Added before the edit, by a fixed clock: with the real one, a run after Oct 20 would store
+    // a Date applied later than the edit, which the edit then refuses as in the future.
+    const app = await addApplication(
+      { url: 'https://acme.com/1', company: 'Acme' },
+      db,
+      new Date('2026-10-19T10:00:00.000Z'),
+    );
     const updated = await updateApplication(
       app.id,
       { url: app.url, company: 'Acme', status: 'offer', appliedAt: app.appliedAt },

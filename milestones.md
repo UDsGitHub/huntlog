@@ -139,8 +139,8 @@ Tag v0.6.1 once the last of them (#55, the rename) merges.
   - **Salary rule:** only what the posting states. A single figure fills both Minimum and Maximum. Currency and Per are set only when the page gives them, and a weekly or daily salary is left out, since Per has no such choice.
   - **Selected text** at capture time becomes the title: selecting it is a deliberate choice.
 
-## M9 — Store readiness (v1.0.0 released; awaiting the store review)
-**Slice:** Upload the zip to the Chrome Web Store and pass review. *Everything for it is built and released as v1.0.0. Not done yet: uploading and passing review, which are the owner's (`docs/store/submission-checklist.md`). M9 gets its ✅ once the store accepts it.*
+## M9 — Store readiness ✅ (v1.0.0)
+**Slice:** Upload the zip to the Chrome Web Store and pass review. *Done: the owner submitted v1.0.0 and the store accepted it ([listing](https://chromewebstore.google.com/detail/huntlog/pfnkcogijmmaiajobancjgkeflokkhjc)).*
 
 **Plan (owner, 2026-10-18):**
 1. **Source filter** in the filter sheet (spec §4.4): plain chips for sources in use, Not set, any of the chosen ones. Stats by source stays out of v1.
