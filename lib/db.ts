@@ -2,6 +2,8 @@ import Dexie, { type EntityTable } from 'dexie';
 import { derivedFields } from './dedupe';
 import type { Application, Resume, ResumeFile } from './types';
 
+// The project's working name. Never rename it: the browser keys each user's data by it, so a new
+// name would open an empty database and leave theirs behind.
 export const DB_NAME = 'job-log';
 
 export class JobLogDB extends Dexie {

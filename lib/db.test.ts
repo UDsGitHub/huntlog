@@ -1,5 +1,5 @@
 import Dexie from 'dexie';
-import { JobLogDB } from './db';
+import { DB_NAME, JobLogDB } from './db';
 
 const AT = '2026-10-15T12:00:00.000Z';
 
@@ -62,6 +62,14 @@ const v1Rows = [
     deletedAt: AT,
   },
 ];
+
+describe('DB_NAME', () => {
+  // The extension was renamed from Job Log to Huntlog; the database keeps its first name, or
+  // every user's applications and resumes would be left behind in the old one.
+  it('stays job-log', () => {
+    expect(DB_NAME).toBe('job-log');
+  });
+});
 
 describe('JobLogDB', () => {
   let name: string;

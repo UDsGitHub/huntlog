@@ -1,5 +1,7 @@
 # Chrome Web Store listing
 
+Published: https://chromewebstore.google.com/detail/huntlog/pfnkcogijmmaiajobancjgkeflokkhjc
+
 Everything the developer dashboard asks for, ready to paste. Spec §8 is the source for the
 permissions and the privacy promises; `tests/storeListing.test.ts` keeps this file in step with
 the manifest and spec §8.
@@ -59,9 +61,9 @@ the store asks).
 
 **Small promo tile** (440×280): `docs/store/promo-tile.png`
 
-**Official URL:** none. **Homepage URL:** https://github.com/UDsGitHub/job-log
+**Official URL:** none. **Homepage URL:** https://github.com/UDsGitHub/huntlog
 
-**Support URL:** https://github.com/UDsGitHub/job-log/issues
+**Support URL:** https://github.com/UDsGitHub/huntlog/issues
 
 ## Privacy practices tab
 
@@ -90,7 +92,7 @@ collects nothing. Tick all three certifications:
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** [https://usgithub.github.io/job-log/privacy/](https://udsgithub.github.io/job-log/privacy/) (GitHub Pages, from  
+**Privacy policy URL:** https://udsgithub.github.io/huntlog/privacy/ (GitHub Pages, from  
 `docs/privacy/index.html`; the same text ships in the extension as `privacy.html`).
 
 ## Account tab
